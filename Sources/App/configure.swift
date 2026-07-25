@@ -17,6 +17,10 @@ public func configure(_ app: Application) async throws {
 
   app.views.use(.leaf)
 
+  // Serves Public/ (css, images, favicon) - never registered before, so every static asset
+  // 404'd through the app's own JSON not-found handler instead of being served as a file.
+  app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+
   app.sessions.configuration.cookieName = "catalog-web-session"
   // Redis-backed sessions: this app runs multiple replicas (see kubernetes/base/deployment.yaml)
   // behind a Service with no session affinity, so an in-memory session store would only work
