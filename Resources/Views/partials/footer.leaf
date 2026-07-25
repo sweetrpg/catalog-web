@@ -6,5 +6,5 @@
 	<!-- The design (Claude Design's "SweetRPG catalog app" project) has no footer content yet -
 	     this is this app's own addition, starting minimal on purpose until there's more to put
 	     here (status page link, terms, etc.) -->
-	<h6 class="footer-build">v#(meta.buildVersion) &middot; built #(meta.buildDate)</h6>
+	<h6 class="footer-build">#(meta.buildVersion) &middot; built #(meta.buildDate)</h6>
 </footer>
