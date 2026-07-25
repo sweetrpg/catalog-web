@@ -3,8 +3,9 @@ import Vapor
 @main
 enum Entrypoint {
   static func main() async throws {
-    var env = try Environment.detect()
-    try LoggingSystem.bootstrap(from: &env)
+    let env = try Environment.detect()
+    let logLevel = Environment.get("LOG_LEVEL").flatMap(Logger.Level.init(rawValue:)) ?? .info
+    LoggingSystem.bootstrapJSON(minimumLevel: logLevel)
 
     let app = try await Application.make(env)
 

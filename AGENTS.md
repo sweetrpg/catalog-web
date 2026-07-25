@@ -69,6 +69,30 @@ The design (`RPG Catalogue.dc.html`) has no footer content specified - the versi
 footer (`partials/footer.leaf`, `BuildInfo.swift`) is this app's own addition, not a departure
 from the design.
 
+### Telemetry
+
+Matches the Go services' conventions (`docs/service-conventions.md`'s Telemetry section) with
+Swift-appropriate tooling, not identical libraries:
+
+- **Metrics**: `swift-prometheus` bootstrapped as the `swift-metrics` backend
+  (`MetricsSetup.swift`), exposed at `/metrics` in the same text exposition format the Go
+  services use - Vapor auto-instruments request count/duration once any `MetricsFactory` is
+  bootstrapped, no extra middleware needed. Scraped via the same `PodMonitor` pattern.
+- **Logging**: a hand-rolled JSON `LogHandler` (`JSONLogHandler.swift`), not a third-party
+  package - structured JSON to stdout, one object per line, matching the Go services' structured
+  logging rather than their specific library. `LOG_LEVEL` env var (swift-log level names:
+  `trace`/`debug`/`info`/`notice`/`warning`/`error`/`critical`), default `info`.
+- **Tracing**: `swift-otel`, exported via OTLP/**gRPC** (`TracingSetup.swift`) to the same
+  collector the Go services export to via OTLP/HTTP - the version of `swift-otel` pinned here
+  only ships a gRPC exporter (no `OTLPHTTP` product exists yet). Uses port 4317, not the Go
+  services' 4318 - confirm the collector's gRPC receiver is actually enabled before assuming
+  traces are arriving.
+- **Errors**: a minimal custom Sentry reporter (`SentryReporter.swift`) hitting Sentry's HTTP
+  envelope ingestion API directly, not the official `sentry-cocoa` SDK - that package pulls
+  ~230MB of Apple-platform-only XCFrameworks (crash reporting binaries meaningless on a Linux
+  server) on `swift package resolve`, a poor fit for this deployment. `SENTRY_DSN` unset means
+  reporting silently no-ops, not an error.
+
 ## Committing Code
 
 [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`.

@@ -113,7 +113,9 @@ struct CatalogAPIClient {
       // sweetrpg/catalog-api#121. Decoding only up to the first newline is defensive
       // against that (and matches the workaround the original client-rendered prototype of
       // this UI used), not a statement that this response shape is expected or supported.
-      let firstLine = body.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: true).first ?? body
+      let firstLine =
+        body.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: true)
+        .first ?? body
       return try JSONDecoder().decode(T.self, from: Data(firstLine))
     }
   }

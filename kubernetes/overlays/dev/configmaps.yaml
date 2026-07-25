@@ -30,3 +30,10 @@ data:
   # posts never trigger a CORS preflight. Only set this if catalog-web starts exposing an API
   # of its own that another origin calls directly.
   BUILD_INFO_PATH: /app/config/build-info.json
+  LOG_LEVEL: info
+  # Same collector as the Go services (docs/service-conventions.md's Telemetry section), but
+  # port 4317 (gRPC) rather than their 4318 (HTTP) - see the comment in TracingSetup.swift for
+  # why (swift-otel only ships a gRPC exporter in the version pinned here).
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger-collector.observability.svc.cluster.local:4317/
+  # SENTRY_DSN: unset until this app has its own Sentry project/DSN provisioned - Sentry
+  # reporting no-ops gracefully (see Application.sentryReporter) rather than failing if unset.
