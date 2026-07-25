@@ -1,0 +1,14 @@
+#extend("base"):
+	#export("body"):
+		<section class="page-header">
+			<span class="section-label">Your Library</span>
+			<h2>My Shelves</h2>
+		</section>
+
+		#if(isLoggedIn):
+			<p class="empty-state">Shelf tracking isn't connected yet - once shelf-api is wired up, your want/playing/played/owned lists will show here.</p>
+		#else:
+			<p class="empty-state">Nothing shelved yet. <a href="#(meta.basePath)/browse">Browse the stacks</a> and add a volume to a shelf once you're signed in.</p>
+		#endif
+	#endexport
+#endextend

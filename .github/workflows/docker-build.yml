@@ -1,0 +1,82 @@
+name: Docker Build
+
+concurrency: docker
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    docker:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+            - name: "Get Previous tag"
+              id: previoustag
+              uses: actions-ecosystem/action-get-latest-tag@v1
+              with:
+                  semver_only: true
+                  initial_version: v0.0.0
+                  with_initial_version: true
+            - name: Get current date
+              id: getbuilddate
+              run: |
+                  echo "date=$(date -u)" >> $GITHUB_OUTPUT
+                  echo "isodate=$(date -u '+%Y-%m-%dT%H:%M:%S')" >> $GITHUB_OUTPUT
+                  echo "tagdate=$(date -u '+%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+            - name: Docker metadata
+              id: meta
+              uses: docker/metadata-action@v6
+              with:
+                  images: |
+                      ghcr.io/sweetrpg/catalog-web
+                  tags: |
+                      type=raw,value=latest
+                      type=raw,value=${{ steps.previoustag.outputs.tag }}
+                      type=raw,value=${{ steps.getbuilddate.outputs.tagdate }}
+                      type=ref,event=tag
+                      type=semver,pattern={{version}}
+                      type=semver,pattern={{major}}.{{minor}}
+                      type=semver,pattern={{major}}
+                      type=sha
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v4
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v4
+            - name: Login to registry
+              uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build and push
+              id: docker_build
+              uses: docker/build-push-action@v7
+              with:
+                  push: true
+                  no-cache: true
+                  tags: ${{ steps.meta.outputs.tags }}
+                  build-args: |
+                      BUILD_NUMBER=${{ github.run_number }}
+                      BUILD_JOB=${{ github.job }}
+                      BUILD_SHA=${{ github.sha }}
+                      BUILD_DATE=${{ steps.getbuilddate.outputs.isodate }}
+                      BUILD_VERSION=${{ steps.previoustag.outputs.tag }}
+
+    update-deployment:
+        needs: docker
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: sweetrpg/github-actions/.github/workflows/argocd-update-deployment.yaml@master
+        with:
+            image-name: catalog-web
+            manifest-path: clusters/dev/catalog/services/web.yaml
+        secrets: inherit

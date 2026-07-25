@@ -1,0 +1,93 @@
+# AGENTS.md
+
+This file provides guidance to Claude Code, Codex, GitHub Copilot, and other coding agents
+working in this repository.
+
+## About This Project
+
+`catalog-web` is a server-rendered Vapor (Swift) frontend for the SweetRPG Catalog domain. It is
+the org's first Vapor/Swift-based *web frontend* (as opposed to Swift/Vapor *API* services like
+`gamesystems-api`/`profiles-api`) - there is no established platform-wide convention document for
+this kind of service yet the way `docs/service-conventions.md` covers Go APIs. This repo is the
+reference implementation; conventions here should be written up formally once a second Swift
+frontend exists to compare against, per this org's own stated bar for generalizing a pattern.
+
+Pages are rendered server-side (Leaf templates in `Resources/Views/`) from data fetched
+server-to-server from backend APIs - not via browser-side `fetch`. This is a deliberate departure
+from the client-rendered prototype of this same UI (Claude Design's "SweetRPG catalog app"
+project, `RPG Catalogue.dc.html`), which hit CORS failures because it called catalog-api directly
+from the browser. Server-to-server calls have no CORS concern at all; CORS middleware in this app
+exists only for the (currently unused) case of this app exposing its own API to another origin.
+
+### Backend dependencies
+
+- **catalog-api**: primary data source (volumes, systems, publishers, studios, licenses,
+  persons, contributions, reviews). Fully wired up - see `CatalogAPIClient.swift`.
+- **game-systems-api**, **profiles-api**, **shelf-api** (currently `library-api` - see
+  `sweetrpg/platform`'s `rename-library-to-shelf` OpenSpec change): endpoint shapes not
+  confirmed yet. Stubbed in `StubAPIClients.swift` - each returns `nil`/empty rather than
+  calling a real endpoint. Replace method bodies as each backend's contract is settled; call
+  sites (Controllers) already expect the eventual shape.
+
+### Known upstream issue
+
+catalog-api has been observed appending a stray JSON error object after a newline in its
+response body when its Redis cache write fails server-side (`sweetrpg/catalog-api#121` fixed the
+underlying cause - a `REDIS_PORT` env var collision with Kubernetes' auto-injected service-link
+variables - but that fix may not be deployed to every environment yet). `CatalogAPIClient`
+defensively decodes only up to the first newline to tolerate this. Don't extend that defensive
+parsing's role, and don't treat it as this app's problem to permanently own - it's working around
+an upstream bug, not a documented API contract.
+
+### The path-prefix architecture (important - don't break this)
+
+This app runs behind Traefik at `dev.sweetrpg.com/catalog` (dev) / `sweetrpg.com/catalog`
+(prod) - a shared host serving multiple frontends, each at its own path. Traefik strips
+`/catalog` before the request reaches this app (see `kubernetes/overlays/*/middlewares.yaml`),
+so the app's own routes are unprefixed (`/browse`, not `/catalog/browse`). But every link, form
+action, static asset URL, and redirect this app generates in HTML has to add the prefix back, or
+the *next* browser request won't round-trip through the ingress correctly.
+
+- `Request.basePath` (`AppPaths.swift`) holds this prefix, from `INGRESS_BASE_PATH`.
+- `Request.redirectLocal(to:)` - use for any in-app redirect. `redirect(to:)` is still correct
+  as-is for genuinely external URLs (Auth0's domain, etc.) - those must NOT be prefixed.
+- Every Leaf template's internal `href`/`action`/`src` uses `#(meta.basePath)` - see `PageMeta`.
+- **When adding a new page or partial**: pass `PageMeta(req)` into its context, and prefix every
+  internal URL in its template with `#(meta.basePath)`. Missing this is an easy, silent bug -
+  it works perfectly in local dev (empty `basePath`) and only breaks once deployed behind the
+  ingress prefix.
+
+### Branding assets
+
+Logo/favicon (`Public/images/logo.png`, `logo-256.png`, `favicon.png`) are pulled from
+`sweetrpg/design`'s `Site/assets/img/static/images/sweetrpg-logo-*.png` family (a green d20 die
+in a candy wrapper - "Sweet" + "RPG") - the org's actual current brand mark. `sweetrpg.com`
+itself is a defunct ~2015 placeholder site with an empty (0-byte) `favicon.ico` and no real logo
+image; don't pull branding from there.
+
+The design (`RPG Catalogue.dc.html`) has no footer content specified - the version/build-date
+footer (`partials/footer.leaf`, `BuildInfo.swift`) is this app's own addition, not a departure
+from the design.
+
+## Committing Code
+
+[Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`.
+
+## Branches and Workflow
+
+Git-flow (see `docs/git-flow.md` in `sweetrpg/platform`): `develop` is the integration branch,
+`master` reflects the latest release. Feature/fix branches off `develop`, PR back into `develop`.
+
+## Running Checks Locally
+
+```bash
+swift build
+swift test
+swift format lint --recursive --strict Sources Tests
+```
+
+`swift run` serves on `:8080`. Without `REDIS_HOST` set, falls back to in-memory sessions and no
+response caching. Without backend URL overrides, API calls default to in-cluster DNS names that
+won't resolve outside the cluster - set `CATALOG_API_URL` (see `BackendConfig.swift`) to a
+reachable endpoint, e.g. `https://api.catalog.dev.sweetrpg.com/0`, for local development against
+real data.

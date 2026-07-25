@@ -1,0 +1,49 @@
+#extend("base"):
+	#export("body"):
+		<section class="hero">
+			<h1>The Catalogue</h1>
+			<p class="hero-tagline">Every rulebook, supplement and setting guide - rated, reviewed and shelved by the table that played them.</p>
+			<div class="hero-actions">
+				<a class="btn btn-primary" href="#(meta.basePath)/browse">Browse the stacks</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/shelves">My shelves</a>
+			</div>
+		</section>
+
+		<section class="stats-bar">
+			<span>Vol. count #(volumeCount)</span>
+			<span>Catalogued nightly</span>
+		</section>
+
+		#if(count(trending) > 0):
+			<section>
+				<span class="section-label">Recently Catalogued</span>
+				<div class="card-grid">
+					#for(volume in trending):
+						<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
+							<div class="card-cover">Cover pending</div>
+							<div class="card-body">
+								<div class="card-title">#(volume.title)</div>
+								<div class="card-meta">
+									#for(tag in volume.tagChips):
+										<span class="tag tag-neutral">#(tag)</span>
+									#endfor
+								</div>
+							</div>
+						</a>
+					#endfor
+				</div>
+			</section>
+		#endif
+
+		#if(count(tagCloud) > 0):
+			<section>
+				<span class="section-label">Browse by Tag</span>
+				<div class="tag-cloud">
+					#for(tag in tagCloud):
+						<a class="tag tag-outline" href="/browse?tag=#(tag.name)">#(tag.name)</a>
+					#endfor
+				</div>
+			</section>
+		#endif
+	#endexport
+#endextend
