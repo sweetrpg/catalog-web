@@ -1,4 +1,11 @@
 
+## 0.1.3 - 2026-07-25
+
+### Fixed
+- Double v prefix in footer version, port Broadsheet's Source Serif 4
+
+
+
 ## 0.1.2 - 2026-07-25
 
 ### Fixed
