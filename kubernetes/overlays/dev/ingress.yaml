@@ -1,0 +1,45 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: web-v1
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: sweetrpg-catalog-strip-prefix-web@kubernetescrd
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prd
+    # Matches sweetrpg/common-infrastructure's messaging ingress (the one existing example of
+    # ExternalDNS in this org): both hostname and target are required, since this cluster's
+    # Traefik doesn't get an external IP ExternalDNS could auto-detect from a LoadBalancer
+    # Service - it has to be told explicitly what IP to point the A record at. dev.sweetrpg.com
+    # is shared across every frontend served under it (each at its own path prefix) - if
+    # another app's Ingress also annotates this same hostname/target, ExternalDNS should just
+    # see matching records and no-op; if it starts erroring about conflicting ownership, drop
+    # this annotation from all but one of the Ingresses sharing the host.
+    external-dns.alpha.kubernetes.io/hostname: dev.sweetrpg.com
+    external-dns.alpha.kubernetes.io/target: "45.79.225.222"
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: dev.sweetrpg.com
+      http:
+        paths:
+          - pathType: Prefix
+            path: /catalog
+            backend:
+              service:
+                name: web-v1
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - dev.sweetrpg.com
+      # Shared secretName across every frontend's Ingress for this host, deliberately - cert-
+      # manager reconciles multiple Ingresses requesting the same host into the same secret
+      # without conflict, whereas per-app secret names would each try to independently manage
+      # a Certificate for the same host and fight each other. Reuse this exact name in any
+      # other frontend's Ingress that also serves under dev.sweetrpg.com/<its-path>.
+      secretName: sweetrpg-dev-tls

@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+    name: web-v1
+
+spec:
+    strategy:
+        rollingUpdate:
+            maxSurge: 1
+            maxUnavailable: 1
+        type: RollingUpdate
+    selector:
+        matchLabels:
+            app: web
+            version: v1
+            platform: sweetrpg
+            package: catalog
+            component: web
+    template:
+        metadata:
+            labels:
+                platform: sweetrpg
+                app: web
+                package: catalog
+                component: web
+                version: v1
+                release: prometheus
+        spec:
+            serviceAccountName: web
+            enableServiceLinks: false
+            imagePullSecrets:
+                - name: sweetrpg-registry
+            containers:
+                - name: app
+                  image: catalog-web
+                  imagePullPolicy: Always
+                  envFrom:
+                      - configMapRef:
+                            name: web-common
+                      - configMapRef:
+                            name: web-env
+                      - secretRef:
+                            name: web-auth0
+                      - secretRef:
+                            name: web-cache
+                  ports:
+                      - containerPort: 8080
+                        name: http
+                  resources:
+                      requests:
+                          cpu: "20m"
+                          memory: "55m"
+                      limits:
+                          cpu: "1.0"
+                          memory: "512Mi"
+                  livenessProbe:
+                        httpGet:
+                            path: /status/ping
+                            port: http
+                        initialDelaySeconds: 30
+                        timeoutSeconds: 10
+                        periodSeconds: 10
+                  readinessProbe:
+                        httpGet:
+                            path: /status/ping
+                            port: http
+                        initialDelaySeconds: 10
+                        timeoutSeconds: 10
+                        periodSeconds: 10
+            restartPolicy: Always

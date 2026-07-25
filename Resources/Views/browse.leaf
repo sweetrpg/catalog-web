@@ -1,0 +1,34 @@
+#extend("base"):
+	#export("body"):
+		<section class="page-header">
+			<span class="section-label">Browse</span>
+			<h2>The Stacks</h2>
+			<div class="tag-cloud">
+				<a class="tag #if(noActiveTag): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse">All</a>
+				#for(tag in tagCloud):
+					<a class="tag #if(tag.isActive): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse?tag=#(tag.name)">#(tag.name)</a>
+				#endfor
+			</div>
+		</section>
+
+		#if(noResults):
+			<p class="empty-state">No volumes match "#(query)".</p>
+		#endif
+
+		<div class="card-grid">
+			#for(volume in volumes):
+				<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
+					<div class="card-cover">Cover pending</div>
+					<div class="card-body">
+						<div class="card-title">#(volume.title)</div>
+						<div class="card-meta">
+							#for(tag in volume.tagChips):
+								<span class="tag tag-neutral">#(tag)</span>
+							#endfor
+						</div>
+					</div>
+				</a>
+			#endfor
+		</div>
+	#endexport
+#endextend

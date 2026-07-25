@@ -1,0 +1,19 @@
+<nav class="nav">
+	<a class="nav-brand" href="#(meta.basePath)/">
+		<img src="#(meta.basePath)/images/logo.png" alt="SweetRPG" class="nav-logo">
+		The Catalogue
+	</a>
+	<a href="#(meta.basePath)/">Front Page</a>
+	<a href="#(meta.basePath)/browse">Browse</a>
+	<a href="#(meta.basePath)/shelves">My Shelves</a>
+	<div class="nav-spacer"></div>
+	<form class="nav-search" action="#(meta.basePath)/browse" method="get">
+		<input class="input" type="text" name="q" placeholder="Search titles...">
+	</form>
+	#if(user):
+		<span class="nav-user">#(user.name)</span>
+		<form action="#(meta.basePath)/auth/logout" method="post"><button type="submit" class="btn btn-ghost">Log Out</button></form>
+	#else:
+		<a class="btn btn-ghost" href="#(meta.basePath)/login">Log In</a>
+	#endif
+</nav>

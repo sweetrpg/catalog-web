@@ -1,0 +1,63 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/browse">&larr; Back</a>
+
+		<div class="detail-layout">
+			<div class="card-cover detail-cover">Cover pending</div>
+
+			<div>
+				<h1>#(volume.title)</h1>
+				<div class="tag-cloud">
+					#for(tag in volume.tags):
+						<span class="tag tag-accent">#(tag)</span>
+					#endfor
+				</div>
+
+				#if(volume.hasDescription):
+					<p class="detail-description">#(volume.description)</p>
+				#else:
+					<p class="detail-description detail-description-empty">No description on file yet for this volume.</p>
+				#endif
+
+				#if(volume.hasNotes):
+					<p class="detail-notes"><strong>Notes:</strong> #(volume.notes)</p>
+				#endif
+
+				#if(volume.hasMeta):
+					<p class="detail-meta">#(volume.metaLine)</p>
+				#endif
+
+				#if(volume.hasCredits):
+					<div class="detail-block">
+						<span class="section-label">Credits</span>
+						#for(credit in volume.credits):
+							<p><strong>#(credit.role)</strong> &mdash; #(credit.person)</p>
+						#endfor
+					</div>
+				#endif
+
+				<!-- Shelf status, rating, and review will move here once shelf-api is wired up
+				     (see ShelfAPIClient) - the design's prototype has this as browser-local
+				     state today; this app doesn't persist anything client-side. -->
+				<div class="detail-block">
+					<span class="section-label">Your Shelf</span>
+					<p class="empty-state-inline">Sign in and shelf tracking will appear here once shelf-api is connected.</p>
+				</div>
+
+				<div class="detail-block">
+					<span class="section-label">Community Reviews</span>
+					#if(volume.hasReviews):
+						#for(review in volume.reviews):
+							<div class="review">
+								<p><strong>#(review.author)</strong> <span class="review-stars">#(review.starsLabel)</span></p>
+								<p>#(review.text)</p>
+							</div>
+						#endfor
+					#else:
+						<p class="empty-state-inline">No reviews yet - be the first at the table to weigh in.</p>
+					#endif
+				</div>
+			</div>
+		</div>
+	#endexport
+#endextend
