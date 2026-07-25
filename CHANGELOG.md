@@ -1,4 +1,15 @@
 
+## 0.2.0 - 2026-07-25
+
+### Added
+- Point nav logo at the SweetRPG root site, not this app's home
+
+
+### Fixed
+- Auth info
+
+
+
 ## 0.1.3 - 2026-07-25
 
 ### Fixed
