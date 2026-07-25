@@ -1,4 +1,12 @@
 
+## 0.1.2 - 2026-07-25
+
+### Fixed
+- Drop erroneous /0 prefix from in-cluster catalog-api URL
+- Serve Public/ static assets via FileMiddleware
+
+
+
 ## 0.1.1 - 2026-07-25
 
 ### Fixed
