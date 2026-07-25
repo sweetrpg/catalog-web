@@ -1,4 +1,12 @@
 
+## 0.1.1 - 2026-07-25
+
+### Fixed
+- Path to cache secrets
+- Degrade gracefully when Redis is unavailable
+
+
+
 ## 0.1.0 - 2026-07-25
 
 ### Added
