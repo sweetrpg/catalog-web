@@ -48,9 +48,8 @@ a:hover { color: var(--color-accent); text-decoration: underline; }
 	gap: 8px;
 	font-weight: 700;
 	font-size: 18px;
-	color: var(--color-text) !important;
-	text-decoration: none !important;
 }
+.nav-brand a { color: var(--color-text) !important; text-decoration: none !important; }
 .nav-logo { width: 28px; height: 28px; }
 .nav-spacer { flex: 1; }
 .nav-search .input { max-width: 240px; }
