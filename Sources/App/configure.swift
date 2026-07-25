@@ -36,7 +36,10 @@ public func configure(_ app: Application) async throws {
       database: redisDB
     )
     app.redisConfigured = true
-    app.sessions.use(.redis)
+    // Not `.redis` (Vapor's stock RedisSessionsDriver): that driver propagates Redis errors
+    // straight through SessionsMiddleware, which runs on every request, so a Redis outage would
+    // 500 the whole app. ResilientRedisSessionDriver degrades instead - see its doc comment.
+    app.sessions.use { _ in ResilientRedisSessionDriver() }
   } else {
     app.logger.warning(
       "REDIS_HOST not set - using in-memory sessions and no response caching. Fine for local development, not for multi-replica deployments."
