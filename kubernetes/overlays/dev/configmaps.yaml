@@ -28,6 +28,9 @@ data:
   # /catalog back so the *next* browser request round-trips through the ingress correctly. See
   # Request.basePath in AppPaths.swift.
   INGRESS_BASE_PATH: /catalog
+  # Where the SweetRPG logo in the nav links out to - the platform's root site, not this app's
+  # own home page. Differs per environment; see AppPaths.swift's rootURL.
+  SWEETRPG_ROOT_URL: https://dev.sweetrpg.com/
   # ALLOWED_ORIGINS: unset - this app is server-rendered, so same-origin page loads and form
   # posts never trigger a CORS preflight. Only set this if catalog-web starts exposing an API
   # of its own that another origin calls directly.

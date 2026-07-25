@@ -10,6 +10,14 @@ extension Request {
     Environment.get("INGRESS_BASE_PATH") ?? ""
   }
 
+  /// Where the SweetRPG logo links out to - the platform's root site, not this app's own home
+  /// page. Differs per environment (e.g. https://dev.sweetrpg.com/ in dev), so it's an env var
+  /// rather than a constant. Falls back to "/" (this app's own root) if unset, matching the old
+  /// behavior rather than producing a dead link in an environment that hasn't set it yet.
+  var rootURL: String {
+    Environment.get("SWEETRPG_ROOT_URL") ?? "/"
+  }
+
   /// Redirects to a path on this app itself (e.g. "/login"), prefixed with `basePath`. Use
   /// this instead of `redirect(to:)` for any in-app redirect target - `redirect(to:)` is still
   /// correct as-is for external URLs (e.g. Auth0's own domain), which must not be prefixed.

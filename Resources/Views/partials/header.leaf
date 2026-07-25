@@ -1,8 +1,8 @@
 <nav class="nav">
-	<a class="nav-brand" href="#(meta.basePath)/">
-		<img src="#(meta.basePath)/images/logo.png" alt="SweetRPG" class="nav-logo">
-		The Catalogue
-	</a>
+	<div class="nav-brand">
+		<a href="#(meta.rootURL)"><img src="#(meta.basePath)/images/logo.png" alt="SweetRPG" class="nav-logo"></a>
+		<a href="#(meta.basePath)/">The Catalogue</a>
+	</div>
 	<a href="#(meta.basePath)/">Front Page</a>
 	<a href="#(meta.basePath)/browse">Browse</a>
 	<a href="#(meta.basePath)/shelves">My Shelves</a>
