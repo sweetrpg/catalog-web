@@ -12,8 +12,11 @@ struct BackendConfig {
 
   static func fromEnvironment() -> BackendConfig {
     BackendConfig(
+      // No /0 or /1 suffix: that API-version prefix only exists on catalog-api's public
+      // ingress (stripped by its Traefik middleware) - direct Service-to-Service calls bypass
+      // the ingress entirely and hit catalog-api's unprefixed routes directly.
       catalogAPIURL: Environment.get("CATALOG_API_URL")
-        ?? "http://api-v1.sweetrpg-catalog.svc.cluster.local:8000/0",
+        ?? "http://api-v1.sweetrpg-catalog.svc.cluster.local:8000",
       gameSystemsAPIURL: Environment.get("GAMESYSTEMS_API_URL")
         ?? "http://api-v1.sweetrpg-gamesystems.svc.cluster.local:8000",
       profilesAPIURL: Environment.get("PROFILES_API_URL")
