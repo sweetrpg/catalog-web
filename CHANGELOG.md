@@ -1,4 +1,15 @@
 
+## 0.3.0 - 2026-07-26
+
+### Added
+- Reference shared static assets from assets-web (#10)
+
+
+### Fixed
+- Point OTLP tracing endpoint at Tempo, not dead jaeger-collector
+
+
+
 ## 0.2.0 - 2026-07-25
 
 ### Added
