@@ -7,12 +7,14 @@ import Vapor
 struct PageMeta: Content {
   let basePath: String
   let rootURL: String
+  let sharedAssetsURL: String
   let buildVersion: String
   let buildDate: String
 
   init(_ req: Request) {
     self.basePath = req.basePath
     self.rootURL = req.rootURL
+    self.sharedAssetsURL = req.sharedAssetsURL
     self.buildVersion = req.buildInfo.version
     self.buildDate = req.buildInfo.date
   }

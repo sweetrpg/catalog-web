@@ -4,8 +4,8 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>The Catalogue</title>
-	<link rel="icon" type="image/png" href="#(meta.basePath)/images/favicon.png">
-	<link rel="stylesheet" href="#(meta.basePath)/css/main.css">
+	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/favicon.png">
+	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/main.css">
 </head>
 <body>
 	#extend("partials/header")
