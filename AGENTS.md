@@ -59,11 +59,16 @@ the *next* browser request won't round-trip through the ingress correctly.
 
 ### Branding assets
 
-Logo/favicon (`Public/images/logo.png`, `logo-256.png`, `favicon.png`) are pulled from
-`sweetrpg/design`'s `Site/assets/img/static/images/sweetrpg-logo-*.png` family (a green d20 die
-in a candy wrapper - "Sweet" + "RPG") - the org's actual current brand mark. `sweetrpg.com`
-itself is a defunct ~2015 placeholder site with an empty (0-byte) `favicon.ico` and no real logo
-image; don't pull branding from there.
+Logo, favicon, and stylesheet (a green d20 die in a candy wrapper - "Sweet" + "RPG", the org's
+actual current brand mark) are served from `assets-web`'s shared static route, not this repo's
+own `Public/` - see `docs/frontend-conventions.md` in `sweetrpg/platform` for the convention and
+`AppPaths.swift`'s `sharedAssetsURL` for how this app references them (`SHARED_ASSETS_URL` env
+var, falling back to a local `assets-web` instance's address in local dev). `base.leaf`/
+`header.leaf` build their `href`/`src` from it. This app used to keep its own copies in
+`Public/` before every frontend needing the logo would otherwise drift out of sync with the
+others; don't reintroduce a local copy. `sweetrpg.com` itself is a defunct ~2015 placeholder
+site with an empty (0-byte) `favicon.ico` and no real logo image - don't pull branding from
+there either.
 
 The design (`RPG Catalogue.dc.html`) has no footer content specified - the version/build-date
 footer (`partials/footer.leaf`, `BuildInfo.swift`) is this app's own addition, not a departure
