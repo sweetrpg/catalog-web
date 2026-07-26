@@ -1,6 +1,6 @@
 <nav class="nav">
 	<div class="nav-brand">
-		<a href="#(meta.rootURL)"><img src="#(meta.basePath)/images/logo.png" alt="SweetRPG" class="nav-logo"></a>
+		<a href="#(meta.rootURL)"><img src="#(meta.sharedAssetsURL)/static/logo.png" alt="SweetRPG" class="nav-logo"></a>
 		<a href="#(meta.basePath)/">The Catalogue</a>
 	</div>
 	<a href="#(meta.basePath)/">Front Page</a>
