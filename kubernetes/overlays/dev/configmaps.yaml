@@ -31,6 +31,10 @@ data:
   # Where the SweetRPG logo in the nav links out to - the platform's root site, not this app's
   # own home page. Differs per environment; see AppPaths.swift's rootURL.
   SWEETRPG_ROOT_URL: https://dev.sweetrpg.com/
+  # Base URL for shared frontend static assets (logo, favicon, stylesheet), served from
+  # assets-web rather than this app's own Public/ - see docs/frontend-conventions.md in
+  # sweetrpg/platform and AppPaths.swift's sharedAssetsURL.
+  SHARED_ASSETS_URL: https://dev.sweetrpg.com/assets
   # ALLOWED_ORIGINS: unset - this app is server-rendered, so same-origin page loads and form
   # posts never trigger a CORS preflight. Only set this if catalog-web starts exposing an API
   # of its own that another origin calls directly.
