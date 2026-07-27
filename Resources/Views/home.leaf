@@ -1,7 +1,7 @@
 #extend("base"):
 	#export("body"):
 		<section class="hero">
-			<h1>The Catalogue</h1>
+			<h1>Catalogue</h1>
 			<p class="hero-tagline">Every rulebook, supplement and setting guide - rated, reviewed and shelved by the table that played them.</p>
 			<div class="hero-actions">
 				<a class="btn btn-primary" href="#(meta.basePath)/browse">Browse the stacks</a>
