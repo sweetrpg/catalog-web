@@ -17,7 +17,7 @@ struct ShelvesController: RouteCollection {
       ShelvesContext(
         user: user.map(LeafUser.init),
         isLoggedIn: user != nil,
-        meta: PageMeta(req)
+        meta: await PageMeta.make(req)
       ))
   }
 }

@@ -21,7 +21,7 @@ struct AuthController: RouteCollection {
       "auth/login",
       LoginContext(
         auth0Configured: req.application.auth0Config.isConfigured,
-        meta: PageMeta(req)
+        meta: await PageMeta.make(req)
       ))
   }
 
