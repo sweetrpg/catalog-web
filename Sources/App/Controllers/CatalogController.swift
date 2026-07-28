@@ -23,7 +23,7 @@ struct CatalogController: RouteCollection {
         trending: trending.map(LeafVolumeCard.init),
         tagCloud: tagCloud.map { LeafTag(name: $0) },
         user: req.currentUser.map(LeafUser.init),
-        meta: PageMeta(req)
+        meta: await PageMeta.make(req)
       ))
   }
 
@@ -55,7 +55,7 @@ struct CatalogController: RouteCollection {
         volumes: filtered.map(LeafVolumeCard.init),
         noResults: filtered.isEmpty,
         user: req.currentUser.map(LeafUser.init),
-        meta: PageMeta(req)
+        meta: await PageMeta.make(req)
       ))
   }
 
@@ -77,7 +77,7 @@ struct CatalogController: RouteCollection {
       DetailContext(
         volume: LeafVolumeDetail(volume),
         user: req.currentUser.map(LeafUser.init),
-        meta: PageMeta(req)
+        meta: await PageMeta.make(req)
       ))
   }
 }

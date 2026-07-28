@@ -28,6 +28,16 @@ exists only for the (currently unused) case of this app exposing its own API to 
   confirmed yet. Stubbed in `StubAPIClients.swift` - each returns `nil`/empty rather than
   calling a real endpoint. Replace method bodies as each backend's contract is settled; call
   sites (Controllers) already expect the eventual shape.
+- **admin-api** (banner messages, `sweetrpg/admin-api`): `AdminClient.swift`, named to match
+  main-web's own `AdminClient` per the `add-banner-messages` OpenSpec change
+  (`sweetrpg/platform`). Disabled by default - `baseURL` is `nil` unless `ADMIN_API_URL` is
+  set. Fetched as part of `PageMeta.make(req)` (not each controller individually) for
+  `platform`, `service:catalog`, and the current page's scope; a 90s Redis-backed cache (via
+  `CacheService`, falls through to no caching if Redis isn't configured) and a 2s
+  `ClientRequest.timeout` bound the call. Fails open on any error - see `AdminClient.swift`.
+  Rendered in `base.leaf`, styled by severity; banner text is plain (no markup), so
+  `meta.basePath` prefixing doesn't apply to banner content itself the way it does to this
+  app's own generated links.
 
 ### Known upstream issue
 
