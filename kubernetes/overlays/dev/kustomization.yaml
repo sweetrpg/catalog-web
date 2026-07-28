@@ -6,8 +6,6 @@ namespace: sweetrpg-catalog
 resources:
   - ../../base
   - configmaps.yaml
-  # - hpa.yaml
-  # - pdb.yaml
   - secrets.yaml
   - ingress.yaml
   - middlewares.yaml
