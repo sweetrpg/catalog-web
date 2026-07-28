@@ -1,7 +1,7 @@
 # SweetRPG Catalog Web
 
 [![CI](https://github.com/sweetrpg/catalog-web/actions/workflows/ci.yaml/badge.svg)](https://github.com/sweetrpg/catalog-web/actions/workflows/ci.yaml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/sweetrpg/catalog-web/develop/.github/badges/coverage.json)](https://github.com/sweetrpg/catalog-web/actions/workflows/ci.yaml)
+[![Coverage](https://img.shields.io/endpoint?url=https://sweetrpg.github.io/catalog-web/coverage-badge.json)](https://sweetrpg.github.io/catalog-web/)
 [![License](https://img.shields.io/github/license/sweetrpg/catalog-web.svg)](https://img.shields.io/github/license/sweetrpg/catalog-web.svg)
 [![Issues](https://img.shields.io/github/issues/sweetrpg/catalog-web.svg)](https://img.shields.io/github/issues/sweetrpg/catalog-web.svg)
 [![PRs](https://img.shields.io/github/issues-pr/sweetrpg/catalog-web.svg)](https://img.shields.io/github/issues-pr/sweetrpg/catalog-web.svg)
