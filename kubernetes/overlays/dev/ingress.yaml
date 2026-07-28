@@ -10,16 +10,10 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: sweetrpg-catalog-strip-prefix-web@kubernetescrd
     kubernetes.io/ingress.class: traefik
     cert-manager.io/cluster-issuer: letsencrypt-prd
-    # Matches sweetrpg/common-infrastructure's messaging ingress (the one existing example of
-    # ExternalDNS in this org): both hostname and target are required, since this cluster's
-    # Traefik doesn't get an external IP ExternalDNS could auto-detect from a LoadBalancer
-    # Service - it has to be told explicitly what IP to point the A record at. dev.sweetrpg.com
-    # is shared across every frontend served under it (each at its own path prefix) - if
-    # another app's Ingress also annotates this same hostname/target, ExternalDNS should just
-    # see matching records and no-op; if it starts erroring about conflicting ownership, drop
-    # this annotation from all but one of the Ingresses sharing the host.
-    external-dns.alpha.kubernetes.io/hostname: dev.sweetrpg.com
-    external-dns.alpha.kubernetes.io/target: "45.79.225.222"
+    # main-web's Ingress owns the ExternalDNS hostname/target annotations for dev.sweetrpg.com -
+    # deliberately not repeating them here (see that Ingress's own comment and
+    # docs/git-repos.md's "Shared-host Ingress ownership" section in sweetrpg/platform):
+    # ExternalDNS ownership conflicts if more than one Ingress for the same host sets them.
 
 spec:
   ingressClassName: traefik
