@@ -1,23 +1,27 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 namespace: sweetrpg-catalog
+
 resources:
   - ../../base
   - configmaps.yaml
-  - hpa.yaml
-  - pdb.yaml
   - secrets.yaml
   - ingress.yaml
   - middlewares.yaml
   - pod-monitor.yaml
-commonLabels:
-  app: web
-  version: v1
-  platform: sweetrpg
-  package: catalog
-  component: web
+
+labels:
+  - pairs:
+      app: web
+      version: v1
+      platform: sweetrpg
+      package: catalog
+      component: web
+
 generatorOptions:
   disableNameSuffixHash: true
+
 images:
   - name: catalog-web
     newName: ghcr.io/sweetrpg/catalog-web
