@@ -1,0 +1,27 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: web-v1
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: sweetrpg-catalog-strip-prefix-web@kubernetescrd
+    kubernetes.io/ingress.class: traefik
+    # TLS is terminated once, upstream, by the Tailscale Kubernetes operator's Ingress in
+    # support/config/K8s/traefik/overlays/minikube (traefik-tailscale) - this hop is plain HTTP
+    # inside the cluster, no cert-manager/websecure annotations needed here.
+
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: sweetrpg-local.curlew-smoot.ts.net
+      http:
+        paths:
+          - pathType: Prefix
+            path: /catalog
+            backend:
+              service:
+                name: web-v1
+                port:
+                  name: http
