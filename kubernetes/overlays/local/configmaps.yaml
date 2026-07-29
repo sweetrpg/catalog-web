@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: web-env
+
+data:
+  ENV: local
+  PORT: "8080"
+  REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  REDIS_PORT: "6379"
+  REDIS_DB: "1"
+  # Server-to-server backend URL, called directly Service-to-Service - no ingress in the path,
+  # unaffected by this overlay's Ingress changes.
+  CATALOG_API_URL: http://api-v1.sweetrpg-catalog.svc.cluster.local:8000
+  # Traefik strips /catalog before the request reaches this app (see middlewares.yaml), so the
+  # app's own routes are unprefixed - every link/form/redirect it generates needs the prefix
+  # added back, matching the dev overlay's convention.
+  INGRESS_BASE_PATH: /catalog
+  # Shared host behind the single traefik-tailscale front door (see
+  # support/config/K8s/traefik/overlays/minikube in sweetrpg/config), same convention as the dev
+  # overlay's dev.sweetrpg.com.
+  SWEETRPG_ROOT_URL: https://sweetrpg-local.curlew-smoot.ts.net/
+  SHARED_ASSETS_URL: https://sweetrpg-local.curlew-smoot.ts.net/assets
+  BUILD_INFO_PATH: /app/config/build-info.json
+  LOG_LEVEL: info
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo-distributor.observability.svc.cluster.local:4317/
