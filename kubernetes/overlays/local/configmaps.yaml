@@ -21,8 +21,8 @@ data:
   # Shared host behind the single traefik-tailscale front door (see
   # support/config/K8s/traefik/overlays/minikube in sweetrpg/config), same convention as the dev
   # overlay's dev.sweetrpg.com.
-  SWEETRPG_ROOT_URL: https://sweetrpg-local.curlew-smoot.ts.net/
-  SHARED_ASSETS_URL: https://sweetrpg-local.curlew-smoot.ts.net/assets
+  SWEETRPG_ROOT_URL: https://sweetrpg.local/
+  SHARED_ASSETS_URL: https://sweetrpg.local/assets
   BUILD_INFO_PATH: /app/config/build-info.json
   LOG_LEVEL: info
   OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo-distributor.observability.svc.cluster.local:4317/
