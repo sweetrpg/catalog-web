@@ -21,11 +21,8 @@ public func configure(_ app: Application) async throws {
   // 404'd through the app's own JSON not-found handler instead of being served as a file.
   app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
 
-  app.sessions.configuration.cookieName = "catalog-web-session"
-  // Redis-backed sessions: this app runs multiple replicas (see kubernetes/base/deployment.yaml)
-  // behind a Service with no session affinity, so an in-memory session store would only work
-  // for whichever replica handled login. Falls back further down if Redis isn't configured.
-
+  // This app's own cache/rate-limit Redis (sweetrpg-catalog) - unrelated to the shared session
+  // Redis configured below.
   if let redisHost = Environment.get("REDIS_HOST"), !redisHost.isEmpty {
     let redisPort = Environment.get("REDIS_PORT").flatMap(Int.init) ?? 6379
     // A separate logical DB index (not just the "catalog:" key prefix in CacheService) from
@@ -40,17 +37,31 @@ public func configure(_ app: Application) async throws {
       database: redisDB
     )
     app.redisConfigured = true
-    // Not `.redis` (Vapor's stock RedisSessionsDriver): that driver propagates Redis errors
-    // straight through SessionsMiddleware, which runs on every request, so a Redis outage would
-    // 500 the whole app. ResilientRedisSessionDriver degrades instead - see its doc comment.
-    app.sessions.use { _ in ResilientRedisSessionDriver() }
   } else {
     app.logger.warning(
-      "REDIS_HOST not set - using in-memory sessions and no response caching. Fine for local development, not for multi-replica deployments."
+      "REDIS_HOST not set - no response caching. Fine for local development, not for multi-replica deployments."
     )
-    app.sessions.use(.memory)
   }
-  app.middleware.use(app.sessions.middleware)
+
+  // auth-web's own dedicated Redis instance, read-only from here - the shared session store
+  // every frontend reads. Not the same instance as this app's own cache Redis above. This app
+  // never runs its own Auth0 code-exchange or SessionsMiddleware - see SessionUserAccess.swift.
+  if let sharedSessionRedisHost = Environment.get("SHARED_SESSION_REDIS_HOST"),
+    !sharedSessionRedisHost.isEmpty
+  {
+    let sharedSessionRedisPort =
+      Environment.get("SHARED_SESSION_REDIS_PORT").flatMap(Int.init) ?? 6379
+    app.redis(.sharedSession).configuration = try RedisConfiguration(
+      hostname: sharedSessionRedisHost,
+      port: sharedSessionRedisPort,
+      password: Environment.get("SHARED_SESSION_REDIS_PASS")
+    )
+    app.sharedSessionRedisConfigured = true
+  } else {
+    app.logger.warning(
+      "SHARED_SESSION_REDIS_HOST not set - every visitor will read as logged-out."
+    )
+  }
 
   if let corsMiddleware = CORSConfig.middleware() {
     // Inserted at position 0: CORS must run before anything else so preflight OPTIONS

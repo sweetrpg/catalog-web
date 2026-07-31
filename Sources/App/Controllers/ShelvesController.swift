@@ -11,7 +11,7 @@ struct ShelvesController: RouteCollection {
 
   @Sendable
   func index(req: Request) async throws -> View {
-    let user = req.currentUser
+    let user = await req.currentUser
     return try await req.view.render(
       "shelves",
       ShelvesContext(

@@ -8,5 +8,4 @@ func routes(_ app: Application) throws {
 
   try app.register(collection: CatalogController())
   try app.register(collection: ShelvesController())
-  try app.register(collection: AuthController())
 }

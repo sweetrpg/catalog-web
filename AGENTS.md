@@ -39,6 +39,25 @@ exists only for the (currently unused) case of this app exposing its own API to 
   `meta.basePath` prefixing doesn't apply to banner content itself the way it does to this
   app's own generated links.
 
+### Login and the shared session
+
+This app has no login flow of its own. `auth-web` is the platform's sole owner of the Auth0
+Authorization Code exchange (see `sweetrpg/platform`'s `add-user-api-authn-authz` OpenSpec
+change) - `AuthController.swift`/`Auth0Config.swift`/`ResilientRedisSessionDriver.swift` and this
+app's own `/login` page used to exist here and were removed as part of that migration. Every
+"log in"/"log out" link (`meta.loginURL`/`meta.logoutURL`, `PageMeta.make`) points at `auth-web`
+directly instead.
+
+`Request.currentUser` (`SessionUserAccess.swift`) reads the shared `sweetrpg_session` cookie
+`auth-web` writes, via a **separate** Redis connection (`RedisID.sharedSession`, `auth-web`'s own
+dedicated instance in `sweetrpg-support`) from this app's own cache Redis
+(`sweetrpg-catalog`). It deliberately does not go through Vapor's `Session`/`SessionsMiddleware`
+- touching `req.session` on every request would create and write back a brand-new session for
+every anonymous visitor, which is exactly the write this read-only consumer must never make.
+Fails open (`nil`) on every error path: disabled, unreachable Redis, missing cookie, missing key,
+malformed JSON - same fail-open contract `ResilientRedisSessionDriver` gave every Vapor frontend
+before this app's own copy of it was removed.
+
 ### Known upstream issue
 
 catalog-api has been observed appending a stray JSON error object after a newline in its
@@ -59,9 +78,10 @@ action, static asset URL, and redirect this app generates in HTML has to add the
 the *next* browser request won't round-trip through the ingress correctly.
 
 - `Request.basePath` (`AppPaths.swift`) holds this prefix, from `INGRESS_BASE_PATH`.
-- `Request.redirectLocal(to:)` - use for any in-app redirect. `redirect(to:)` is still correct
-  as-is for genuinely external URLs (Auth0's domain, etc.) - those must NOT be prefixed.
 - Every Leaf template's internal `href`/`action`/`src` uses `#(meta.basePath)` - see `PageMeta`.
+  The one exception is `meta.loginURL`/`meta.logoutURL`: `auth-web` sits at `/auth` on the same
+  host *root*, not under this app's own `basePath`, so those two are deliberately NOT prefixed
+  with `#(meta.basePath)` - see `PageMeta.make`.
 - **When adding a new page or partial**: pass `PageMeta(req)` into its context, and prefix every
   internal URL in its template with `#(meta.basePath)`. Missing this is an easy, silent bug -
   it works perfectly in local dev (empty `basePath`) and only breaks once deployed behind the
@@ -125,8 +145,8 @@ swift test
 swift format lint --recursive --strict Sources Tests
 ```
 
-`swift run` serves on `:8080`. Without `REDIS_HOST` set, falls back to in-memory sessions and no
-response caching. Without backend URL overrides, API calls default to in-cluster DNS names that
-won't resolve outside the cluster - set `CATALOG_API_URL` (see `BackendConfig.swift`) to a
-reachable endpoint, e.g. `https://api.catalog.dev.sweetrpg.com/0`, for local development against
-real data.
+`swift run` serves on `:8080`. Without `REDIS_HOST` set, no response caching. Without
+`SHARED_SESSION_REDIS_HOST` set, every visitor reads as logged-out. Without backend URL
+overrides, API calls default to in-cluster DNS names that won't resolve outside the cluster - set
+`CATALOG_API_URL` (see `BackendConfig.swift`) to a reachable endpoint, e.g.
+`https://api.catalog.dev.sweetrpg.com/0`, for local development against real data.

@@ -42,8 +42,6 @@ spec:
                       - configMapRef:
                             name: web-env
                       - secretRef:
-                            name: web-auth0
-                      - secretRef:
                             name: web-cache
                   ports:
                       - containerPort: 8080
