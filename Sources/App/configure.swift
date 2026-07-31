@@ -43,18 +43,25 @@ public func configure(_ app: Application) async throws {
     )
   }
 
-  // auth-web's own dedicated Redis instance, read-only from here - the shared session store
-  // every frontend reads. Not the same instance as this app's own cache Redis above. This app
-  // never runs its own Auth0 code-exchange or SessionsMiddleware - see SessionUserAccess.swift.
+  // The shared "redis" instance in sweetrpg-support (auth-web's session store), read-only from
+  // here - not the same instance as this app's own cache Redis above, and not dedicated to any
+  // one service. See docs/frontend-conventions.md's "Shared sweetrpg-support Redis instance"
+  // section (sweetrpg/platform) for the full DB-index registry. This app never runs its own
+  // Auth0 code-exchange or SessionsMiddleware - see SessionUserAccess.swift.
   if let sharedSessionRedisHost = Environment.get("SHARED_SESSION_REDIS_HOST"),
     !sharedSessionRedisHost.isEmpty
   {
     let sharedSessionRedisPort =
       Environment.get("SHARED_SESSION_REDIS_PORT").flatMap(Int.init) ?? 6379
+    // Must match auth-web's own DB index - this app reads the exact session keys auth-web
+    // writes, not a namespace of its own.
+    let sharedSessionRedisDB =
+      Environment.get("SHARED_SESSION_REDIS_DB").flatMap(Int.init) ?? 0
     app.redis(.sharedSession).configuration = try RedisConfiguration(
       hostname: sharedSessionRedisHost,
       port: sharedSessionRedisPort,
-      password: Environment.get("SHARED_SESSION_REDIS_PASS")
+      password: Environment.get("SHARED_SESSION_REDIS_PASS"),
+      database: sharedSessionRedisDB
     )
     app.sharedSessionRedisConfigured = true
   } else {

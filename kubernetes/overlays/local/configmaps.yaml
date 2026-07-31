@@ -15,10 +15,12 @@ data:
   # next to RedisConfiguration in configure.swift.
   REDIS_DB: "1"
 
-  # auth-web's own dedicated Redis instance - the shared session store this app reads (never
-  # writes). Not the same instance as REDIS_HOST above.
-  SHARED_SESSION_REDIS_HOST: auth-redis.sweetrpg-support.svc.cluster.local
+  # Shared "redis" instance in sweetrpg-support - auth-web's session store this app reads
+  # (never writes). Not the same instance as REDIS_HOST above - see dev overlay's comment for
+  # the DB-index registry pointer.
+  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-support.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
+  SHARED_SESSION_REDIS_DB: "2"
 
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,
   # so no /0 or /1 API-version prefix (that's only stripped by catalog-api's Traefik middleware

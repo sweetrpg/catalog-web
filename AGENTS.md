@@ -49,11 +49,13 @@ app's own `/login` page used to exist here and were removed as part of that migr
 directly instead.
 
 `Request.currentUser` (`SessionUserAccess.swift`) reads the shared `sweetrpg_session` cookie
-`auth-web` writes, via a **separate** Redis connection (`RedisID.sharedSession`, `auth-web`'s own
-dedicated instance in `sweetrpg-support`) from this app's own cache Redis
-(`sweetrpg-catalog`). It deliberately does not go through Vapor's `Session`/`SessionsMiddleware`
-- touching `req.session` on every request would create and write back a brand-new session for
-every anonymous visitor, which is exactly the write this read-only consumer must never make.
+`auth-web` writes, via a **separate** Redis connection (`RedisID.sharedSession`, the shared
+`redis.sweetrpg-support` instance auth-web also uses, on its own DB index - see
+`sweetrpg/platform`'s `docs/frontend-conventions.md` for the full DB-index registry) from this
+app's own cache Redis (`sweetrpg-catalog`). It deliberately does not go through Vapor's
+`Session`/`SessionsMiddleware` - touching `req.session` on every request would create and write
+back a brand-new session for every anonymous visitor, which is exactly the write this read-only
+consumer must never make.
 Fails open (`nil`) on every error path: disabled, unreachable Redis, missing cookie, missing key,
 malformed JSON - same fail-open contract `ResilientRedisSessionDriver` gave every Vapor frontend
 before this app's own copy of it was removed.
