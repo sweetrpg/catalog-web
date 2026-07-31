@@ -10,6 +10,7 @@ struct PageMeta: Content {
   let sharedAssetsURL: String
   let buildVersion: String
   let buildDate: String
+  let buildHash: String
   let banners: [Banner]
 
   /// Fetches banner messages as part of building page metadata, so every existing call site
@@ -26,6 +27,7 @@ struct PageMeta: Content {
       sharedAssetsURL: req.sharedAssetsURL,
       buildVersion: req.buildInfo.version,
       buildDate: req.buildInfo.date,
+      buildHash: String(req.buildInfo.sha.prefix(8)),
       banners: banners
     )
   }
