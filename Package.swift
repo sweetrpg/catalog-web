@@ -11,7 +11,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/vapor.git", from: "4.99.0"),
         // 🍃 An expressive, performant, and extensible templating language.
         .package(url: "https://github.com/vapor/leaf.git", from: "4.3.0"),
-        // 🔴 Redis-backed session/response caching.
+        // 🔴 Redis-backed response caching, and a read-only connection to auth-web's shared
+        // session store.
         .package(url: "https://github.com/vapor/redis.git", from: "4.10.0"),
         // 📊 Prometheus metrics.
         .package(url: "https://github.com/swift-server/swift-prometheus.git", from: "2.0.0"),
@@ -51,6 +52,7 @@ let package = Package(
             dependencies: [
                 .target(name: "App"),
                 .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "Redis", package: "redis"),
             ]
         ),
     ]

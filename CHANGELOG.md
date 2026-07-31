@@ -1,4 +1,13 @@
 
+## Unreleased
+
+### Changed
+- Migrated to the platform's shared suite-wide login: removed this app's own Auth0
+  Authorization Code flow (`AuthController`, `Auth0Config`, `ResilientRedisSessionDriver`, the
+  `/login` page) and its unverified local ID-token decode. `auth-web` is now the sole login
+  owner; this app only reads the shared session it establishes (read-only Redis connection,
+  fails open on any error).
+
 ## 0.3.0 - 2026-07-26
 
 ### Added

@@ -12,6 +12,12 @@ struct PageMeta: Content {
   let buildDate: String
   let buildHash: String
   let banners: [Banner]
+  /// `auth-web`'s login link, with `return_to` set to this request's own full path (including
+  /// `basePath`) so a successful login lands the visitor back where they started. `auth-web`
+  /// sits at `/auth` on the same host root, not under this app's own `basePath` - see
+  /// design.md's "auth-web is the sole owner of the Authorization Code exchange" decision.
+  let loginURL: String
+  let logoutURL: String
 
   /// Fetches banner messages as part of building page metadata, so every existing call site
   /// (`meta: PageMeta(req)` -> `meta: await PageMeta.make(req)`) gets banner display "for
@@ -21,6 +27,9 @@ struct PageMeta: Content {
     let pageScope = "page:\(req.basePath)\(req.url.path)"
     let banners = await req.adminClient.fetchBanners(
       scopes: ["platform", "service:catalog", pageScope])
+    let returnTo = "\(req.basePath)\(req.url.path)"
+    let encodedReturnTo =
+      returnTo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "/"
     return PageMeta(
       basePath: req.basePath,
       rootURL: req.rootURL,
@@ -28,7 +37,9 @@ struct PageMeta: Content {
       buildVersion: req.buildInfo.version,
       buildDate: req.buildInfo.date,
       buildHash: String(req.buildInfo.sha.prefix(8)),
-      banners: banners
+      banners: banners,
+      loginURL: "/auth/login?return_to=\(encodedReturnTo)",
+      logoutURL: "/auth/logout"
     )
   }
 }

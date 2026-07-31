@@ -39,4 +39,16 @@ extension Application {
     get { storage[RedisConfiguredKey.self] ?? false }
     set { storage[RedisConfiguredKey.self] = newValue }
   }
+
+  private struct SharedSessionRedisConfiguredKey: StorageKey {
+    typealias Value = Bool
+  }
+
+  /// Whether the `.sharedSession` Redis connection (auth-web's own instance, read-only from
+  /// this app) is configured - a separate flag from `redisConfigured`, which tracks this app's
+  /// own cache/rate-limit Redis in `sweetrpg-catalog`. See `SessionUserAccess.swift`.
+  var sharedSessionRedisConfigured: Bool {
+    get { storage[SharedSessionRedisConfiguredKey.self] ?? false }
+    set { storage[SharedSessionRedisConfiguredKey.self] = newValue }
+  }
 }
