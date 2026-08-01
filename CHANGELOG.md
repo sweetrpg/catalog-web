@@ -1,4 +1,26 @@
 
+## 0.4.0 - 2026-08-01
+
+### Added
+- Add AdminClient for banner message integration (#25)
+- Add overlays/local for the shared Tailscale front door (#26)
+- Add build hash display in footer (#28)
+- Migrate to auth-web's shared session
+
+
+### Documentation
+- Update Branding assets section for shared static assets (#14)
+- Add full badge row to README (CI, coverage, and the rest) (#23)
+- Fix coverage badge URL to point at GitHub Pages (#24)
+
+
+### Fixed
+- Application name
+- Remove HPA and PDB from dev overlay
+- Remove ExternalDNS annotations from dev Ingress (#20)
+
+
+
 ## Unreleased
 
 ### Changed
