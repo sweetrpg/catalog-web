@@ -1,4 +1,11 @@
 
+## 0.4.2 - 2026-08-01
+
+### Fixed
+- Drop dead COPY of removed Public/ directory (#33)
+
+
+
 ## 0.4.1 - 2026-08-01
 
 ### Fixed
