@@ -1,5 +1,16 @@
 # SweetRPG Catalog Web
 
+[![CI](https://github.com/sweetrpg/catalog-web/actions/workflows/ci.yaml/badge.svg)](https://github.com/sweetrpg/catalog-web/actions/workflows/ci.yaml)
+[![Coverage](https://img.shields.io/endpoint?url=https://sweetrpg.github.io/catalog-web/coverage-badge.json)](https://sweetrpg.github.io/catalog-web/)
+[![License](https://img.shields.io/github/license/sweetrpg/catalog-web.svg)](https://img.shields.io/github/license/sweetrpg/catalog-web.svg)
+[![Issues](https://img.shields.io/github/issues/sweetrpg/catalog-web.svg)](https://img.shields.io/github/issues/sweetrpg/catalog-web.svg)
+[![PRs](https://img.shields.io/github/issues-pr/sweetrpg/catalog-web.svg)](https://img.shields.io/github/issues-pr/sweetrpg/catalog-web.svg)
+[![Dependabot](https://badgen.net/github/dependabot/sweetrpg/catalog-web)](https://badgen.net/github/dependabot/sweetrpg/catalog-web)
+[![Deployment](https://argocd.dev.pilgrimagesoftware.com/api/badge?name=sweetrpg-catalog-web&revision=true&showAppName=true&namespace=sweetrpg-system)](https://argocd.dev.pilgrimagesoftware.com/applications/sweetrpg-catalog-web)
+
+[![Swift](https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white)](https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white)
+[![Built with love](https://ForTheBadge.com/images/badges/built-with-love.svg)](https://ForTheBadge.com/images/badges/built-with-love.svg)
+
 Server-rendered Vapor (Swift) frontend for the SweetRPG Catalog domain: browse volumes, view
 details, and (once shelf-api is wired up) track what's on your shelves. The org's first
 Vapor/Swift-based web frontend - see `docs/service-conventions.md` in the `platform` repo for

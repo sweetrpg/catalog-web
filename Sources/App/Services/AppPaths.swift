@@ -26,11 +26,4 @@ extension Request {
   var sharedAssetsURL: String {
     Environment.get("SHARED_ASSETS_URL") ?? "http://localhost:8081"
   }
-
-  /// Redirects to a path on this app itself (e.g. "/login"), prefixed with `basePath`. Use
-  /// this instead of `redirect(to:)` for any in-app redirect target - `redirect(to:)` is still
-  /// correct as-is for external URLs (e.g. Auth0's own domain), which must not be prefixed.
-  func redirectLocal(to path: String) -> Response {
-    redirect(to: basePath + path)
-  }
 }

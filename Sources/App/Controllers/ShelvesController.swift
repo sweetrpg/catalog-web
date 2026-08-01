@@ -11,13 +11,13 @@ struct ShelvesController: RouteCollection {
 
   @Sendable
   func index(req: Request) async throws -> View {
-    let user = req.currentUser
+    let user = await req.currentUser
     return try await req.view.render(
       "shelves",
       ShelvesContext(
         user: user.map(LeafUser.init),
         isLoggedIn: user != nil,
-        meta: PageMeta(req)
+        meta: await PageMeta.make(req)
       ))
   }
 }

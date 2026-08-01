@@ -3,11 +3,27 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>The Catalogue</title>
+	<title>Catalogue</title>
 	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/favicon.png">
 	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/main.css">
+	#if(count(meta.banners) > 0):
+	<style>
+		.banner-region { display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 0; }
+		.banner { border-radius: 6px; padding: 10px 16px; font-size: 0.9rem; border: 1px solid transparent; }
+		.banner-info { background: #e6f2ff; border-color: #99c9ff; color: #0a3d7a; }
+		.banner-warning { background: #fff6e0; border-color: #f0c669; color: #7a5a00; }
+		.banner-critical { background: #fde8e8; border-color: #f0a3a3; color: #7a1212; font-weight: 600; }
+	</style>
+	#endif
 </head>
 <body>
+	#if(count(meta.banners) > 0):
+	<div class="banner-region">
+		#for(banner in meta.banners):
+		<div class="banner banner-#(banner.severity)" role="status">#(banner.message)</div>
+		#endfor
+	</div>
+	#endif
 	#extend("partials/header")
 	<main class="page">
 		#import("body")

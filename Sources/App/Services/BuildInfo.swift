@@ -9,10 +9,12 @@ import Vapor
 struct BuildInfo: Content {
   let version: String
   let date: String
+  let sha: String
 
   private struct RawBuildInfo: Decodable {
     let version: String
     let date: String
+    let sha: String
   }
 
   static func load() -> BuildInfo {
@@ -20,9 +22,9 @@ struct BuildInfo: Content {
     guard let data = FileManager.default.contents(atPath: path),
       let raw = try? JSONDecoder().decode(RawBuildInfo.self, from: data)
     else {
-      return BuildInfo(version: "dev", date: "unknown")
+      return BuildInfo(version: "dev", date: "unknown", sha: "unset")
     }
-    return BuildInfo(version: raw.version, date: raw.date)
+    return BuildInfo(version: raw.version, date: raw.date, sha: raw.sha)
   }
 }
 

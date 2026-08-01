@@ -1,4 +1,35 @@
 
+## 0.4.0 - 2026-08-01
+
+### Added
+- Add AdminClient for banner message integration (#25)
+- Add overlays/local for the shared Tailscale front door (#26)
+- Add build hash display in footer (#28)
+- Migrate to auth-web's shared session
+
+
+### Documentation
+- Update Branding assets section for shared static assets (#14)
+- Add full badge row to README (CI, coverage, and the rest) (#23)
+- Fix coverage badge URL to point at GitHub Pages (#24)
+
+
+### Fixed
+- Application name
+- Remove HPA and PDB from dev overlay
+- Remove ExternalDNS annotations from dev Ingress (#20)
+
+
+
+## Unreleased
+
+### Changed
+- Migrated to the platform's shared suite-wide login: removed this app's own Auth0
+  Authorization Code flow (`AuthController`, `Auth0Config`, `ResilientRedisSessionDriver`, the
+  `/login` page) and its unverified local ID-token decode. `auth-web` is now the sole login
+  owner; this app only reads the shared session it establishes (read-only Redis connection,
+  fails open on any error).
+
 ## 0.3.0 - 2026-07-26
 
 ### Added
