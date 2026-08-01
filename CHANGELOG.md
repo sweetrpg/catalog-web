@@ -1,4 +1,11 @@
 
+## 0.4.1 - 2026-08-01
+
+### Fixed
+- Point shared session Redis at the correct host/DB (#31)
+
+
+
 ## 0.4.0 - 2026-08-01
 
 ### Added
