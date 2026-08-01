@@ -51,10 +51,15 @@ public func configure(_ app: Application) async throws {
   {
     let sharedSessionRedisPort =
       Environment.get("SHARED_SESSION_REDIS_PORT").flatMap(Int.init) ?? 6379
+    // Must match auth-web's own REDIS_DB (DB 2 in every deployed environment) - auth-web is
+    // the sole writer of this store, so reading from the wrong DB index silently degrades to
+    // "every visitor reads as logged-out" the same way an unreachable host does.
+    let sharedSessionRedisDB = Environment.get("SHARED_SESSION_REDIS_DB").flatMap(Int.init) ?? 2
     app.redis(.sharedSession).configuration = try RedisConfiguration(
       hostname: sharedSessionRedisHost,
       port: sharedSessionRedisPort,
-      password: Environment.get("SHARED_SESSION_REDIS_PASS")
+      password: Environment.get("SHARED_SESSION_REDIS_PASS"),
+      database: sharedSessionRedisDB
     )
     app.sharedSessionRedisConfigured = true
   } else {

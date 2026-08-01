@@ -16,9 +16,11 @@ data:
   REDIS_DB: "1"
 
   # auth-web's own dedicated Redis instance - the shared session store this app reads (never
-  # writes). Not the same instance as REDIS_HOST above.
-  SHARED_SESSION_REDIS_HOST: auth-redis.sweetrpg-support.svc.cluster.local
+  # writes). Not the same instance as REDIS_HOST above. Host/DB must match auth-web's own
+  # REDIS_HOST/REDIS_DB exactly - see dev overlay's comment for the same reasoning.
+  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-support.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
+  SHARED_SESSION_REDIS_DB: "2"
 
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,
   # so no /0 or /1 API-version prefix (that's only stripped by catalog-api's Traefik middleware
@@ -57,7 +59,7 @@ data:
   # Telemetry section), but port 4317 (gRPC) rather than their 4318 (HTTP) - see the comment in
   # TracingSetup.swift for why (swift-otel only ships a gRPC exporter in the version pinned
   # here).
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo-distributor.observability.svc.cluster.local:4317/
+  # OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo-distributor.observability.svc.cluster.local:4317/
 
   # SENTRY_DSN: unset until this app has its own Sentry project/DSN provisioned - Sentry
   # reporting no-ops gracefully (see Application.sentryReporter) rather than failing if unset.
