@@ -127,9 +127,17 @@ struct LeafTag: Content {
 
 struct LeafUser: Content {
   let name: String
+  /// First character of `name`, uppercased - the avatar trigger's label.
+  let avatarInitial: String
+  /// `true` when the session's `roles` (verified by `users-api`) includes `admin` - gates the
+  /// avatar menu's "Admin" item, mirroring `admin-web`'s own `AuthRequiredMiddleware` role
+  /// check.
+  let isAdmin: Bool
 
   init(_ user: SessionUser) {
     self.name = user.name
+    self.avatarInitial = user.name.first.map { String($0).uppercased() } ?? ""
+    self.isAdmin = user.roles.contains("admin")
   }
 }
 

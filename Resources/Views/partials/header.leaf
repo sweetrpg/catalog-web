@@ -11,8 +11,21 @@
 		<input class="input" type="text" name="q" placeholder="Search titles...">
 	</form>
 	#if(user):
-		<span class="nav-user">#(user.name)</span>
-		<form action="#(meta.logoutURL)" method="post"><button type="submit" class="btn btn-ghost">Log Out</button></form>
+		<div class="avatar-menu">
+			<button type="button" class="avatar-menu-trigger">#(user.avatarInitial)</button>
+			<div class="avatar-menu-panel" hidden>
+				<span class="avatar-menu-name">#(user.name)</span>
+				<hr class="avatar-menu-divider">
+				<a class="avatar-menu-item" href="#(meta.userSettingsURL)">User Settings</a>
+				#if(user.isAdmin):
+				<a class="avatar-menu-item" href="#(meta.adminURL)">Admin</a>
+				#endif
+				<hr class="avatar-menu-divider">
+				<form action="#(meta.logoutURL)" method="post" class="avatar-menu-item-form">
+					<button type="submit" class="avatar-menu-item">Log Out</button>
+				</form>
+			</div>
+		</div>
 	#else:
 		<a class="btn btn-ghost" href="#(meta.loginURL)">Log In</a>
 	#endif
