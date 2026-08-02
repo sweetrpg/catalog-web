@@ -6,6 +6,8 @@ on:
     push:
         tags:
             - "v*"
+        branches:
+            - develop
     workflow_dispatch:
 
 permissions:
@@ -44,14 +46,13 @@ jobs:
                   images: |
                       ghcr.io/sweetrpg/catalog-web
                   tags: |
-                      type=raw,value=latest
-                      type=raw,value=${{ steps.previoustag.outputs.tag }}
-                      type=raw,value=${{ steps.getbuilddate.outputs.tagdate }}
-                      type=ref,event=tag
-                      type=semver,pattern={{version}}
-                      type=semver,pattern={{major}}.{{minor}}
-                      type=semver,pattern={{major}}
-                      type=sha
+                    type=raw,value=latest
+                    type=ref,event=tag
+                    type=ref,event=branch
+                    type=semver,pattern={{version}}
+                    type=semver,pattern={{major}}.{{minor}}
+                    type=semver,pattern={{major}}
+                    type=sha
 
     # One native-runner job per platform - no QEMU emulation, and a per-platform GHA cache
     # scope so the Swift build layer only invalidates for the arch that actually changed.
