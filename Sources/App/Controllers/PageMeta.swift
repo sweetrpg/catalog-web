@@ -11,7 +11,7 @@ struct PageMeta: Content {
   let buildVersion: String
   let buildDate: String
   let buildHash: String
-  let banners: [Banner]
+  let banners: [LeafBanner]
   /// `auth-web`'s login link, with `return_to` set to this request's own full path (including
   /// `basePath`) so a successful login lands the visitor back where they started. `auth-web`
   /// sits at `/auth` on the same host root, not under this app's own `basePath` - see
@@ -26,7 +26,8 @@ struct PageMeta: Content {
   static func make(_ req: Request) async -> PageMeta {
     let pageScope = "page:\(req.basePath)\(req.url.path)"
     let banners = await req.adminClient.fetchBanners(
-      scopes: ["platform", "service:catalog", pageScope])
+      scopes: ["platform", "service:catalog", pageScope]
+    ).map(LeafBanner.init)
     let returnTo = "\(req.basePath)\(req.url.path)"
     let encodedReturnTo =
       returnTo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "/"

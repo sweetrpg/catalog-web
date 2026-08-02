@@ -80,5 +80,10 @@ public func configure(_ app: Application) async throws {
   let rateLimit = Environment.get("RATE_LIMIT").flatMap(Int.init) ?? 20
   app.middleware.use(RateLimitMiddleware(capacity: rateLimit))
 
+  // Checked after rate limiting (a request that shouldn't be served at all needn't consume a
+  // rate-limit token) but before route dispatch, so an active maintenance window intercepts
+  // every route uniformly instead of each controller needing its own check.
+  app.middleware.use(MaintenanceModeMiddleware())
+
   try routes(app)
 }

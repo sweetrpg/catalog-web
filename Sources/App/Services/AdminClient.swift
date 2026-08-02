@@ -1,70 +1,60 @@
-import Foundation
+import AdminAPIClient
 import Vapor
 
-/// A banner message as returned by admin-api's `GET /banners`. Only the fields this app
-/// renders are decoded - admin-api's `models.BannerMessage` has more (id, scope, timestamps)
-/// that catalog-web has no use for yet.
-struct Banner: Content {
-  let severity: String
-  let message: String
-}
-
-/// Fetches banner messages from admin-api for this app's scopes (`platform`,
-/// `service:catalog`, and the current page), with a bounded-TTL cache and fail-open
-/// behavior: any error, timeout, or missing `ADMIN_API_URL` yields an empty list rather than
-/// surfacing a failure to the page being decorated - matches main-web's `AdminClient` in
-/// spirit (naming and behavior), adapted to this app's Vapor/Redis-cache conventions instead
-/// of a hand-rolled in-memory cache.
-struct AdminClient {
-  let client: Client
-  let cache: CacheService
-  let baseURL: String?
-  let logger: Logger
-
-  init(request: Request) {
-    self.client = request.client
-    self.cache = request.cacheService
-    self.baseURL = request.backendConfig.adminAPIURL
-    self.logger = request.logger
+/// A single, app-lifetime `AdminAPIClient.AdminClient` actor instance, not one per request -
+/// the SDK bakes in its own 90s in-memory cache TTL and 2s timeout per actor instance, so a
+/// fresh actor per request would defeat that caching entirely. Mirrors `BackendConfig`'s lazy
+/// `Application.storage` pattern.
+extension Application {
+  private struct AdminClientKey: StorageKey {
+    typealias Value = AdminAPIClient.AdminClient
   }
 
-  /// Returns active banners for the given scopes (e.g. `["platform", "service:catalog",
-  /// "page:/browse"]`), most-severe-first as returned by admin-api. Never throws.
-  func fetchBanners(scopes: [String]) async -> [Banner] {
-    guard let baseURL else { return [] }
-
-    do {
-      return try await cache.getOrSet(
-        "admin:banners:\(scopes.joined(separator: ","))", ttlSeconds: 90
-      ) {
-        try await fetch(baseURL: baseURL, scopes: scopes)
-      }
-    } catch {
-      logger.warning("admin-api banner fetch failed, rendering with no banners: \(error)")
-      return []
+  var adminClient: AdminAPIClient.AdminClient {
+    if let existing = storage[AdminClientKey.self] {
+      return existing
     }
-  }
-
-  private func fetch(baseURL: String, scopes: [String]) async throws -> [Banner] {
-    let query = scopes.map {
-      "scope=\($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0)"
-    }
-    .joined(separator: "&")
-    // A 2s ClientRequest.timeout bounds both connect and response wait - unlike a
-    // Task-cancellation race, this actually aborts a hung connect() at the NIO level rather
-    // than merely giving up on awaiting it while the underlying socket operation keeps running
-    // in the background for its own (much longer) default timeout.
-    let response = try await client.get(URI(string: "\(baseURL)/banners?\(query)")) { req in
-      req.timeout = .seconds(2)
-    }
-    guard response.status == .ok else {
-      throw Abort(.badGateway, reason: "admin-api returned \(response.status)")
-    }
-    let body = response.body.map { Data(buffer: $0) } ?? Data()
-    return try JSONDecoder().decode([Banner].self, from: body)
+    let client = AdminAPIClient.AdminClient(baseURL: backendConfig.adminAPIURL)
+    storage[AdminClientKey.self] = client
+    return client
   }
 }
 
 extension Request {
-  var adminClient: AdminClient { AdminClient(request: self) }
+  /// Same app-lifetime actor as `Application.adminClient` - never throws (see the SDK's
+  /// fail-open contract), so no error handling is needed at call sites.
+  var adminClient: AdminAPIClient.AdminClient { application.adminClient }
+}
+
+// MARK: - Leaf view models
+
+/// `AdminAPIClient.Banner`/`MaintenanceMode` are `Decodable`-only (the SDK only ever decodes
+/// admin-api's responses, never encodes them) - Leaf's context rendering requires `Encodable`
+/// to walk the object graph, so both need a local, Leaf-friendly wrapper, same as
+/// `LeafVolumeCard`/`LeafUser` etc. in `CatalogController.swift`.
+
+struct LeafBanner: Content {
+  let severity: String
+  let message: String
+
+  init(_ banner: AdminAPIClient.Banner) {
+    self.severity = banner.severity
+    self.message = banner.message
+  }
+}
+
+struct LeafMaintenanceMode: Content {
+  let label: String
+  let description: String
+  let startsAt: String
+  let endsAt: String?
+  let hasEndsAt: Bool
+
+  init(_ mode: AdminAPIClient.MaintenanceMode) {
+    self.label = mode.label
+    self.description = mode.description
+    self.startsAt = mode.startsAt
+    self.endsAt = mode.endsAt
+    self.hasEndsAt = mode.endsAt != nil
+  }
 }
