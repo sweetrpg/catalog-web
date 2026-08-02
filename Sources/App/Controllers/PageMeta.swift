@@ -18,6 +18,13 @@ struct PageMeta: Content {
   /// design.md's "auth-web is the sole owner of the Authorization Code exchange" decision.
   let loginURL: String
   let logoutURL: String
+  /// Fixed paths on the shared `dev.sweetrpg.com` host, matching `/catalog`'s own convention -
+  /// see design.md's "User Settings links to a fixed, currently-unbuilt path" decision in the
+  /// suite-avatar-menu OpenSpec change. `adminURL` gates behind `LeafUser.isAdmin` in the
+  /// template; `userSettingsURL` (`/users`) 404s until `users-web` ships - a separate,
+  /// already-tracked gap.
+  let adminURL: String
+  let userSettingsURL: String
 
   /// Fetches banner messages as part of building page metadata, so every existing call site
   /// (`meta: PageMeta(req)` -> `meta: await PageMeta.make(req)`) gets banner display "for
@@ -40,7 +47,9 @@ struct PageMeta: Content {
       buildHash: String(req.buildInfo.sha.prefix(8)),
       banners: banners,
       loginURL: "/auth/login?return_to=\(encodedReturnTo)",
-      logoutURL: "/auth/logout"
+      logoutURL: "/auth/logout",
+      adminURL: "/admin",
+      userSettingsURL: "/users"
     )
   }
 }

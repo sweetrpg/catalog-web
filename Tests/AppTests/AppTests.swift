@@ -107,6 +107,48 @@ struct AppTests {
         #expect(res.status == .ok)
         #expect(res.body.string.contains(#"href="/auth/login?return_to=/test-home""#))
         #expect(!res.body.string.contains("Log Out"))
+        #expect(!res.body.string.contains("avatar-menu-trigger"))
+      }
+    }
+  }
+
+  @Test("header renders the avatar menu without Admin for a non-admin session")
+  func headerRendersAvatarMenuWithoutAdminForNonAdmin() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(SessionUser(sub: "abc", name: "Alice", email: nil, roles: [])),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("avatar-menu-trigger"))
+        #expect(res.body.string.contains(#"href="/users""#))
+        #expect(!res.body.string.contains(#"href="/admin""#))
+      }
+    }
+  }
+
+  @Test("header renders the Admin link for an admin session")
+  func headerRendersAdminLinkForAdminSession() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(SessionUser(sub: "abc", name: "Bob", email: nil, roles: ["admin"])),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"href="/admin""#))
+        #expect(res.body.string.contains(#"href="/users""#))
       }
     }
   }
