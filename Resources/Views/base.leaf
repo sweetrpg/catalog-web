@@ -6,6 +6,7 @@
 	<title>Catalogue</title>
 	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/favicon.png">
 	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/main.css">
+	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/avatar-menu.css">
 	#if(count(meta.banners) > 0):
 	<style>
 		.banner-region { display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 0; }
@@ -29,5 +30,6 @@
 		#import("body")
 	</main>
 	#extend("partials/footer")
+	<script src="#(meta.sharedAssetsURL)/static/avatar-menu.js" defer></script>
 </body>
 </html>
