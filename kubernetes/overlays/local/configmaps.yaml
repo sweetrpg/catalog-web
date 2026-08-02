@@ -18,9 +18,9 @@ data:
   # auth-web's own dedicated Redis instance - the shared session store this app reads (never
   # writes). Not the same instance as REDIS_HOST above. Host/DB must match auth-web's own
   # REDIS_HOST/REDIS_DB exactly - see dev overlay's comment for the same reasoning.
-  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-support.svc.cluster.local
+  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-auth.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
-  SHARED_SESSION_REDIS_DB: "2"
+  SHARED_SESSION_REDIS_DB: "0"
 
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,
   # so no /0 or /1 API-version prefix (that's only stripped by catalog-api's Traefik middleware
