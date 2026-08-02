@@ -27,7 +27,7 @@ struct MaintenanceModeMiddleware: AsyncMiddleware {
       "maintenance",
       MaintenanceContext(mode: LeafMaintenanceMode(active), meta: await PageMeta.make(request))
     )
-    var response = try await view.encodeResponse(for: request)
+    let response = try await view.encodeResponse(for: request).get()
     response.status = .serviceUnavailable
     return response
   }
