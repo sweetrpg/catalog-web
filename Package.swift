@@ -21,6 +21,9 @@ let package = Package(
         // section).
         .package(url: "https://github.com/apple/swift-distributed-tracing.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-otel/swift-otel.git", from: "0.8.0"),
+        // 🛠️ Shared admin-api client (banners, maintenance-mode) - replaces this app's own
+        // hand-rolled AdminClient, see sweetrpg/platform#15.
+        .package(url: "https://github.com/sweetrpg/admin-api-client.swift.git", from: "0.0.1"),
     ],
     targets: [
         .executableTarget(
@@ -33,6 +36,7 @@ let package = Package(
                 .product(name: "Tracing", package: "swift-distributed-tracing"),
                 .product(name: "OTel", package: "swift-otel"),
                 .product(name: "OTLPGRPC", package: "swift-otel"),
+                .product(name: "AdminAPIClient", package: "admin-api-client.swift"),
             ],
             // Resources/ and the top-level Public/ are shipped as plain directories next to the
             // built binary (see Dockerfile), not via SwiftPM resource bundling - Vapor's default
