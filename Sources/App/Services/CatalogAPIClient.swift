@@ -1,24 +1,24 @@
+import CatalogAPIClient
 import Foundation
 import Vapor
 
-/// Thin wrapper around catalog-api's JSON:API endpoints. Fetches are cached in Redis for a
-/// short TTL (see `CacheService`) since these are read-mostly reference lists hit on every page
-/// load - mirrors catalog-api's own gin-contrib/cache pattern of caching per-call rather than
-/// blanket-caching every response.
-struct CatalogAPIClient {
-  let client: Client
+/// Thin wrapper around the `catalog-api-client.swift` SDK: assembles this app's decorated
+/// `VolumeViewModel`s from the SDK's raw JSON:API fetches, and adds this app's own Redis
+/// response caching (see `CacheService`) - the SDK deliberately has none, since caching backend
+/// and TTL policy are a per-app decision, not part of the SDK's contract. Named
+/// `CatalogAPIClientService` (not `CatalogAPIClient`) to avoid shadowing the imported SDK
+/// module of the same name within this file.
+struct CatalogAPIClientService {
+  let sdk: CatalogAPIClient
   let cache: CacheService
-  let baseURL: String
 
   init(request: Request) {
-    self.client = request.client
+    self.sdk = CatalogAPIClient(baseURL: request.backendConfig.catalogAPIURL)
     self.cache = request.cacheService
-    self.baseURL = request.backendConfig.catalogAPIURL
   }
 
   func fetchVolumes() async throws -> [VolumeViewModel] {
-    async let volumesDoc = getCached(
-      "catalog:volumes", as: JSONAPIDocument<VolumeAttributes>.self, path: "/volumes")
+    async let volumesDoc = getCached("catalog:volumes") { try await sdk.fetchVolumes() }
     async let systems = fetchNameMap(path: "/systems")
     async let publishers = fetchNameMap(path: "/publishers")
     async let studios = fetchNameMap(path: "/studios")
@@ -55,9 +55,9 @@ struct CatalogAPIClient {
   }
 
   func fetchCredits(volumeID: String) async throws -> [(role: String, person: String)] {
-    async let contributionsDoc = getCached(
-      "catalog:contributions", as: JSONAPIDocument<ContributionAttributes>.self,
-      path: "/contributions")
+    async let contributionsDoc = getCached("catalog:contributions") {
+      try await sdk.fetchContributions()
+    }
     async let personNames = fetchPersonNameMap()
 
     let (doc, persons) = try await (contributionsDoc, personNames)
@@ -75,8 +75,7 @@ struct CatalogAPIClient {
 
   func fetchReviews(volumeID: String) async throws -> [(author: String, rating: Int, text: String)]
   {
-    let doc = try await getCached(
-      "catalog:reviews", as: JSONAPIDocument<ReviewAttributes>.self, path: "/reviews")
+    let doc = try await getCached("catalog:reviews") { try await sdk.fetchReviews() }
     return doc.data.compactMap { resource in
       guard let volID = resource.relationships?["volume"]?.data?.ids.first,
         volID == volumeID
@@ -90,37 +89,22 @@ struct CatalogAPIClient {
   }
 
   private func fetchNameMap(path: String) async throws -> [String: String] {
-    let doc = try await getCached(
-      "catalog:\(path)", as: JSONAPIDocument<NamedAttributes>.self, path: path)
+    let doc = try await getCached("catalog:\(path)") { try await sdk.fetchNamed(path: path) }
     return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
   }
 
   private func fetchPersonNameMap() async throws -> [String: String] {
-    let doc = try await getCached(
-      "catalog:persons", as: JSONAPIDocument<PersonAttributes>.self, path: "/persons")
+    let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
     return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
   }
 
-  private func getCached<T: Codable & Sendable>(_ cacheKey: String, as type: T.Type, path: String)
-    async throws -> T
-  {
-    try await cache.getOrSet(cacheKey, ttlSeconds: 60) {
-      let response = try await client.get(URI(string: baseURL + path))
-      let body = response.body.map { Data(buffer: $0) } ?? Data()
-      // catalog-api has been observed appending a second, unrelated JSON object after a
-      // newline when its Redis cache write fails server-side (a leaked error that should
-      // have just been logged, not written to the response) - see
-      // sweetrpg/catalog-api#121. Decoding only up to the first newline is defensive
-      // against that (and matches the workaround the original client-rendered prototype of
-      // this UI used), not a statement that this response shape is expected or supported.
-      let firstLine =
-        body.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: true)
-        .first ?? body
-      return try JSONDecoder().decode(T.self, from: Data(firstLine))
-    }
+  private func getCached<T: Codable & Sendable>(
+    _ cacheKey: String, fetch: @Sendable () async throws -> T
+  ) async throws -> T {
+    try await cache.getOrSet(cacheKey, ttlSeconds: 60, fetch: fetch)
   }
 }
 
 extension Request {
-  var catalogAPI: CatalogAPIClient { CatalogAPIClient(request: self) }
+  var catalogAPI: CatalogAPIClientService { CatalogAPIClientService(request: self) }
 }
