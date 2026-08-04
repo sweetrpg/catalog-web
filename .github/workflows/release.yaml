@@ -19,4 +19,8 @@ jobs:
     uses: sweetrpg/github-actions/.github/workflows/swift-release.yaml@master
     with:
       tag: ${{ inputs.tag }}
+      # Same fix as ci.yaml/pr.yaml: unconstrained dependency resolution pulls in swift-log/
+      # swift-nio releases requiring a newer swift-tools-version than this reusable workflow's
+      # "6.0" default toolchain.
+      swift-version: "6.2"
     secrets: inherit
