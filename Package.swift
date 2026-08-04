@@ -24,6 +24,9 @@ let package = Package(
         // 🛠️ Shared admin-api client (banners, maintenance-mode) - replaces this app's own
         // hand-rolled AdminClient, see sweetrpg/platform#15.
         .package(url: "https://github.com/sweetrpg/admin-api-client.swift.git", from: "0.0.1"),
+        // 📚 Shared catalog-api client (JSON:API fetch/decoding) - replaces this app's own
+        // hand-rolled CatalogAPIClient, see sweetrpg/platform's api-client-sdks change.
+        .package(url: "https://github.com/sweetrpg/catalog-api-client.swift.git", from: "0.0.1"),
     ],
     targets: [
         .executableTarget(
@@ -37,6 +40,7 @@ let package = Package(
                 .product(name: "OTel", package: "swift-otel"),
                 .product(name: "OTLPGRPC", package: "swift-otel"),
                 .product(name: "AdminAPIClient", package: "admin-api-client.swift"),
+                .product(name: "CatalogAPIClient", package: "catalog-api-client.swift"),
             ],
             // Resources/ and the top-level Public/ are shipped as plain directories next to the
             // built binary (see Dockerfile), not via SwiftPM resource bundling - Vapor's default
