@@ -43,6 +43,8 @@ spec:
                             name: web-env
                       - secretRef:
                             name: web-cache
+                      - secretRef:
+                            name: web-shared-session
                   ports:
                       - containerPort: 8080
                         name: http
