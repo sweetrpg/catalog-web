@@ -50,7 +50,7 @@ directly instead.
 
 `Request.currentUser` (`SessionUserAccess.swift`) reads the shared `sweetrpg_session` cookie
 `auth-web` writes, via a **separate** Redis connection (`RedisID.sharedSession`, `auth-web`'s own
-dedicated instance in `sweetrpg-support`) from this app's own cache Redis
+dedicated instance in `sweetrpg-auth`) from this app's own cache Redis
 (`sweetrpg-catalog`). It deliberately does not go through Vapor's `Session`/`SessionsMiddleware`
 - touching `req.session` on every request would create and write back a brand-new session for
 every anonymous visitor, which is exactly the write this read-only consumer must never make.

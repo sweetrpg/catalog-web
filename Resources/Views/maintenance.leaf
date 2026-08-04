@@ -1,0 +1,18 @@
+#extend("base"):
+	#export("body"):
+		<section class="page-header">
+			<span class="section-label">Maintenance</span>
+			<h2>#(mode.label)</h2>
+		</section>
+
+		<div class="empty-state">
+			<p>#(mode.description)</p>
+			<p>Started: #(mode.startsAt)</p>
+			#if(mode.hasEndsAt):
+				<p>Expected back: #(mode.endsAt)</p>
+			#else:
+				<p>No estimated end time yet - check back soon.</p>
+			#endif
+		</div>
+	#endexport
+#endextend

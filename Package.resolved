@@ -1,6 +1,15 @@
 {
-  "originHash" : "4ecd62dc7921790717aa2ab0dfe55bab3ece0d26c55417a36bc5c103f585c4b9",
+  "originHash" : "123ad51a1d5d6fd7120efb6253c8f27ac438d149c8d711cb08bc0fbea8f28f62",
   "pins" : [
+    {
+      "identity" : "admin-api-client.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sweetrpg/admin-api-client.swift.git",
+      "state" : {
+        "revision" : "87e9cc4cc415e1bd8bb7e30a9dae3a4958650a0c",
+        "version" : "0.0.1"
+      }
+    },
     {
       "identity" : "async-http-client",
       "kind" : "remoteSourceControl",
@@ -17,6 +26,15 @@
       "state" : {
         "revision" : "6bbb83cbf9d886623a967a965c8fb1b73e6566f9",
         "version" : "1.22.0"
+      }
+    },
+    {
+      "identity" : "catalog-api-client.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sweetrpg/catalog-api-client.swift.git",
+      "state" : {
+        "revision" : "32f5bbddf3949c1a357af658c7fd3d17a30aa994",
+        "version" : "0.0.1"
       }
     },
     {

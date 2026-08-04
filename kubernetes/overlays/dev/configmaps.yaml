@@ -13,14 +13,15 @@ data:
   # Separate logical DB from catalog-api on the same shared Redis instance - see the comment
   # next to RedisConfiguration in configure.swift.
   REDIS_DB: "1"
-  # auth-web's own dedicated Redis instance - the shared session store this app reads (never
-  # writes). Unset means every visitor reads as logged-out, not a startup failure. Not the same
-  # instance as REDIS_HOST above. Host/DB must match auth-web's own REDIS_HOST/REDIS_DB exactly
-  # (fullnameOverride "redis" in support/common/cache's Helm chart, DB index 2) - a mismatch
-  # here fails open the same way an unreachable host does, silently, with no startup error.
-  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-support.svc.cluster.local
+  # auth-web's own dedicated Redis instance in sweetrpg-auth - the shared session store this app
+  # reads (never writes). Unset means every visitor reads as logged-out, not a startup failure.
+  # Not the same instance as REDIS_HOST above. Host/DB must match auth-web's own
+  # REDIS_HOST/REDIS_DB exactly (fullnameOverride "redis" in support/common/cache's Helm chart) -
+  # a mismatch here fails open the same way an unreachable host does, silently, with no startup
+  # error.
+  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-auth.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
-  SHARED_SESSION_REDIS_DB: "2"
+  SHARED_SESSION_REDIS_DB: "0"
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,
   # so no /0 or /1 API-version prefix (that's only stripped by catalog-api's Traefik middleware
   # in front of its public ingress; see strip-prefix-v1 in

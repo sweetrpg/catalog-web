@@ -11,13 +11,20 @@ struct PageMeta: Content {
   let buildVersion: String
   let buildDate: String
   let buildHash: String
-  let banners: [Banner]
+  let banners: [LeafBanner]
   /// `auth-web`'s login link, with `return_to` set to this request's own full path (including
   /// `basePath`) so a successful login lands the visitor back where they started. `auth-web`
   /// sits at `/auth` on the same host root, not under this app's own `basePath` - see
   /// design.md's "auth-web is the sole owner of the Authorization Code exchange" decision.
   let loginURL: String
   let logoutURL: String
+  /// Fixed paths on the shared `dev.sweetrpg.com` host, matching `/catalog`'s own convention -
+  /// see design.md's "User Settings links to a fixed, currently-unbuilt path" decision in the
+  /// suite-avatar-menu OpenSpec change. `adminURL` gates behind `LeafUser.isAdmin` in the
+  /// template; `userSettingsURL` (`/users`) 404s until `users-web` ships - a separate,
+  /// already-tracked gap.
+  let adminURL: String
+  let userSettingsURL: String
 
   /// Fetches banner messages as part of building page metadata, so every existing call site
   /// (`meta: PageMeta(req)` -> `meta: await PageMeta.make(req)`) gets banner display "for
@@ -26,7 +33,8 @@ struct PageMeta: Content {
   static func make(_ req: Request) async -> PageMeta {
     let pageScope = "page:\(req.basePath)\(req.url.path)"
     let banners = await req.adminClient.fetchBanners(
-      scopes: ["platform", "service:catalog", pageScope])
+      scopes: ["platform", "service:catalog", pageScope]
+    ).map(LeafBanner.init)
     let returnTo = "\(req.basePath)\(req.url.path)"
     let encodedReturnTo =
       returnTo.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "/"
@@ -39,7 +47,9 @@ struct PageMeta: Content {
       buildHash: String(req.buildInfo.sha.prefix(8)),
       banners: banners,
       loginURL: "/auth/login?return_to=\(encodedReturnTo)",
-      logoutURL: "/auth/logout"
+      logoutURL: "/auth/logout",
+      adminURL: "/admin",
+      userSettingsURL: "/users"
     )
   }
 }
