@@ -7,15 +7,18 @@
 	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/favicon.png">
 	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/main.css">
 	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/avatar-menu.css">
-	#if(count(meta.banners) > 0):
-	<style>
-		.banner-region { display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 0; }
-		.banner { border-radius: 6px; padding: 10px 16px; font-size: 0.9rem; border: 1px solid transparent; }
-		.banner-info { background: #e6f2ff; border-color: #99c9ff; color: #0a3d7a; }
-		.banner-warning { background: #fff6e0; border-color: #f0c669; color: #7a5a00; }
-		.banner-critical { background: #fde8e8; border-color: #f0a3a3; color: #7a1212; font-weight: 600; }
-	</style>
-	#endif
+	<script>
+	/* Applied synchronously, before first paint, so the page never flashes the wrong theme.
+	   Reads the same localStorage key main-web's theme toggle writes - this app has no toggle
+	   of its own, it only ever respects whatever the visitor already chose there. */
+	(function () {
+	  var stored = null;
+	  try { stored = localStorage.getItem('sweetrpg_theme_v1'); } catch (e) {}
+	  var theme = stored || 'system';
+	  var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+	  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+	})();
+	</script>
 </head>
 <body>
 	#if(count(meta.banners) > 0):
