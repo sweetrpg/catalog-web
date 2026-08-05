@@ -1,4 +1,21 @@
 
+## 0.5.0 - 2026-08-04
+
+### Added
+- Adopt admin-api-client.swift for maintenance mode
+- Replace plain-text user identity with the shared avatar menu
+
+
+### Changed
+- Adopt catalog-api-client.swift SDK, drop in-tree JSON:API client
+
+
+### Fixed
+- Await the EventLoopFuture from encodeResponse correctly
+- Authenticate to the shared session Redis
+
+
+
 ## 0.4.3 - 2026-08-01
 
 
