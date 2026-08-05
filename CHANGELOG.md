@@ -1,4 +1,16 @@
 
+## 0.5.0 - 2026-08-05
+
+### Added
+- Swap nav logo for theme-aware SVGs
+
+
+### Fixed
+- Respect the shared dark theme
+- Bump builder image to swift:6.2-jammy
+
+
+
 ## 0.4.3 - 2026-08-01
 
 
