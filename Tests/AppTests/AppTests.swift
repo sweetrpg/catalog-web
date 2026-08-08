@@ -133,6 +133,50 @@ struct AppTests {
     }
   }
 
+  @Test("header renders a Gravatar image with an onerror fallback when the session has an email")
+  func headerRendersGravatarImageWhenEmailPresent() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(
+              SessionUser(sub: "abc", name: "Alice", email: "alice@example.com", roles: [])),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("avatar-menu-avatar"))
+        #expect(res.body.string.contains("https://www.gravatar.com/avatar/"))
+        #expect(res.body.string.contains("d=404"))
+        #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
+        #expect(res.body.string.contains("avatar-menu-fallback"))
+      }
+    }
+  }
+
+  @Test("header renders only the fallback letter when the session has no email")
+  func headerRendersOnlyFallbackWithoutEmail() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(SessionUser(sub: "abc", name: "Alice", email: nil, roles: [])),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("avatar-menu-avatar"))
+        #expect(res.body.string.contains("avatar-menu-fallback"))
+      }
+    }
+  }
+
   @Test("header renders the Admin link for an admin session")
   func headerRendersAdminLinkForAdminSession() async throws {
     try await withApp { app in
