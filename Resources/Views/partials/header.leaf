@@ -30,7 +30,7 @@
 				#endif
 				<hr class="avatar-menu-divider">
 				<form action="#(meta.logoutURL)" method="post" class="avatar-menu-item-form">
-					<button type="submit" class="avatar-menu-item">Log Out</button>
+					<button type="submit" class="avatar-menu-item avatar-menu-item-danger">Log Out</button>
 				</form>
 			</div>
 		</div>
