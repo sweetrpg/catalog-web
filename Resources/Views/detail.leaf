@@ -3,7 +3,10 @@
 		<a class="back-link" href="#(meta.basePath)/browse">&larr; Back</a>
 
 		<div class="detail-layout">
-			<div class="card-cover detail-cover">Cover pending</div>
+			<div class="card-cover detail-cover">
+				<img class="card-cover-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onerror="this.style.display='none'">
+				<span class="card-cover-fallback">Cover pending</span>
+			</div>
 
 			<div>
 				<h1>#(volume.title)</h1>
@@ -23,8 +26,48 @@
 					<p class="detail-notes"><strong>Notes:</strong> #(volume.notes)</p>
 				#endif
 
-				#if(volume.hasMeta):
-					<p class="detail-meta">#(volume.metaLine)</p>
+				#if(volume.hasSystemNames):
+					<div class="detail-block">
+						<span class="section-label">System</span>
+						<div class="tag-cloud">
+							#for(name in volume.systemNames):
+								<span class="tag tag-neutral">#(name)</span>
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(volume.hasPublisherNames):
+					<div class="detail-block">
+						<span class="section-label">Publisher</span>
+						<div class="tag-cloud">
+							#for(name in volume.publisherNames):
+								<span class="tag tag-neutral">#(name)</span>
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(volume.hasStudioNames):
+					<div class="detail-block">
+						<span class="section-label">Studio</span>
+						<div class="tag-cloud">
+							#for(name in volume.studioNames):
+								<span class="tag tag-neutral">#(name)</span>
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(volume.hasLicenseNames):
+					<div class="detail-block">
+						<span class="section-label">License</span>
+						<div class="tag-cloud">
+							#for(name in volume.licenseNames):
+								<span class="tag tag-neutral">#(name)</span>
+							#endfor
+						</div>
+					</div>
 				#endif
 
 				#if(volume.hasCredits):

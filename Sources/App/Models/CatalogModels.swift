@@ -17,11 +17,11 @@ struct VolumeViewModel {
   var reviews: [(author: String, rating: Int, text: String)] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }
-  var metaLine: String {
-    var parts: [String] = []
-    parts.append(contentsOf: systemNames.map { "System: \($0)" })
-    parts.append(contentsOf: publisherNames.map { "Publisher: \($0)" })
-    parts.append(contentsOf: studioNames.map { "Studio: \($0)" })
-    return parts.joined(separator: " \u{b7} ")
-  }
+  /// Relative path (join with `meta.sharedAssetsURL`) to this volume's cover image on
+  /// assets-web's dedicated `cover` asset kind (see the `expand-volume-detail-page` OpenSpec
+  /// change). Most volumes have no file stored yet, so templates render this optimistically and
+  /// let `onerror` reveal the existing "Cover pending" fallback on a 404 (or a 400, while
+  /// assets-web's `cover` kind hasn't deployed yet - `onerror` fires on any non-2xx image
+  /// response, so the fallback still degrades correctly either way).
+  var coverAssetPath: String { "asset/cover/\(id).svg" }
 }
