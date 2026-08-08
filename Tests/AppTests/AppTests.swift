@@ -106,8 +106,9 @@ struct AppTests {
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains(#"href="/auth/login?return_to=/test-home""#))
-        #expect(!res.body.string.contains("Log Out"))
-        #expect(!res.body.string.contains("avatar-menu-trigger"))
+        #expect(!res.body.string.contains("Log out"))
+        #expect(res.body.string.contains("avatar-menu-trigger"))
+        #expect(res.body.string.contains("mystery-man.svg"))
       }
     }
   }
