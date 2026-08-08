@@ -34,5 +34,6 @@
 	</main>
 	#extend("partials/footer")
 	<script src="#(meta.sharedAssetsURL)/static/avatar-menu.js" defer></script>
+	<script src="#(meta.sharedAssetsURL)/static/theme.js" defer></script>
 </body>
 </html>

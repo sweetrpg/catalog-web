@@ -129,6 +129,9 @@ struct LeafTag: Content {
 
 struct LeafUser: Content {
   let name: String
+  /// Shown as a smaller, muted subtitle line under `name` in the avatar menu. `nil` when the
+  /// session has no email (same source as `avatarGravatarURL` below).
+  let email: String?
   /// First character of `name`, uppercased - the avatar trigger's label.
   let avatarInitial: String
   /// Gravatar image URL derived from the session's email (`d=404` so a visitor with no
@@ -143,6 +146,7 @@ struct LeafUser: Content {
 
   init(_ user: SessionUser) {
     self.name = user.name
+    self.email = user.email
     self.avatarInitial = user.name.first.map { String($0).uppercased() } ?? ""
     self.avatarGravatarURL = user.email.map { email in
       let canonical = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
