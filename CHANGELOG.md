@@ -1,4 +1,11 @@
 
+## 0.7.0 - 2026-08-08
+
+### Added
+- Render a Gravatar image in the avatar circle
+
+
+
 ## 0.6.0 - 2026-08-05
 
 ### Added

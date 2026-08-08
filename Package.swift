@@ -14,6 +14,10 @@ let package = Package(
         // 🔴 Redis-backed response caching, and a read-only connection to auth-web's shared
         // session store.
         .package(url: "https://github.com/vapor/redis.git", from: "4.10.0"),
+        // 🔒 MD5 hashing for Gravatar URLs (avatar-menu) - already resolved transitively via
+        // Vapor, declared explicitly here since SwiftPM requires a target's own dependencies to
+        // be listed, not just present in the resolved graph.
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.1"),
         // 📊 Prometheus metrics.
         .package(url: "https://github.com/swift-server/swift-prometheus.git", from: "2.0.0"),
         // 🩻 Distributed tracing API + OTLP exporter, matching the Go services' OTLP/HTTP
@@ -35,6 +39,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Leaf", package: "leaf"),
                 .product(name: "Redis", package: "redis"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "Prometheus", package: "swift-prometheus"),
                 .product(name: "Tracing", package: "swift-distributed-tracing"),
                 .product(name: "OTel", package: "swift-otel"),
