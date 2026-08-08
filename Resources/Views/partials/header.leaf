@@ -15,7 +15,12 @@
 	</form>
 	#if(user):
 		<div class="avatar-menu">
-			<button type="button" class="avatar-menu-trigger">#(user.avatarInitial)</button>
+			<button type="button" class="avatar-menu-trigger">
+				#if(user.avatarGravatarURL):
+				<img class="avatar-menu-avatar" src="#(user.avatarGravatarURL)" alt="" loading="lazy" onerror="this.style.display='none'">
+				#endif
+				<span class="avatar-menu-fallback">#(user.avatarInitial)</span>
+			</button>
 			<div class="avatar-menu-panel" hidden>
 				<span class="avatar-menu-name">#(user.name)</span>
 				<hr class="avatar-menu-divider">
