@@ -199,6 +199,56 @@ struct AppTests {
     }
   }
 
+  @Test("home page renders a volume card's cover image with an onerror fallback")
+  func homeRendersVolumeCoverWithFallback() async throws {
+    let volume = VolumeViewModel(
+      id: "64c7cf96a3fc8ee7407f9b76", title: "A Glorious Death", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 1, trending: [LeafVolumeCard(volume)], tagCloud: [], user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76.svg"))
+        #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
+        #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
+        #expect(res.body.string.contains("card-cover-fallback"))
+        #expect(res.body.string.contains("Cover pending"))
+      }
+    }
+  }
+
+  @Test("detail page shows only the metadata sections a volume has names for")
+  func detailPageShowsOnlyPopulatedMetadataSections() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: ["Shadow of the Demon Lord"],
+      publisherNames: ["Schwalb Entertainment"],
+      studioNames: [], licenseNames: ["OGL"])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(volume: LeafVolumeDetail(volume), user: nil, meta: await PageMeta.make(req))
+        )
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Shadow of the Demon Lord"))
+        #expect(res.body.string.contains("Schwalb Entertainment"))
+        #expect(res.body.string.contains("OGL"))
+        #expect(!res.body.string.contains(">Studio<"))
+      }
+    }
+  }
+
   // MARK: - MaintenanceModeMiddleware
 
   /// `AdminAPIClient.AdminClient` makes real `URLSession` calls - there's no request-level
