@@ -17,7 +17,7 @@
 		<button type="button" class="avatar-menu-trigger">
 			#if(user):
 				#if(user.avatarGravatarURL):
-				<img class="avatar-menu-avatar" src="#(user.avatarGravatarURL)" alt="" loading="lazy" onerror="this.style.display='none'">
+				<img class="avatar-menu-avatar" src="#(user.avatarGravatarURL)" alt="" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				#endif
 				<span class="avatar-menu-fallback">#(user.avatarInitial)</span>
 			#else:

@@ -163,11 +163,13 @@ struct LeafVolumeCard: Content {
   let id: String
   let title: String
   let tagChips: [String]
+  let coverAssetPath: String
 
   init(_ volume: VolumeViewModel) {
     self.id = volume.id
     self.title = volume.title
     self.tagChips = volume.tagChips
+    self.coverAssetPath = volume.coverAssetPath
   }
 }
 
@@ -179,12 +181,19 @@ struct LeafVolumeDetail: Content {
   let notes: String
   let hasNotes: Bool
   let tags: [String]
-  let metaLine: String
-  let hasMeta: Bool
+  let systemNames: [String]
+  let hasSystemNames: Bool
+  let publisherNames: [String]
+  let hasPublisherNames: Bool
+  let studioNames: [String]
+  let hasStudioNames: Bool
+  let licenseNames: [String]
+  let hasLicenseNames: Bool
   let credits: [LeafCredit]
   let hasCredits: Bool
   let reviews: [LeafReview]
   let hasReviews: Bool
+  let coverAssetPath: String
 
   init(_ volume: VolumeViewModel) {
     self.id = volume.id
@@ -194,12 +203,19 @@ struct LeafVolumeDetail: Content {
     self.notes = volume.notes
     self.hasNotes = !volume.notes.isEmpty
     self.tags = volume.tags
-    self.metaLine = volume.metaLine
-    self.hasMeta = !volume.metaLine.isEmpty
+    self.systemNames = volume.systemNames
+    self.hasSystemNames = !volume.systemNames.isEmpty
+    self.publisherNames = volume.publisherNames
+    self.hasPublisherNames = !volume.publisherNames.isEmpty
+    self.studioNames = volume.studioNames
+    self.hasStudioNames = !volume.studioNames.isEmpty
+    self.licenseNames = volume.licenseNames
+    self.hasLicenseNames = !volume.licenseNames.isEmpty
     self.credits = volume.credits.map(LeafCredit.init)
     self.hasCredits = !volume.credits.isEmpty
     self.reviews = volume.reviews.map(LeafReview.init)
     self.hasReviews = !volume.reviews.isEmpty
+    self.coverAssetPath = volume.coverAssetPath
   }
 }
 
