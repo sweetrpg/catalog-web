@@ -1,4 +1,25 @@
 
+## 0.8.1 - 2026-08-09
+
+### Fixed
+- Update shared static asset paths for assets-web's css/img/js reorg
+
+
+
+## 0.8.0 - 2026-08-08
+
+### Added
+- Always show avatar menu with theme selector in catalog-web
+- Color Log Out with the danger/critical color
+- Render volume covers and structured detail metadata
+
+
+### Fixed
+- Hide the fallback letter once the Gravatar image loads
+- Hide the fallback text once a cover image loads
+
+
+
 ## 0.7.0 - 2026-08-08
 
 ### Added
