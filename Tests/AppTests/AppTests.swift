@@ -107,7 +107,10 @@ struct AppTests {
         #expect(res.status == .ok)
         #expect(res.body.string.contains(#"href="/auth/login?return_to=/test-home""#))
         #expect(!res.body.string.contains("Log Out"))
-        #expect(!res.body.string.contains("avatar-menu-trigger"))
+        // The avatar menu is always present (mystery-man icon + a Log in item), not hidden
+        // when logged out - see feat/avatar-menu-always-present-and-theme.
+        #expect(res.body.string.contains("avatar-menu-trigger"))
+        #expect(res.body.string.contains("mystery-man.svg"))
       }
     }
   }
