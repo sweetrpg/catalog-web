@@ -1,8 +1,8 @@
 <nav class="nav">
 	<div class="nav-brand">
 		<a href="#(meta.rootURL)">
-			<img src="#(meta.sharedAssetsURL)/static/sweetrpg-logo-black.svg" alt="SweetRPG" class="nav-logo nav-logo-light">
-			<img src="#(meta.sharedAssetsURL)/static/sweetrpg-logo-white.svg" alt="SweetRPG" class="nav-logo nav-logo-dark">
+			<img src="#(meta.sharedAssetsURL)/static/img/sweetrpg-logo-black.svg" alt="SweetRPG" class="nav-logo nav-logo-light">
+			<img src="#(meta.sharedAssetsURL)/static/img/sweetrpg-logo-white.svg" alt="SweetRPG" class="nav-logo nav-logo-dark">
 		</a>
 		<a href="#(meta.basePath)/">Catalogue</a>
 	</div>
@@ -21,7 +21,7 @@
 				#endif
 				<span class="avatar-menu-fallback">#(user.avatarInitial)</span>
 			#else:
-				<img class="avatar-menu-avatar" src="#(meta.sharedAssetsURL)/static/mystery-man.svg" alt="">
+				<img class="avatar-menu-avatar" src="#(meta.sharedAssetsURL)/static/img/mystery-man.svg" alt="">
 			#endif
 		</button>
 		<div class="avatar-menu-panel" hidden>

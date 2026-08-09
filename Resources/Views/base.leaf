@@ -4,9 +4,9 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Catalogue</title>
-	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/favicon.png">
-	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/main.css">
-	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/avatar-menu.css">
+	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/img/favicon.png">
+	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/css/main.css">
+	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/css/avatar-menu.css">
 	<script>
 	/* Applied synchronously, before first paint, so the page never flashes the wrong theme.
 	   Reads the same localStorage key main-web's theme toggle writes - this app has no toggle
@@ -33,7 +33,7 @@
 		#import("body")
 	</main>
 	#extend("partials/footer")
-	<script src="#(meta.sharedAssetsURL)/static/avatar-menu.js" defer></script>
-	<script src="#(meta.sharedAssetsURL)/static/theme.js" defer></script>
+	<script src="#(meta.sharedAssetsURL)/static/js/avatar-menu.js" defer></script>
+	<script src="#(meta.sharedAssetsURL)/static/js/theme.js" defer></script>
 </body>
 </html>
