@@ -1,4 +1,6 @@
 import AdminAPIClient
+import CatalogAPIClient
+import Foundation
 import Redis
 import Testing
 import VaporTesting
@@ -124,7 +126,9 @@ struct AppTests {
           "home",
           HomeContext(
             volumeCount: 0, trending: [], tagCloud: [],
-            user: LeafUser(SessionUser(sub: "abc", name: "Alice", email: nil, roles: [])),
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token")),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -147,7 +151,9 @@ struct AppTests {
           HomeContext(
             volumeCount: 0, trending: [], tagCloud: [],
             user: LeafUser(
-              SessionUser(sub: "abc", name: "Alice", email: "alice@example.com", roles: [])),
+              SessionUser(
+                sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
+                accessToken: "test-token")),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -171,7 +177,9 @@ struct AppTests {
           "home",
           HomeContext(
             volumeCount: 0, trending: [], tagCloud: [],
-            user: LeafUser(SessionUser(sub: "abc", name: "Alice", email: nil, roles: [])),
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token")),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -191,7 +199,9 @@ struct AppTests {
           "home",
           HomeContext(
             volumeCount: 0, trending: [], tagCloud: [],
-            user: LeafUser(SessionUser(sub: "abc", name: "Bob", email: nil, roles: ["admin"])),
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token")),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -239,7 +249,9 @@ struct AppTests {
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
           "detail",
-          DetailContext(volume: LeafVolumeDetail(volume), user: nil, meta: await PageMeta.make(req))
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false, justProposed: false, review: nil,
+            conflicts: [], user: nil, meta: await PageMeta.make(req))
         )
       }
       try await app.testing().test(.GET, "test-detail") { res in
@@ -248,6 +260,166 @@ struct AppTests {
         #expect(res.body.string.contains("Schwalb Entertainment"))
         #expect(res.body.string.contains("OGL"))
         #expect(!res.body.string.contains(">Studio<"))
+        #expect(!res.body.string.contains(">Edit<"))
+      }
+    }
+  }
+
+  // MARK: - volume-change-review-ui
+
+  private func makeProposal(
+    id: String = "prop-1", submittedBy: String = "auth0|submitter",
+    diff: [String: FieldChange] = ["title": FieldChange(old: "Old", new: "New", status: "pending")]
+  ) -> ProposedChangeSummary {
+    ProposedChangeSummary(
+      id: id, recordType: "volume", recordId: "1", diff: diff, status: "pending",
+      submittedBy: submittedBy, submittedAt: Date(timeIntervalSince1970: 0), reviewedBy: nil,
+      reviewedAt: nil, reviewNote: nil)
+  }
+
+  @Test("detail page shows the Edit action for a submitter/editor/admin session")
+  func detailShowsEditActionWhenCanEdit() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: true, justProposed: false, review: nil,
+            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(">Edit<"))
+        #expect(res.body.string.contains("/volumes/1/edit"))
+      }
+    }
+  }
+
+  @Test("detail page hides the review section from a submitter with no review rights")
+  func detailHidesReviewSectionWithoutReviewRights() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            // canEdit: true (submitter can propose), but review stays nil - only
+            // CatalogController decides to populate it, gated on canReview, not canEdit.
+            volume: LeafVolumeDetail(volume), canEdit: true, justProposed: false, review: nil,
+            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("Pending Changes"))
+      }
+    }
+  }
+
+  @Test("detail page shows a pending-change indicator and diff for an editor")
+  func detailShowsPendingChangeReviewForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let proposal = makeProposal()
+    let review = LeafProposalReview(volumeID: "1", pending: [proposal], selected: proposal)
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false, justProposed: false, review: review,
+            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Pending Changes (1)"))
+        #expect(res.body.string.contains("Old"))
+        #expect(res.body.string.contains("New"))
+        #expect(res.body.string.contains("Accept All"))
+        #expect(res.body.string.contains("Accept Selected"))
+        #expect(res.body.string.contains("Reject"))
+        // Single pending proposal: no picker <select>, just the plain submitted-by line.
+        #expect(!res.body.string.contains("<select"))
+      }
+    }
+  }
+
+  @Test("detail page shows a proposal picker when more than one proposal is pending")
+  func detailShowsProposalPickerForMultiplePending() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let first = makeProposal(id: "prop-1", submittedBy: "auth0|alice")
+    let second = makeProposal(id: "prop-2", submittedBy: "auth0|bob")
+    let review = LeafProposalReview(volumeID: "1", pending: [first, second], selected: first)
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false, justProposed: false, review: review,
+            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Pending Changes (2)"))
+        #expect(res.body.string.contains("<select"))
+        #expect(res.body.string.contains("auth0|alice"))
+        #expect(res.body.string.contains("auth0|bob"))
+      }
+    }
+  }
+
+  @Test("detail page surfaces conflicting fields after a partial accept")
+  func detailShowsConflictBanner() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false, justProposed: false, review: nil,
+            conflicts: ["title"], user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("weren't applied"))
+        #expect(res.body.string.contains("title"))
+      }
+    }
+  }
+
+  @Test("edit form pre-fills the volume's current title/description/notes")
+  func editFormPrefillsFields() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "A dark fantasy setting.", notes: "Draft notes",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(volume), user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"value="Rusthaven""#))
+        #expect(res.body.string.contains("A dark fantasy setting."))
+        #expect(res.body.string.contains("Draft notes"))
+        #expect(res.body.string.contains(#"action="/volumes/1/edit""#))
       }
     }
   }

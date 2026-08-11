@@ -1,0 +1,26 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
+
+		<section class="page-header">
+			<span class="section-label">Edit</span>
+			<h2>#(volume.title)</h2>
+		</section>
+
+		<form class="form" action="#(meta.basePath)/volumes/#(volume.id)/edit" method="post">
+			<label class="form-label" for="title">Title</label>
+			<input class="input" type="text" id="title" name="title" value="#(volume.title)" required>
+
+			<label class="form-label" for="description">Description</label>
+			<textarea class="input" id="description" name="description" rows="4">#(volume.description)</textarea>
+
+			<label class="form-label" for="notes">Notes</label>
+			<textarea class="input" id="notes" name="notes" rows="3">#(volume.notes)</textarea>
+
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">Save changes</button>
+				<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
+			</div>
+		</form>
+	#endexport
+#endextend

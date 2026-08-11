@@ -88,6 +88,36 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// Edits a volume, or proposes an edit for review - catalog-api decides which based on the
+  /// bearer token's verified roles. This app does no role logic of its own for the write
+  /// itself, only for which UI to show (see `CatalogController.editForm`/`submitEdit`).
+  func patchVolume(
+    id: String, token: String, title: String?, description: String?, notes: String?
+  ) async throws -> VolumePatchResult {
+    try await sdk.patchVolume(
+      id: id, token: token, title: title, description: description, notes: notes)
+  }
+
+  func listProposedChanges(volumeID: String, token: String) async throws
+    -> [ProposedChangeSummary]
+  {
+    try await sdk.listProposedChanges(volumeID: volumeID, token: token)
+  }
+
+  func acceptProposedChange(
+    volumeID: String, proposalID: String, token: String, fields: [String]?
+  ) async throws -> ReviewProposalResult {
+    try await sdk.acceptProposedChange(
+      volumeID: volumeID, proposalID: proposalID, token: token, fields: fields)
+  }
+
+  func rejectProposedChange(
+    volumeID: String, proposalID: String, token: String, note: String?
+  ) async throws -> ReviewProposalResult {
+    try await sdk.rejectProposedChange(
+      volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+  }
+
   private func fetchNameMap(path: String) async throws -> [String: String] {
     let doc = try await getCached("catalog:\(path)") { try await sdk.fetchNamed(path: path) }
     return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
