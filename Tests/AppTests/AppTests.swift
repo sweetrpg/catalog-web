@@ -128,7 +128,8 @@ struct AppTests {
             volumeCount: 0, trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
-                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token")),
+                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
+                expiry: Date().addingTimeInterval(3600))),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -153,7 +154,7 @@ struct AppTests {
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
-                accessToken: "test-token")),
+                accessToken: "test-token", expiry: Date().addingTimeInterval(3600))),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -179,7 +180,8 @@ struct AppTests {
             volumeCount: 0, trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
-                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token")),
+                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
+                expiry: Date().addingTimeInterval(3600))),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -201,7 +203,8 @@ struct AppTests {
             volumeCount: 0, trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
-                sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token")),
+                sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token",
+                expiry: Date().addingTimeInterval(3600))),
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
