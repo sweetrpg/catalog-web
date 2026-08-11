@@ -1,6 +1,22 @@
+import CatalogAPIClient
 import Crypto
 import Foundation
 import Vapor
+
+/// Roles that may edit a volume directly (admin/editor) or propose a change for review
+/// (submitter) - mirrors auth-api's fixed role model. See platform's
+/// volume-edit-authorization spec.
+private let editCapableRoles: Set<String> = ["submitter", "editor", "admin"]
+/// Roles that may review (list/accept/reject) another user's proposed changes.
+private let reviewCapableRoles: Set<String> = ["editor", "admin"]
+
+private func canEdit(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: editCapableRoles)
+}
+
+private func canReview(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: reviewCapableRoles)
+}
 
 /// Home, Browse, and Volume Detail - the three catalog-browsing pages, all backed by
 /// catalog-api. Grouped in one controller since they share the same volume-fetching path,
@@ -10,6 +26,12 @@ struct CatalogController: RouteCollection {
     routes.get(use: home)
     routes.get("browse", use: browse)
     routes.get("volumes", ":volumeID", use: detail)
+    routes.get("volumes", ":volumeID", "edit", use: editForm)
+    routes.post("volumes", ":volumeID", "edit", use: submitEdit)
+    routes.post(
+      "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
+    routes.post(
+      "volumes", ":volumeID", "proposed-changes", ":proposalID", "reject", use: rejectProposal)
   }
 
   @Sendable
@@ -74,13 +96,139 @@ struct CatalogController: RouteCollection {
     volume.credits = try await req.catalogAPI.fetchCredits(volumeID: volumeID)
     volume.reviews = try await req.catalogAPI.fetchReviews(volumeID: volumeID)
 
+    let sessionUser = await req.currentUser
+    let roles = sessionUser?.roles ?? []
+
+    var proposalReview: LeafProposalReview?
+    if canReview(roles), let token = sessionUser?.accessToken {
+      let pending = try await req.catalogAPI.listProposedChanges(volumeID: volumeID, token: token)
+      if !pending.isEmpty {
+        let selectedID = req.query[String.self, at: "proposal"]
+        let selected = pending.first { $0.id == selectedID } ?? pending[0]
+        proposalReview = LeafProposalReview(
+          volumeID: volumeID, pending: pending, selected: selected)
+      }
+    }
+
     return try await req.view.render(
       "detail",
       DetailContext(
         volume: LeafVolumeDetail(volume),
-        user: (await req.currentUser).map(LeafUser.init),
+        canEdit: canEdit(roles),
+        justProposed: req.query[String.self, at: "proposed"] == "1",
+        review: proposalReview,
+        conflicts: (req.query[String.self, at: "conflicts"] ?? "")
+          .split(separator: ",").map(String.init),
+        user: sessionUser.map(LeafUser.init),
         meta: await PageMeta.make(req)
       ))
+  }
+
+  @Sendable
+  func editForm(req: Request) async throws -> View {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let volumes = try await req.catalogAPI.fetchVolumes()
+    guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      throw Abort(.notFound)
+    }
+
+    return try await req.view.render(
+      "edit",
+      EditContext(
+        volume: LeafVolumeEditForm(volume),
+        user: LeafUser(user),
+        meta: await PageMeta.make(req)
+      ))
+  }
+
+  private struct EditInput: Content {
+    let title: String
+    let description: String
+    let notes: String
+  }
+
+  @Sendable
+  func submitEdit(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(EditInput.self)
+
+    let result = try await req.catalogAPI.patchVolume(
+      id: volumeID, token: user.accessToken,
+      title: input.title, description: input.description, notes: input.notes)
+
+    let basePath = "\(req.basePath)/volumes/\(volumeID)"
+    switch result {
+    case .applied:
+      return req.redirect(to: basePath)
+    case .proposed:
+      return req.redirect(to: "\(basePath)?proposed=1")
+    }
+  }
+
+  /// `mode` distinguishes "accept every changed field" (the Accept All button, no `fields` sent)
+  /// from "accept only the checked fields" (the Accept Selected button) - without it, a subset
+  /// submission where the reviewer unchecked every box would arrive as an absent `fields` key,
+  /// indistinguishable from "accept all" and silently applying fields the reviewer meant to
+  /// reject. With `mode`, that case instead sends an explicit empty array, which catalog-api
+  /// treats as "reject everything" - the safe direction for an ambiguous submission.
+  private struct AcceptInput: Content {
+    let mode: String
+    let fields: [String]?
+  }
+
+  @Sendable
+  func acceptProposal(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID"),
+      let proposalID = req.parameters.get("proposalID")
+    else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canReview(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(AcceptInput.self)
+    let fields: [String]? = input.mode == "all" ? nil : (input.fields ?? [])
+
+    let result = try await req.catalogAPI.acceptProposedChange(
+      volumeID: volumeID, proposalID: proposalID, token: user.accessToken, fields: fields)
+
+    var redirectPath = "\(req.basePath)/volumes/\(volumeID)"
+    if let conflicts = result.conflicts, !conflicts.isEmpty {
+      redirectPath += "?conflicts=\(conflicts.joined(separator: ","))"
+    }
+    return req.redirect(to: redirectPath)
+  }
+
+  private struct RejectInput: Content {
+    let note: String?
+  }
+
+  @Sendable
+  func rejectProposal(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID"),
+      let proposalID = req.parameters.get("proposalID")
+    else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canReview(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(RejectInput.self)
+
+    _ = try await req.catalogAPI.rejectProposedChange(
+      volumeID: volumeID, proposalID: proposalID, token: user.accessToken, note: input.note)
+
+    return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
   }
 }
 
@@ -112,6 +260,26 @@ struct BrowseContext: Content {
 
 struct DetailContext: Content {
   let volume: LeafVolumeDetail
+  /// `true` when the signed-in session's roles include submitter/editor/admin - gates the
+  /// "Edit" action. `false` (including for an anonymous visitor) hides it entirely.
+  let canEdit: Bool
+  /// `true` right after a submitter's edit was stored as a proposed change rather than applied
+  /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
+  /// change appearing to silently have no effect.
+  let justProposed: Bool
+  /// Present only for an editor/admin viewer when at least one proposed change is pending -
+  /// nil hides the entire review section, including for a submitter who has no review rights.
+  let review: LeafProposalReview?
+  /// Field names catalog-api flagged as conflicting on the most recent accept action (via the
+  /// `?conflicts=` redirect query param) - the live record changed since the proposal was
+  /// submitted, so that field wasn't applied. Empty outside of that redirect.
+  let conflicts: [String]
+  let user: LeafUser?
+  let meta: PageMeta
+}
+
+struct EditContext: Content {
+  let volume: LeafVolumeEditForm
   let user: LeafUser?
   let meta: PageMeta
 }
@@ -240,5 +408,84 @@ struct LeafReview: Content {
       String(repeating: "\u{2605}", count: max(0, min(5, review.rating)))
       + String(repeating: "\u{2606}", count: max(0, 5 - review.rating))
     self.text = review.text
+  }
+}
+
+struct LeafVolumeEditForm: Content {
+  let id: String
+  let title: String
+  let description: String
+  let notes: String
+
+  init(_ volume: VolumeViewModel) {
+    self.id = volume.id
+    self.title = volume.title
+    self.description = volume.description
+    self.notes = volume.notes
+  }
+}
+
+/// The volume detail page's fixed, ordered list of fields a `PATCH`/proposal can touch -
+/// `ProposedChangeSummary.diff` is a `[String: FieldChange]` dictionary with no defined
+/// iteration order, so the diff table and review UI both walk this list instead of the raw
+/// dictionary keys, keeping row order stable and matching the edit form's field order.
+private let patchableFields: [(key: String, label: String)] = [
+  ("title", "Title"),
+  ("description", "Description"),
+  ("notes", "Notes"),
+]
+
+struct LeafFieldDiff: Content {
+  let key: String
+  let label: String
+  let oldValue: String
+  let newValue: String
+}
+
+struct LeafProposalOption: Content {
+  let id: String
+  let submittedBy: String
+  let submittedAtLabel: String
+  let isSelected: Bool
+}
+
+struct LeafProposalReview: Content {
+  let volumeID: String
+  let pendingCount: Int
+  let hasMultiplePending: Bool
+  let options: [LeafProposalOption]
+  let selectedID: String
+  let submittedBy: String
+  let submittedAtLabel: String
+  let fields: [LeafFieldDiff]
+
+  init(volumeID: String, pending: [ProposedChangeSummary], selected: ProposedChangeSummary) {
+    self.volumeID = volumeID
+    self.pendingCount = pending.count
+    self.hasMultiplePending = pending.count > 1
+    self.options = pending.map { proposal in
+      LeafProposalOption(
+        id: proposal.id,
+        submittedBy: proposal.submittedBy,
+        submittedAtLabel: Self.format(proposal.submittedAt),
+        isSelected: proposal.id == selected.id
+      )
+    }
+    self.selectedID = selected.id
+    self.submittedBy = selected.submittedBy
+    self.submittedAtLabel = Self.format(selected.submittedAt)
+    self.fields = patchableFields.compactMap { field in
+      guard let change = selected.diff[field.key] else { return nil }
+      return LeafFieldDiff(
+        key: field.key, label: field.label,
+        oldValue: change.old ?? "", newValue: change.new ?? "")
+    }
+  }
+
+  private static func format(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
   }
 }
