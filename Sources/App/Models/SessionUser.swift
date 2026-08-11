@@ -11,4 +11,8 @@ struct SessionUser: Codable {
   let name: String
   let email: String?
   let roles: [String]
+  /// The Auth0 access token `auth-web` exchanged at login - forwarded as the Bearer token on
+  /// authenticated writes to catalog-api (`PATCH /volumes/:id` and the proposed-change review
+  /// endpoints). See platform's volume-edit-with-approval-workflow change.
+  let accessToken: String
 }

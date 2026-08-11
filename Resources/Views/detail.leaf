@@ -2,6 +2,14 @@
 	#export("body"):
 		<a class="back-link" href="#(meta.basePath)/browse">&larr; Back</a>
 
+		#if(justProposed):
+			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+		#endif
+
+		#if(conflicts):
+			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+		#endif
+
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
 				<img class="card-cover-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
@@ -15,6 +23,10 @@
 						<span class="tag tag-accent">#(tag)</span>
 					#endfor
 				</div>
+
+				#if(canEdit):
+					<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/edit">Edit</a>
+				#endif
 
 				#if(volume.hasDescription):
 					<p class="detail-description">#(volume.description)</p>
@@ -76,6 +88,63 @@
 						#for(credit in volume.credits):
 							<p><strong>#(credit.role)</strong> &mdash; #(credit.person)</p>
 						#endfor
+					</div>
+				#endif
+
+				#if(review):
+					<div class="detail-block">
+						<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+
+						#if(review.hasMultiplePending):
+							<form class="proposal-picker" method="get" action="#(meta.basePath)/volumes/#(volume.id)">
+								<label class="form-label" for="proposal">Viewing proposal from</label>
+								<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
+									#for(option in review.options):
+										<option value="#(option.id)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
+									#endfor
+								</select>
+							</form>
+						#else:
+							<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+						#endif
+
+						<form class="proposal-diff" method="post" action="#(meta.basePath)/volumes/#(volume.id)/proposed-changes/#(review.selectedID)/accept">
+							<input type="hidden" name="mode" value="subset">
+							<table class="table">
+								<thead>
+									<tr>
+										<th></th>
+										<th>Field</th>
+										<th>Live value</th>
+										<th>Proposed value</th>
+									</tr>
+								</thead>
+								<tbody>
+									#for(field in review.fields):
+										<tr>
+											<td><input type="checkbox" name="fields" value="#(field.key)"></td>
+											<td>#(field.label)</td>
+											<td>#(field.oldValue)</td>
+											<td>#(field.newValue)</td>
+										</tr>
+									#endfor
+								</tbody>
+							</table>
+							<div class="form-actions table-actions">
+								<button type="submit" class="btn btn-ghost">Accept Selected</button>
+							</div>
+						</form>
+
+						<div class="table-actions">
+							<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/proposed-changes/#(review.selectedID)/accept">
+								<input type="hidden" name="mode" value="all">
+								<button type="submit" class="btn btn-primary">Accept All</button>
+							</form>
+							<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/proposed-changes/#(review.selectedID)/reject">
+								<input class="input" type="text" name="note" placeholder="Optional note">
+								<button type="submit" class="btn btn-ghost">Reject</button>
+							</form>
+						</div>
 					</div>
 				#endif
 
