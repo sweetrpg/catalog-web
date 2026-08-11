@@ -131,14 +131,26 @@ jobs:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
+            # GHCR occasionally 403s the oauth token fetch `imagetools create` needs to read
+            # back the just-pushed per-arch digests, even right after a successful `docker
+            # login` in the same job (seen blocking the v0.9.0 release - the merge job failed
+            # here, so update-deployment below never ran and the Application manifest stayed
+            # on the prior version). Retry with backoff rather than failing the release outright.
             - name: Create manifest list and push
               working-directory: /tmp/digests
               env:
                   DOCKER_METADATA_OUTPUT_JSON: ${{ needs.meta.outputs.json }}
               run: |
-                  docker buildx imagetools create \
-                    $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-                    $(printf 'ghcr.io/sweetrpg/catalog-web@sha256:%s ' *)
+                  tags=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+                  refs=$(printf 'ghcr.io/sweetrpg/catalog-web@sha256:%s ' *)
+                  for attempt in 1 2 3; do
+                    if docker buildx imagetools create $tags $refs; then
+                      exit 0
+                    fi
+                    echo "imagetools create failed (attempt $attempt/3)"
+                    sleep $((attempt * 10))
+                  done
+                  exit 1
             - name: Inspect image
               run: |
                   docker buildx imagetools inspect ghcr.io/sweetrpg/catalog-web:${{ needs.meta.outputs.build-version }}
