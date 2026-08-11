@@ -9,6 +9,12 @@ import Vapor
 private let editCapableRoles: Set<String> = ["submitter", "editor", "admin"]
 /// Roles that may review (list/accept/reject) another user's proposed changes.
 private let reviewCapableRoles: Set<String> = ["editor", "admin"]
+/// Roles that may upload a volume's cover image - editor/admin only, unlike `editCapableRoles`:
+/// there's no submitter-facing proposal flow for a binary file (see design.md's Non-Goals in
+/// the catalog-volume-cover-upload OpenSpec change). Currently the same roles as
+/// `reviewCapableRoles`, but kept as its own set since the two gate unrelated actions that could
+/// diverge later.
+private let coverUploadCapableRoles: Set<String> = ["editor", "admin"]
 
 private func canEdit(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: editCapableRoles)
@@ -16,6 +22,10 @@ private func canEdit(_ roles: [String]) -> Bool {
 
 private func canReview(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: reviewCapableRoles)
+}
+
+private func canUploadCover(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: coverUploadCapableRoles)
 }
 
 /// Home, Browse, and Volume Detail - the three catalog-browsing pages, all backed by
@@ -115,6 +125,7 @@ struct CatalogController: RouteCollection {
       DetailContext(
         volume: LeafVolumeDetail(volume),
         canEdit: canEdit(roles),
+        canUploadCover: canUploadCover(roles),
         justProposed: req.query[String.self, at: "proposed"] == "1",
         review: proposalReview,
         conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -263,6 +274,9 @@ struct DetailContext: Content {
   /// `true` when the signed-in session's roles include submitter/editor/admin - gates the
   /// "Edit" action. `false` (including for an anonymous visitor) hides it entirely.
   let canEdit: Bool
+  /// `true` when the signed-in session's roles include editor/admin - gates the cover-upload
+  /// control. `false` (including for an anonymous visitor or a submitter) hides it entirely.
+  let canUploadCover: Bool
   /// `true` right after a submitter's edit was stored as a proposed change rather than applied
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
