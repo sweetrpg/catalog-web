@@ -1,4 +1,15 @@
 
+## 0.9.0 - 2026-08-11
+
+### Added
+- Add edit action and proposed-change review UI
+
+
+### Fixed
+- Match avatar badge accent color to main-web
+
+
+
 ## 0.8.1 - 2026-08-09
 
 ### Fixed
