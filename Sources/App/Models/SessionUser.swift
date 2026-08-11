@@ -15,4 +15,10 @@ struct SessionUser: Codable {
   /// authenticated writes to catalog-api (`PATCH /volumes/:id` and the proposed-change review
   /// endpoints). See platform's volume-edit-with-approval-workflow change.
   let accessToken: String
+  /// When this session becomes invalid, set by `auth-web` at write time. A session at or past
+  /// this timestamp must be treated as absent, not stale data - see `sweetrpg/platform`'s
+  /// `docs/frontend-conventions.md` ("Shared session schema"). Enforced independently at the
+  /// Redis key level by `ResilientRedisSessionDriver`'s TTL; this check is defense in depth for
+  /// this app's read-only client, which never goes through that driver.
+  let expiry: Date
 }
