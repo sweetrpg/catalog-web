@@ -1,4 +1,11 @@
 
+## 0.11.0 - 2026-08-11
+
+### Added
+- Add cover-upload control to the volume detail page
+
+
+
 ## 0.10.0 - 2026-08-11
 
 ### Added
