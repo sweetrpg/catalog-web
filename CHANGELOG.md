@@ -1,4 +1,11 @@
 
+## 0.14.0 - 2026-08-12
+
+### Added
+- Add browse/detail/edit pages for publishers, studios, persons, licenses
+
+
+
 ## 0.13.0 - 2026-08-12
 
 ### Added
