@@ -29,8 +29,11 @@ struct CatalogAPIClientService {
 
     return doc.data.map { resource in
       let rel = resource.relationships ?? [:]
+      func ids(_ key: String) -> [String] {
+        rel[key]?.data?.ids ?? []
+      }
       func names(_ key: String, from map: [String: String]) -> [String] {
-        (rel[key]?.data?.ids ?? []).compactMap { map[$0] }
+        ids(key).compactMap { map[$0] }
       }
       return VolumeViewModel(
         id: resource.id,
@@ -40,10 +43,28 @@ struct CatalogAPIClientService {
         tags: (resource.attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
         systemNames: names("system", from: systemNames),
         publisherNames: names("publisher", from: publisherNames),
+        publisherIds: ids("publisher"),
         studioNames: names("studio", from: studioNames),
+        studioIds: ids("studio"),
         licenseNames: names("license", from: licenseNames)
       )
     }.sorted { $0.title < $1.title }
+  }
+
+  /// Every publisher, sorted by name - the full candidate list the edit page's publisher picker
+  /// filters client-side (see design.md's decision: no search endpoint, just filtering the
+  /// existing full-collection fetch).
+  func fetchPublisherOptions() async throws -> [(id: String, name: String)] {
+    let doc = try await getCached("catalog:/publishers") {
+      try await sdk.fetchNamed(path: "/publishers")
+    }
+    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+  }
+
+  /// Every studio, sorted by name - same rationale as `fetchPublisherOptions`.
+  func fetchStudioOptions() async throws -> [(id: String, name: String)] {
+    let doc = try await getCached("catalog:/studios") { try await sdk.fetchNamed(path: "/studios") }
+    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
   }
 
   func fetchVolume(id: String, allVolumes: [VolumeViewModel]) async -> VolumeViewModel? {

@@ -77,6 +77,30 @@
 						</span>
 					</div>
 
+					<div class="picker-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+						<h3>Publishers</h3>
+						<div class="chip-list" data-chip-list>
+							#for(pub in volume.selectedPublishers):
+								<span class="chip" data-id="#(pub.id)">#(pub.name)<button type="button" class="chip-remove" title="Remove #(pub.name)">&times;</button></span>
+							#endfor
+						</div>
+						<input type="text" class="input picker-filter" placeholder="Add a publisher..." autocomplete="off">
+						<ul class="picker-results" hidden></ul>
+						<script type="application/json" class="picker-options">#(volume.publisherOptionsJSON)</script>
+					</div>
+
+					<div class="picker-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+						<h3>Studios</h3>
+						<div class="chip-list" data-chip-list>
+							#for(studio in volume.selectedStudios):
+								<span class="chip" data-id="#(studio.id)">#(studio.name)<button type="button" class="chip-remove" title="Remove #(studio.name)">&times;</button></span>
+							#endfor
+						</div>
+						<input type="text" class="input picker-filter" placeholder="Add a studio..." autocomplete="off">
+						<ul class="picker-results" hidden></ul>
+						<script type="application/json" class="picker-options">#(volume.studioOptionsJSON)</script>
+					</div>
+
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
 						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
@@ -164,6 +188,105 @@
 		      acceptBtn.addEventListener('click', commit);
 		      cancelBtn.addEventListener('click', cancel);
 		    }
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Type-to-filter publisher/studio picker (task 7.1/7.2): filters the full candidate
+		  // list embedded as JSON at page load client-side (no search endpoint - existing
+		  // entities only, per design.md), and there is deliberately no way to add a name that
+		  // doesn't match an existing option. Each add/remove sends the *full* resulting id list
+		  // to the session (full-replace, same semantics PATCH itself uses for these fields).
+		  document.querySelectorAll('.picker-field').forEach(function (field) {
+		    var sessionURL = field.dataset.sessionUrl;
+		    var pickerKind = field.dataset.picker;
+		    var fieldKey = pickerKind + 'Ids';
+		    var chipList = field.querySelector('[data-chip-list]');
+		    var input = field.querySelector('.picker-filter');
+		    var results = field.querySelector('.picker-results');
+		    var optionsScript = field.querySelector('.picker-options');
+		    var options = [];
+		    try { options = JSON.parse(optionsScript.textContent); } catch (e) {}
+
+		    function selectedIds() {
+		      return Array.prototype.map.call(
+		        chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+		    }
+
+		    function autosave() {
+		      var body = {};
+		      body[fieldKey] = selectedIds();
+		      fetch(sessionURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify(body),
+		        credentials: 'include'
+		      });
+		    }
+
+		    function addChip(option) {
+		      var chip = document.createElement('span');
+		      chip.className = 'chip';
+		      chip.dataset.id = option.id;
+		      chip.textContent = option.name;
+		      var removeBtn = document.createElement('button');
+		      removeBtn.type = 'button';
+		      removeBtn.className = 'chip-remove';
+		      removeBtn.title = 'Remove ' + option.name;
+		      removeBtn.textContent = '×';
+		      removeBtn.addEventListener('click', function () {
+		        chip.remove();
+		        autosave();
+		      });
+		      chip.appendChild(removeBtn);
+		      chipList.appendChild(chip);
+		    }
+
+		    chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
+		      btn.addEventListener('click', function () {
+		        btn.closest('.chip').remove();
+		        autosave();
+		      });
+		    });
+
+		    function renderResults(query) {
+		      results.innerHTML = '';
+		      if (!query) {
+		        results.hidden = true;
+		        return;
+		      }
+		      var selected = selectedIds();
+		      var needle = query.toLowerCase();
+		      var matches = options.filter(function (option) {
+		        return selected.indexOf(option.id) === -1
+		          && option.name.toLowerCase().indexOf(needle) !== -1;
+		      }).slice(0, 8);
+
+		      if (matches.length === 0) {
+		        results.hidden = true;
+		        return;
+		      }
+		      matches.forEach(function (option) {
+		        var item = document.createElement('li');
+		        item.textContent = option.name;
+		        item.addEventListener('click', function () {
+		          addChip(option);
+		          autosave();
+		          input.value = '';
+		          results.hidden = true;
+		        });
+		        results.appendChild(item);
+		      });
+		      results.hidden = false;
+		    }
+
+		    input.addEventListener('input', function () { renderResults(input.value.trim()); });
+		    input.addEventListener('blur', function () {
+		      // Deferred so a click on a result fires before the list disappears.
+		      setTimeout(function () { results.hidden = true; }, 150);
+		    });
 		  });
 		})();
 		</script>

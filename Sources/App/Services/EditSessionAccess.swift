@@ -11,6 +11,43 @@ extension RedisID {
   static let editSession = RedisID("editSession")
 }
 
+/// A `fields` value: catalog-api's `patchVolumeRequest` (what `finalize-session` decodes a
+/// session's `fields` map into) has both scalar fields (title, description, notes, format -
+/// plain strings) and list-shaped ones (publisherIds/studioIds - `[]string`; credits/properties
+/// - `[]struct{...}`), so `fields` can't be a homogeneous `[String: String]`. Covers exactly
+/// the shapes Volume's editable fields actually need, not general-purpose JSON.
+enum FieldValue: Codable, Equatable, Sendable {
+  case string(String)
+  case stringArray([String])
+  case objectArray([[String: String]])
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    if let value = try? container.decode(String.self) {
+      self = .string(value)
+    } else if let value = try? container.decode([String].self) {
+      self = .stringArray(value)
+    } else if let value = try? container.decode([[String: String]].self) {
+      self = .objectArray(value)
+    } else {
+      throw DecodingError.typeMismatch(
+        FieldValue.self,
+        DecodingError.Context(
+          codingPath: decoder.codingPath,
+          debugDescription: "Expected a string, an array of strings, or an array of objects"))
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    switch self {
+    case .string(let value): try container.encode(value)
+    case .stringArray(let value): try container.encode(value)
+    case .objectArray(let value): try container.encode(value)
+    }
+  }
+}
+
 /// Mirrors the JSON schema catalog-api's `editsession.Session` reads at finalize time - the two
 /// sides are independently maintained (Swift here, Go there) but must agree on wire shape.
 /// `createdAt`/`updatedAt` are encoded/decoded manually (not through Redis's `asJSON`/`toJSON`
@@ -18,11 +55,30 @@ extension RedisID {
 /// not the RFC3339 string Go's `time.Time` JSON unmarshaling expects) - see `EditSessionStore`.
 struct EditSession: Codable, Sendable {
   var recordId: String
-  var fields: [String: String]
+  var fields: [String: FieldValue]
   var stagedCoverAssetId: String?
   var sampleAssetIds: [String]?
   var createdAt: Date
   var updatedAt: Date
+
+  /// Reads `key` as a string field, or `nil` if absent or a different shape.
+  func stringField(_ key: String) -> String? {
+    if case .string(let value)? = fields[key] { return value }
+    return nil
+  }
+
+  /// Reads `key` as a string-array field, or `nil` if absent or a different shape.
+  func stringArrayField(_ key: String) -> [String]? {
+    if case .stringArray(let value)? = fields[key] { return value }
+    return nil
+  }
+
+  /// Reads `key` as an object-array field (credits/properties), or `nil` if absent or a
+  /// different shape.
+  func objectArrayField(_ key: String) -> [[String: String]]? {
+    if case .objectArray(let value)? = fields[key] { return value }
+    return nil
+  }
 }
 
 /// Reads/writes the caller's in-flight edit session for a given record type. catalog-web is the

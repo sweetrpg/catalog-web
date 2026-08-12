@@ -55,6 +55,8 @@ struct CatalogController: RouteCollection {
     routes.get("volumes", ":volumeID", "edit", use: editForm)
     routes.post("volumes", ":volumeID", "edit", use: submitEdit)
     routes.post("volumes", ":volumeID", "edit", "session", "fields", use: autosaveSessionFields)
+    routes.post(
+      "volumes", ":volumeID", "edit", "session", "associations", use: autosaveSessionAssociations)
     routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post(
@@ -184,7 +186,10 @@ struct CatalogController: RouteCollection {
     let now = Date()
     let fresh = EditSession(
       recordId: volume.id,
-      fields: ["title": volume.title, "description": volume.description, "notes": volume.notes],
+      fields: [
+        "title": .string(volume.title), "description": .string(volume.description),
+        "notes": .string(volume.notes),
+      ],
       stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: now, updatedAt: now)
     try await req.editSessions.set(userID: userSub, recordType: recordTypeVolume, session: fresh)
     return fresh
@@ -223,11 +228,15 @@ struct CatalogController: RouteCollection {
         ))
     }
 
+    async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
+    async let studioOptions = req.catalogAPI.fetchStudioOptions()
+
     return try await req.view.render(
       "edit",
       EditContext(
         volume: LeafVolumeEditForm(
-          volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub)),
+          volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub),
+          publisherOptions: try await publisherOptions, studioOptions: try await studioOptions),
         canUploadCover: canUploadCover(user.roles),
         submitError: nil,
         user: LeafUser(user),
@@ -262,9 +271,9 @@ struct CatalogController: RouteCollection {
     else {
       throw Abort(.badRequest, reason: "No in-flight edit session for this volume")
     }
-    session.fields["title"] = input.title
-    session.fields["description"] = input.description
-    session.fields["notes"] = input.notes
+    session.fields["title"] = .string(input.title)
+    session.fields["description"] = .string(input.description)
+    session.fields["notes"] = .string(input.notes)
     session.updatedAt = Date()
     try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
@@ -284,11 +293,14 @@ struct CatalogController: RouteCollection {
       guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
         throw Abort(.notFound)
       }
+      async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
+      async let studioOptions = req.catalogAPI.fetchStudioOptions()
       return try await req.view.render(
         "edit",
         EditContext(
           volume: LeafVolumeEditForm(
-            volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub)),
+            volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub),
+            publisherOptions: try await publisherOptions, studioOptions: try await studioOptions),
           canUploadCover: canUploadCover(user.roles),
           submitError: error.message ?? "Unable to save your changes. Try again.",
           user: LeafUser(user),
@@ -324,9 +336,42 @@ struct CatalogController: RouteCollection {
     }
 
     let input = try req.content.decode(AutosaveFieldsInput.self)
-    if let title = input.title { session.fields["title"] = title }
-    if let description = input.description { session.fields["description"] = description }
-    if let notes = input.notes { session.fields["notes"] = notes }
+    if let title = input.title { session.fields["title"] = .string(title) }
+    if let description = input.description { session.fields["description"] = .string(description) }
+    if let notes = input.notes { session.fields["notes"] = .string(notes) }
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Publisher/studio linking (task 7.2) - each add/remove click sends the *full* resulting id
+  /// list, same full-replace semantics `PATCH /volumes/:id` itself uses for these fields, so
+  /// this never needs to diff against what's already in the session.
+  private struct AutosaveAssociationsInput: Content {
+    let publisherIds: [String]?
+    let studioIds: [String]?
+  }
+
+  @Sendable
+  func autosaveSessionAssociations(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveAssociationsInput.self)
+    if let publisherIds = input.publisherIds {
+      session.fields["publisherIds"] = .stringArray(publisherIds)
+    }
+    if let studioIds = input.studioIds { session.fields["studioIds"] = .stringArray(studioIds) }
     session.updatedAt = Date()
     try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
@@ -686,6 +731,14 @@ struct LeafReview: Content {
   }
 }
 
+/// One entry in a type-to-filter picker's candidate list (publisher/studio today; person in
+/// task group 8) - both the full option set (for client-side filtering, task 7.1) and a
+/// currently-selected chip use this same shape.
+struct LeafNamedOption: Content {
+  let id: String
+  let name: String
+}
+
 struct LeafVolumeEditForm: Content {
   let id: String
   let title: String
@@ -700,13 +753,25 @@ struct LeafVolumeEditForm: Content {
   /// (`cover-staged/<sub>`, see docs/frontend-conventions.md's staging convention in
   /// sweetrpg/platform) and this page's JS needs it to build the upload URL.
   let userSub: String
+  /// The full publisher candidate list, JSON-encoded for the page's own JS to filter
+  /// client-side (task 7.1) - no search endpoint, existing entities only, per design.md.
+  let publisherOptionsJSON: String
+  let selectedPublishers: [LeafNamedOption]
+  let hasSelectedPublishers: Bool
+  let studioOptionsJSON: String
+  let selectedStudios: [LeafNamedOption]
+  let hasSelectedStudios: Bool
 
-  init(volume: VolumeViewModel, session: EditSession, userSub: String) {
+  init(
+    volume: VolumeViewModel, session: EditSession, userSub: String,
+    publisherOptions: [(id: String, name: String)] = [],
+    studioOptions: [(id: String, name: String)] = []
+  ) {
     self.id = volume.id
-    self.title = session.fields["title"] ?? volume.title
-    self.description = session.fields["description"] ?? volume.description
+    self.title = session.stringField("title") ?? volume.title
+    self.description = session.stringField("description") ?? volume.description
     self.hasDescription = !self.description.isEmpty
-    self.notes = session.fields["notes"] ?? volume.notes
+    self.notes = session.stringField("notes") ?? volume.notes
     self.hasNotes = !self.notes.isEmpty
     self.userSub = userSub
     if let staged = session.stagedCoverAssetId {
@@ -714,6 +779,28 @@ struct LeafVolumeEditForm: Content {
     } else {
       self.coverAssetPath = volume.coverAssetPath
     }
+
+    let publisherByID = Dictionary(uniqueKeysWithValues: publisherOptions)
+    let selectedPublisherIds = session.stringArrayField("publisherIds") ?? volume.publisherIds
+    self.selectedPublishers = selectedPublisherIds.map {
+      LeafNamedOption(id: $0, name: publisherByID[$0] ?? "Unknown publisher")
+    }
+    self.hasSelectedPublishers = !self.selectedPublishers.isEmpty
+    self.publisherOptionsJSON =
+      Self.encodeOptions(publisherOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+
+    let studioByID = Dictionary(uniqueKeysWithValues: studioOptions)
+    let selectedStudioIds = session.stringArrayField("studioIds") ?? volume.studioIds
+    self.selectedStudios = selectedStudioIds.map {
+      LeafNamedOption(id: $0, name: studioByID[$0] ?? "Unknown studio")
+    }
+    self.hasSelectedStudios = !self.selectedStudios.isEmpty
+    self.studioOptionsJSON =
+      Self.encodeOptions(studioOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+  }
+
+  private static func encodeOptions(_ options: [LeafNamedOption]) -> String {
+    (try? JSONEncoder().encode(options)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
   }
 }
 
