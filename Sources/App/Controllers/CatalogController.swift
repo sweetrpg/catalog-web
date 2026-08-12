@@ -131,6 +131,9 @@ struct CatalogController: RouteCollection {
       }
     }
 
+    let conflicts = (req.query[String.self, at: "conflicts"] ?? "")
+      .split(separator: ",").map(String.init)
+
     return try await req.view.render(
       "detail",
       DetailContext(
@@ -139,8 +142,8 @@ struct CatalogController: RouteCollection {
         canUploadCover: canUploadCover(roles),
         justProposed: req.query[String.self, at: "proposed"] == "1",
         review: proposalReview,
-        conflicts: (req.query[String.self, at: "conflicts"] ?? "")
-          .split(separator: ",").map(String.init),
+        conflicts: conflicts,
+        hasConflicts: !conflicts.isEmpty,
         user: sessionUser.map(LeafUser.init),
         meta: await PageMeta.make(req)
       ))
@@ -299,6 +302,10 @@ struct DetailContext: Content {
   /// `?conflicts=` redirect query param) - the live record changed since the proposal was
   /// submitted, so that field wasn't applied. Empty outside of that redirect.
   let conflicts: [String]
+  /// `true` only when `conflicts` is non-empty - Leaf's `#if` treats an empty array as truthy,
+  /// so the template branches on this instead of `conflicts` directly (same reason
+  /// `LeafVolumeDetail` exposes `hasSystemNames` etc. alongside each array).
+  let hasConflicts: Bool
   let user: LeafUser?
   let meta: PageMeta
 }
