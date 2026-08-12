@@ -255,7 +255,7 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
             justProposed: false, review: nil,
-            conflicts: [], user: nil, meta: await PageMeta.make(req))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
         )
       }
       try await app.testing().test(.GET, "test-detail") { res in
@@ -284,7 +284,7 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: true,
             justProposed: false, review: nil,
-            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -306,7 +306,7 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: true, canUploadCover: false,
             justProposed: false, review: nil,
-            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -340,7 +340,7 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: true, canUploadCover: false,
             justProposed: false, review: nil,
-            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -365,7 +365,7 @@ struct AppTests {
             // CatalogController decides to populate it, gated on canReview, not canEdit.
             volume: LeafVolumeDetail(volume), canEdit: true, canUploadCover: false,
             justProposed: false, review: nil,
-            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -389,7 +389,7 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
             justProposed: false, review: review,
-            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -421,7 +421,7 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
             justProposed: false, review: review,
-            conflicts: [], user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -446,12 +446,34 @@ struct AppTests {
           DetailContext(
             volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
             justProposed: false, review: nil,
-            conflicts: ["title"], user: nil, meta: await PageMeta.make(req)))
+            conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("weren't applied"))
         #expect(res.body.string.contains("title"))
+      }
+    }
+  }
+
+  @Test("detail page hides the conflict banner when there are no conflicts")
+  func detailHidesConflictBannerWhenEmpty() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("weren't applied"))
       }
     }
   }
