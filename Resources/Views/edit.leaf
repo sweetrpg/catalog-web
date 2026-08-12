@@ -2,12 +2,16 @@
 	#export("body"):
 		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
 
+		#if(hasSubmitError):
+			<p class="form-error">#(submitError)</p>
+		#endif
+
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
 				<img class="card-cover-img" id="cover-preview-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
 				#if(canUploadCover):
-					<div class="cover-upload" data-assets-url="#(meta.sharedAssetsURL)" data-cover-path="#(volume.coverAssetPath)">
+					<div class="cover-upload" data-assets-url="#(meta.sharedAssetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover">
 						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
 						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
 						<p class="form-error cover-upload-error" hidden></p>
@@ -16,7 +20,7 @@
 			</div>
 
 			<div>
-				<form id="edit-form" action="#(meta.basePath)/volumes/#(volume.id)/edit" method="post">
+				<form id="edit-form" action="#(meta.basePath)/volumes/#(volume.id)/edit" method="post" data-session-fields-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/fields">
 					<div class="field-row" data-field="title" data-field-type="line">
 						<h1 class="field-display">#(volume.title)</h1>
 						<input class="input field-input" type="text" name="title" value="#(volume.title)" required hidden>
@@ -78,6 +82,11 @@
 						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
 					</div>
 				</form>
+
+				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.sharedAssetsURL)">
+					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volume.id)">
+					<button type="submit" class="btn btn-ghost">Discard changes</button>
+				</form>
 			</div>
 		</div>
 
@@ -85,10 +94,25 @@
 		(function () {
 		  // Inline per-field editing: "line" fields (title) commit on Enter or blur; "block"
 		  // fields (description, notes) commit via explicit accept/cancel icon buttons, since
-		  // Enter needs to insert a newline instead of submitting. Neither commit path talks to
-		  // the server - both just update the field's own <input>/<textarea> value, which is
-		  // what actually gets sent when the whole form is saved.
+		  // Enter needs to insert a newline instead of submitting. Each commit both updates the
+		  // field's own <input>/<textarea> value (what "Save changes" ultimately submits) and
+		  // autosaves it into the durable edit session, so a page reload mid-edit resumes from
+		  // the last committed value rather than the volume's original one.
+		  var sessionFieldsURL = document.getElementById('edit-form').dataset.sessionFieldsUrl;
+
+		  function autosave(field, value) {
+		    var body = {};
+		    body[field] = value;
+		    fetch(sessionFieldsURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify(body),
+		      credentials: 'include'
+		    });
+		  }
+
 		  document.querySelectorAll('.field-row[data-field]').forEach(function (row) {
+		    var field = row.dataset.field;
 		    var type = row.dataset.fieldType;
 		    var display = row.querySelector('.field-display');
 		    var input = row.querySelector('.field-input');
@@ -114,11 +138,16 @@
 		      editBtn.hidden = false;
 		      if (acceptBtn) acceptBtn.hidden = true;
 		      if (cancelBtn) cancelBtn.hidden = true;
+		      autosave(field, input.value);
 		    }
 
 		    function cancel() {
 		      input.value = originalValue;
-		      commit();
+		      display.hidden = false;
+		      input.hidden = true;
+		      editBtn.hidden = false;
+		      if (acceptBtn) acceptBtn.hidden = true;
+		      if (cancelBtn) cancelBtn.hidden = true;
 		    }
 
 		    editBtn.addEventListener('click', showEditing);
@@ -139,6 +168,23 @@
 		})();
 		</script>
 
+		<script>
+		(function () {
+		  // Best-effort reclaim of a staged cover before discarding - assets-web only accepts
+		  // browser-originated requests (its auth comes from the ingress, not this app's own
+		  // server-to-server calls), so this has to run client-side. The periodic reclaim job
+		  // (assets-web) is the durable backstop if this never fires (JS disabled, tab closed
+		  // mid-request, etc.) - see durable-volume-editing task 2.4 in sweetrpg/platform.
+		  var form = document.getElementById('discard-form');
+		  if (!form) return;
+
+		  form.addEventListener('submit', function () {
+		    var url = form.dataset.assetsUrl + '/' + form.dataset.stagedCoverPath;
+		    fetch(url, { method: 'DELETE', credentials: 'include', keepalive: true }).catch(function () {});
+		  });
+		})();
+		</script>
+
 		#if(canUploadCover):
 			<script>
 			(function () {
@@ -151,9 +197,8 @@
 			  var input = document.getElementById('cover-upload-input');
 			  var errorEl = container.querySelector('.cover-upload-error');
 			  var coverImg = document.getElementById('cover-preview-img');
-			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.coverPath;
-			  var form = document.getElementById('edit-form');
-			  var previewURL = null;
+			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.stagedCoverPath;
+			  var sessionCoverURL = container.dataset.sessionCoverUrl;
 
 			  function showError(message) {
 			    errorEl.textContent = message;
@@ -165,9 +210,11 @@
 			    errorEl.textContent = '';
 			  }
 
-			  // Selecting a file only previews it locally (no network call) - the actual upload
-			  // to assets-web is deferred until the whole edit session is saved, so canceling
-			  // out of the edit page never leaves an orphaned cover file behind to reclaim.
+			  // Unlike the old client-side-only preview, selecting a file uploads it to
+			  // assets-web immediately (as a *staged* copy, cover-staged/<userSub> - not the
+			  // volume's live cover) and records the staging in the edit session. Finalize (or a
+			  // reviewer's accept) promotes it to live; discarding or letting the session expire
+			  // reclaims it. See durable-volume-editing's volume-cover-staging spec.
 			  input.addEventListener('change', function () {
 			    var file = input.files[0];
 			    if (!file) return;
@@ -184,29 +231,29 @@
 			      return;
 			    }
 
-			    if (previewURL) URL.revokeObjectURL(previewURL);
-			    previewURL = URL.createObjectURL(file);
-			    if (coverImg) {
-			      coverImg.style.display = '';
-			      coverImg.src = previewURL;
-			    }
-			  });
-
-			  form.addEventListener('submit', function (e) {
-			    var file = input.files[0];
-			    if (!file) return;
-			    e.preventDefault();
-
 			    var formData = new FormData();
 			    formData.append('file', file);
 
 			    fetch(uploadURL, { method: 'POST', body: formData, credentials: 'include' })
 			      .then(function (resp) {
 			        if (!resp.ok) throw new Error('Cover upload failed');
-			        form.submit();
+			        return fetch(sessionCoverURL, {
+			          method: 'POST',
+			          headers: { 'Content-Type': 'application/json' },
+			          body: JSON.stringify({ assetId: container.dataset.stagedCoverPath.split('/').pop() }),
+			          credentials: 'include'
+			        });
+			      })
+			      .then(function (resp) {
+			        if (!resp.ok) throw new Error('Failed to record staged cover');
+			        if (coverImg) {
+			          coverImg.style.display = '';
+			          coverImg.src = uploadURL + '?t=' + Date.now();
+			        }
 			      })
 			      .catch(function () {
 			        showError('Cover upload failed. Try again.');
+			        input.value = '';
 			      });
 			  });
 			})();

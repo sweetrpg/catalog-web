@@ -28,6 +28,22 @@ private func canUploadCover(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: coverUploadCapableRoles)
 }
 
+/// The only `recordType` the durable edit-session mechanism supports today - see
+/// docs/frontend-conventions.md's edit-session schema in sweetrpg/platform.
+private let recordTypeVolume = "volume"
+
+/// A user's raw Auth0 subject (e.g. `auth0|abc123`, `google-oauth2|123456`) is not a valid
+/// assets-web asset id - `|` doesn't survive Werkzeug's `secure_filename`, and assets-web
+/// rejects any id that comes back changed. Staged assets are filed under this sanitized form
+/// instead (`cover-staged/<sanitized>`) - purely a frontend convention: catalog-api's
+/// `editsession`/`proposedchanges` packages treat a staged asset id as an opaque string and
+/// never reconstruct it from the sub themselves, so as long as the upload path and the id
+/// recorded in the session agree (both computed here), the rest of the system doesn't need to
+/// know or care about this sanitization.
+private func sanitizedAssetUserID(_ sub: String) -> String {
+  sub.replacingOccurrences(of: "|", with: "-")
+}
+
 /// Home, Browse, and Volume Detail - the three catalog-browsing pages, all backed by
 /// catalog-api. Grouped in one controller since they share the same volume-fetching path,
 /// unlike ShelvesController, which has its own concern.
@@ -38,6 +54,9 @@ struct CatalogController: RouteCollection {
     routes.get("volumes", ":volumeID", use: detail)
     routes.get("volumes", ":volumeID", "edit", use: editForm)
     routes.post("volumes", ":volumeID", "edit", use: submitEdit)
+    routes.post("volumes", ":volumeID", "edit", "session", "fields", use: autosaveSessionFields)
+    routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
+    routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post(
       "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
     routes.post(
@@ -148,6 +167,29 @@ struct CatalogController: RouteCollection {
       ))
   }
 
+  /// Loads (or starts) the caller's durable edit session for `volumeID`. Three outcomes:
+  /// - no session existed - one is created here, seeded from the volume's live values
+  /// - a session already exists for this same volume - resumed as-is (a page reload mid-edit
+  ///   must not lose in-progress field values, per task 6.2/6.6)
+  /// - a session exists for a *different* volume - returns `nil`, and the caller (`editForm`)
+  ///   renders the continue-or-discard prompt instead of the edit page. A session for a
+  ///   *different record type* never reaches this branch, since `recordTypeVolume` is fixed.
+  private func loadOrStartSession(req: Request, userSub: String, volume: VolumeViewModel)
+    async throws -> EditSession?
+  {
+    if let existing = await req.editSessions.get(userID: userSub, recordType: recordTypeVolume) {
+      return existing.recordId == volume.id ? existing : nil
+    }
+
+    let now = Date()
+    let fresh = EditSession(
+      recordId: volume.id,
+      fields: ["title": volume.title, "description": volume.description, "notes": volume.notes],
+      stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: now, updatedAt: now)
+    try await req.editSessions.set(userID: userSub, recordType: recordTypeVolume, session: fresh)
+    return fresh
+  }
+
   @Sendable
   func editForm(req: Request) async throws -> View {
     guard let volumeID = req.parameters.get("volumeID") else {
@@ -161,11 +203,33 @@ struct CatalogController: RouteCollection {
       throw Abort(.notFound)
     }
 
+    guard let session = try await loadOrStartSession(req: req, userSub: user.sub, volume: volume)
+    else {
+      let existing = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume)
+      let otherVolume = existing.flatMap { session in
+        volumes.first { $0.id == session.recordId }
+      }
+      return try await req.view.render(
+        "edit-session-conflict",
+        EditSessionConflictContext(
+          volumeID: volumeID,
+          volumeTitle: volume.title,
+          otherVolumeID: existing?.recordId ?? "",
+          otherVolumeTitle: otherVolume?.title ?? "another volume",
+          otherStagedCoverPath: existing?.stagedCoverAssetId.map { "asset/cover-staged/\($0)" }
+            ?? "",
+          user: LeafUser(user),
+          meta: await PageMeta.make(req)
+        ))
+    }
+
     return try await req.view.render(
       "edit",
       EditContext(
-        volume: LeafVolumeEditForm(volume),
+        volume: LeafVolumeEditForm(
+          volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub)),
         canUploadCover: canUploadCover(user.roles),
+        submitError: nil,
         user: LeafUser(user),
         meta: await PageMeta.make(req)
       ))
@@ -177,6 +241,12 @@ struct CatalogController: RouteCollection {
     let notes: String
   }
 
+  /// Saves the form's current field values into the session (covers any edit not yet synced by
+  /// the per-commit autosave calls - e.g. the browser's default blur-before-submit ordering is
+  /// not something this app should rely on being awaited in time), then finalizes it. The
+  /// session survives a failed finalize (cap reached, or any other error) so the user's
+  /// in-progress edit isn't lost - only a successful finalize deletes it (finalize-session does
+  /// that server-side on catalog-api's end).
   @Sendable
   func submitEdit(req: Request) async throws -> Response {
     guard let volumeID = req.parameters.get("volumeID") else {
@@ -187,17 +257,135 @@ struct CatalogController: RouteCollection {
     }
     let input = try req.content.decode(EditInput.self)
 
-    let result = try await req.catalogAPI.patchVolume(
-      id: volumeID, token: user.accessToken,
-      title: input.title, description: input.description, notes: input.notes)
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.badRequest, reason: "No in-flight edit session for this volume")
+    }
+    session.fields["title"] = input.title
+    session.fields["description"] = input.description
+    session.fields["notes"] = input.notes
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
     let basePath = "\(req.basePath)/volumes/\(volumeID)"
-    switch result {
-    case .applied:
-      return req.redirect(to: basePath)
-    case .proposed:
-      return req.redirect(to: "\(basePath)?proposed=1")
+    do {
+      let result = try await req.catalogAPI.finalizeSession(id: volumeID, token: user.accessToken)
+      switch result {
+      case .applied:
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    } catch let error as CatalogAPIError {
+      // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
+      // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
+      let volumes = try await req.catalogAPI.fetchVolumes()
+      guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+        throw Abort(.notFound)
+      }
+      return try await req.view.render(
+        "edit",
+        EditContext(
+          volume: LeafVolumeEditForm(
+            volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub)),
+          canUploadCover: canUploadCover(user.roles),
+          submitError: error.message ?? "Unable to save your changes. Try again.",
+          user: LeafUser(user),
+          meta: await PageMeta.make(req)
+        )
+      ).encodeResponse(status: .badRequest, for: req)
     }
+  }
+
+  /// Per-field autosave (task 6.3) - merges whichever of title/description/notes are present
+  /// into the session's `fields`, called by the edit page's inline commit handlers. A missing
+  /// session (expired, or the user navigated away and back before this fired) 404s rather than
+  /// silently recreating one, since re-seeding from live values here could clobber a
+  /// browser-side edit already in flight.
+  private struct AutosaveFieldsInput: Content {
+    let title: String?
+    let description: String?
+    let notes: String?
+  }
+
+  @Sendable
+  func autosaveSessionFields(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveFieldsInput.self)
+    if let title = input.title { session.fields["title"] = title }
+    if let description = input.description { session.fields["description"] = description }
+    if let notes = input.notes { session.fields["notes"] = notes }
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Records that a cover was staged to `cover-staged/<sub>` on assets-web (the upload itself
+  /// happens browser-direct, per task 6.4 - see `edit.leaf`'s script) - this just updates the
+  /// session pointer so finalize/discard know a staged file exists.
+  private struct SetStagedCoverInput: Content {
+    let assetId: String
+  }
+
+  @Sendable
+  func setSessionStagedCover(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canUploadCover(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(SetStagedCoverInput.self)
+    session.stagedCoverAssetId = input.assetId
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Discards the caller's in-flight volume edit session, wherever it points - used both by
+  /// "Discard changes" on the edit page itself (redirects back to this volume's detail page)
+  /// and by the continue-or-discard prompt's "discard and edit this instead" (redirects back to
+  /// *this* volume's edit page, which will then start a fresh session there). Reclaiming a
+  /// staged cover is done browser-side before this form submits (see `edit.leaf`/
+  /// `edit-session-conflict.leaf`) - assets-web's own auth only accepts browser-originated
+  /// requests, not this app's server-to-server calls (see assets-web's AGENTS.md).
+  private struct DiscardInput: Content {
+    let redirect: String
+  }
+
+  @Sendable
+  func discardSession(req: Request) async throws -> Response {
+    guard req.parameters.get("volumeID") != nil else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(DiscardInput.self)
+
+    await req.editSessions.delete(userID: user.sub, recordType: recordTypeVolume)
+
+    return req.redirect(to: input.redirect)
   }
 
   /// `mode` distinguishes "accept every changed field" (the Accept All button, no `fields` sent)
@@ -313,8 +501,62 @@ struct EditContext: Content {
   /// control. Every viewer of this page already passed `canEdit` (enforced in `editForm`), but
   /// cover upload is editor/admin-only, same as on the detail page before it moved here.
   let canUploadCover: Bool
+  /// Set only when `submitEdit` re-renders this page after a failed finalize (e.g. the
+  /// unapproved-submission cap) - shown as an inline banner rather than a generic error page,
+  /// task 6.5. `nil` on a normal page load.
+  let submitError: String?
+  /// A *stored* property, not computed from `submitError` - Swift's synthesized `Encodable`
+  /// (which `Content` relies on) only encodes stored properties, so a computed `hasX` here
+  /// would silently vanish from what Leaf actually sees and always render as false. Set once,
+  /// in the initializer.
+  let hasSubmitError: Bool
   let user: LeafUser?
   let meta: PageMeta
+
+  init(
+    volume: LeafVolumeEditForm, canUploadCover: Bool, submitError: String?, user: LeafUser?,
+    meta: PageMeta
+  ) {
+    self.volume = volume
+    self.canUploadCover = canUploadCover
+    self.submitError = submitError
+    self.hasSubmitError = submitError != nil
+    self.user = user
+    self.meta = meta
+  }
+}
+
+/// Shown instead of the edit form when the caller already has an in-flight session for a
+/// *different* volume (task 6.2) - a same-type conflict, distinct from having a session for a
+/// different record type, which never triggers this at all.
+struct EditSessionConflictContext: Content {
+  let volumeID: String
+  let volumeTitle: String
+  let otherVolumeID: String
+  let otherVolumeTitle: String
+  /// The other session's staged cover path (`asset/cover-staged/<id>`) - lets the "discard and
+  /// edit this instead" action reclaim it client-side before discarding, same as `edit.leaf`'s
+  /// own discard handler. Empty when the other session has no staged cover.
+  let otherStagedCoverPath: String
+  /// A *stored* property (see `EditContext.hasSubmitError`'s comment on why this can't be
+  /// computed from `otherStagedCoverPath` and still reach Leaf).
+  let hasOtherStagedCover: Bool
+  let user: LeafUser?
+  let meta: PageMeta
+
+  init(
+    volumeID: String, volumeTitle: String, otherVolumeID: String, otherVolumeTitle: String,
+    otherStagedCoverPath: String, user: LeafUser?, meta: PageMeta
+  ) {
+    self.volumeID = volumeID
+    self.volumeTitle = volumeTitle
+    self.otherVolumeID = otherVolumeID
+    self.otherVolumeTitle = otherVolumeTitle
+    self.otherStagedCoverPath = otherStagedCoverPath
+    self.hasOtherStagedCover = !otherStagedCoverPath.isEmpty
+    self.user = user
+    self.meta = meta
+  }
 }
 
 // MARK: - Leaf view models
@@ -448,15 +690,30 @@ struct LeafVolumeEditForm: Content {
   let id: String
   let title: String
   let description: String
+  let hasDescription: Bool
   let notes: String
+  let hasNotes: Bool
+  /// The current session's cover: a staged one if the user has uploaded one this session,
+  /// otherwise the volume's existing live cover.
   let coverAssetPath: String
+  /// The signed-in user's Auth0 subject - the id staged assets are filed under
+  /// (`cover-staged/<sub>`, see docs/frontend-conventions.md's staging convention in
+  /// sweetrpg/platform) and this page's JS needs it to build the upload URL.
+  let userSub: String
 
-  init(_ volume: VolumeViewModel) {
+  init(volume: VolumeViewModel, session: EditSession, userSub: String) {
     self.id = volume.id
-    self.title = volume.title
-    self.description = volume.description
-    self.notes = volume.notes
-    self.coverAssetPath = volume.coverAssetPath
+    self.title = session.fields["title"] ?? volume.title
+    self.description = session.fields["description"] ?? volume.description
+    self.hasDescription = !self.description.isEmpty
+    self.notes = session.fields["notes"] ?? volume.notes
+    self.hasNotes = !self.notes.isEmpty
+    self.userSub = userSub
+    if let staged = session.stagedCoverAssetId {
+      self.coverAssetPath = "asset/cover-staged/\(staged)"
+    } else {
+      self.coverAssetPath = volume.coverAssetPath
+    }
   }
 }
 

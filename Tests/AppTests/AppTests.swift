@@ -282,7 +282,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(volume), canUploadCover: true, user: nil,
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: true, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-edit") { res in
@@ -303,7 +305,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(volume), canUploadCover: false, user: nil,
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-edit") { res in
@@ -487,7 +491,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(volume), canUploadCover: false, user: nil,
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-edit") { res in
@@ -511,7 +517,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(volume), canUploadCover: false, user: nil,
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-edit") { res in
@@ -640,6 +648,197 @@ struct AppTests {
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("Vol. count"))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing
+
+  /// Mirrors the seeding `CatalogController.loadOrStartSession` does for a brand-new session -
+  /// used by the Leaf-rendering tests above, which exercise `edit.leaf` directly rather than
+  /// going through the real controller/routing (matching this file's existing convention for
+  /// this page).
+  private func testEditSession(for volume: VolumeViewModel) -> EditSession {
+    EditSession(
+      recordId: volume.id,
+      fields: ["title": volume.title, "description": volume.description, "notes": volume.notes],
+      stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: Date(), updatedAt: Date())
+  }
+
+  /// Configures `app.redis(.editSession)` against the local Redis this repo's own test-running
+  /// instructions already require (see AGENTS.md's "Running Checks Locally") - DB 15, not the
+  /// real DB 2, so these tests never collide with a developer's own local edit sessions from
+  /// running the app directly.
+  private func withEditSessionRedis(_ app: Application) throws {
+    app.redis(.editSession).configuration = try RedisConfiguration(
+      hostname: "127.0.0.1", port: 6379, database: 15)
+    app.editSessionRedisConfigured = true
+  }
+
+  @Test("EditSessionStore round-trips a session through Redis")
+  func editSessionStoreRoundTrips() async throws {
+    try await withApp { app in
+      try withEditSessionRedis(app)
+      app.get("test-session") { req async throws -> String in
+        let session = EditSession(
+          recordId: "vol-1", fields: ["title": "Staged Title"], stagedCoverAssetId: "cover-abc",
+          sampleAssetIds: ["s1"], createdAt: Date(), updatedAt: Date())
+        try await req.editSessions.set(userID: "user-1", recordType: "volume", session: session)
+
+        let fetched = await req.editSessions.get(userID: "user-1", recordType: "volume")
+        return fetched?.fields["title"] ?? "MISSING"
+      }
+      try await app.testing().test(.GET, "test-session") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string == "Staged Title")
+      }
+    }
+  }
+
+  @Test("EditSessionStore keys are isolated per record type, not global to the user")
+  func editSessionStoreIsolatedByRecordType() async throws {
+    try await withApp { app in
+      try withEditSessionRedis(app)
+      app.get("test-session-types") { req async throws -> String in
+        let volumeSession = EditSession(
+          recordId: "vol-1", fields: ["title": "Volume Edit"], stagedCoverAssetId: nil,
+          sampleAssetIds: nil, createdAt: Date(), updatedAt: Date())
+        try await req.editSessions.set(
+          userID: "user-2", recordType: "volume", session: volumeSession)
+
+        // No "publisher" session exists yet - a different recordType for the same user must
+        // read back nil, not the volume session, confirming the key includes recordType.
+        let publisherSession = await req.editSessions.get(
+          userID: "user-2", recordType: "publisher")
+        let volumeStillThere = await req.editSessions.get(userID: "user-2", recordType: "volume")
+
+        return
+          "publisher=\(publisherSession == nil ? "nil" : "present"),volume=\(volumeStillThere?.fields["title"] ?? "MISSING")"
+      }
+      try await app.testing().test(.GET, "test-session-types") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string == "publisher=nil,volume=Volume Edit")
+      }
+    }
+  }
+
+  @Test("EditSessionStore delete removes only that user/type's session")
+  func editSessionStoreDeleteIsScoped() async throws {
+    try await withApp { app in
+      try withEditSessionRedis(app)
+      app.get("test-session-delete") { req async throws -> String in
+        try await req.editSessions.set(
+          userID: "user-3", recordType: "volume",
+          session: EditSession(
+            recordId: "vol-1", fields: [:], stagedCoverAssetId: nil, sampleAssetIds: nil,
+            createdAt: Date(), updatedAt: Date()))
+        try await req.editSessions.set(
+          userID: "user-4", recordType: "volume",
+          session: EditSession(
+            recordId: "vol-2", fields: [:], stagedCoverAssetId: nil, sampleAssetIds: nil,
+            createdAt: Date(), updatedAt: Date()))
+
+        await req.editSessions.delete(userID: "user-3", recordType: "volume")
+
+        let deletedUser = await req.editSessions.get(userID: "user-3", recordType: "volume")
+        let otherUser = await req.editSessions.get(userID: "user-4", recordType: "volume")
+        return
+          "deleted=\(deletedUser == nil ? "nil" : "present"),other=\(otherUser == nil ? "nil" : "present")"
+      }
+      try await app.testing().test(.GET, "test-session-delete") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string == "deleted=nil,other=present")
+      }
+    }
+  }
+
+  @Test("edit page shows the session's staged field values, not the volume's live ones")
+  func editPageShowsSessionValuesOverLiveValues() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Live Title", description: "Live description", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let session = EditSession(
+      recordId: "1", fields: ["title": "Session Title", "description": "Live description"],
+      stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: Date(), updatedAt: Date())
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(volume: volume, session: session, userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"value="Session Title""#))
+        #expect(!res.body.string.contains(#"value="Live Title""#))
+      }
+    }
+  }
+
+  @Test("edit page shows an inline error banner after a failed finalize")
+  func editPageShowsSubmitError() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false,
+            submitError: "You have 25 pending submissions, at your cap of 25.", user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("You have 25 pending submissions"))
+      }
+    }
+  }
+
+  @Test("edit-session-conflict page names both volumes and links to continue editing the other one")
+  func editSessionConflictPageRenders() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-conflict") { req async throws -> View in
+        try await req.view.render(
+          "edit-session-conflict",
+          EditSessionConflictContext(
+            volumeID: "2", volumeTitle: "New Volume", otherVolumeID: "1",
+            otherVolumeTitle: "In-Progress Volume", otherStagedCoverPath: "", user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-conflict") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("In-Progress Volume"))
+        #expect(res.body.string.contains(#"href="/volumes/1/edit""#))
+        #expect(res.body.string.contains("New Volume"))
+      }
+    }
+  }
+
+  @Test("edit-session-conflict page omits the staged-cover reclaim script when there is none")
+  func editSessionConflictPageOmitsReclaimScriptWithoutStagedCover() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-conflict") { req async throws -> View in
+        try await req.view.render(
+          "edit-session-conflict",
+          EditSessionConflictContext(
+            volumeID: "2", volumeTitle: "New Volume", otherVolumeID: "1",
+            otherVolumeTitle: "In-Progress Volume", otherStagedCoverPath: "", user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-conflict") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("discard-other-form"))
+        #expect(!res.body.string.contains("keepalive: true"))
       }
     }
   }

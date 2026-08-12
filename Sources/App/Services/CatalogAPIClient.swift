@@ -98,6 +98,12 @@ struct CatalogAPIClientService {
       id: id, token: token, title: title, description: description, notes: notes)
   }
 
+  /// Finalizes the caller's in-flight durable edit session for a volume - see
+  /// `CatalogController.submitEdit`.
+  func finalizeSession(id: String, token: String) async throws -> VolumePatchResult {
+    try await sdk.finalizeSession(id: id, token: token)
+  }
+
   func listProposedChanges(volumeID: String, token: String) async throws
     -> [ProposedChangeSummary]
   {

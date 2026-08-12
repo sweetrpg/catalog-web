@@ -22,6 +22,12 @@ data:
   SHARED_SESSION_REDIS_PORT: "6379"
   SHARED_SESSION_REDIS_DB: "0"
 
+  # Same instance as REDIS_HOST above, a third logical DB - the durable volume-edit session
+  # store. See dev overlay's comment for the same reasoning.
+  EDIT_SESSION_REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  EDIT_SESSION_REDIS_PORT: "6379"
+  EDIT_SESSION_REDIS_DB: "2"
+
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,
   # so no /0 or /1 API-version prefix (that's only stripped by catalog-api's Traefik middleware
   # in front of its public ingress; see strip-prefix-v1 in
