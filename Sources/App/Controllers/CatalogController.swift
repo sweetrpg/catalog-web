@@ -111,12 +111,23 @@ struct CatalogController: RouteCollection {
 
     var proposalReview: LeafProposalReview?
     if canReview(roles), let token = sessionUser?.accessToken {
-      let pending = try await req.catalogAPI.listProposedChanges(volumeID: volumeID, token: token)
-      if !pending.isEmpty {
-        let selectedID = req.query[String.self, at: "proposal"]
-        let selected = pending.first { $0.id == selectedID } ?? pending[0]
-        proposalReview = LeafProposalReview(
-          volumeID: volumeID, pending: pending, selected: selected)
+      // Fails open rather than propagating: catalog-api's proposed-changes endpoints are a
+      // separate deployment from this app's own release, so a version skew or outage there
+      // (e.g. the endpoint not yet shipped) must degrade to "no pending changes shown", not
+      // 500 the entire detail page for every editor/admin viewer - matches AdminClient's and
+      // this app's session-read fail-open contract elsewhere.
+      do {
+        let pending = try await req.catalogAPI.listProposedChanges(
+          volumeID: volumeID, token: token)
+        if !pending.isEmpty {
+          let selectedID = req.query[String.self, at: "proposal"]
+          let selected = pending.first { $0.id == selectedID } ?? pending[0]
+          proposalReview = LeafProposalReview(
+            volumeID: volumeID, pending: pending, selected: selected)
+        }
+      } catch {
+        req.logger.warning(
+          "failed to fetch proposed changes for volume \(volumeID): \(error)")
       }
     }
 
