@@ -138,6 +138,7 @@ struct AppTests {
         #expect(res.body.string.contains(#"href="/users""#))
         #expect(!res.body.string.contains(#"href="/admin""#))
         #expect(res.body.string.contains("avatar-menu-item-danger"))
+        #expect(res.body.string.contains(#"action="/auth/logout?return_to=/test-home""#))
       }
     }
   }
