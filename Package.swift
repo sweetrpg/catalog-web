@@ -30,13 +30,15 @@ let package = Package(
         .package(url: "https://github.com/sweetrpg/admin-api-client.swift.git", from: "0.0.1"),
         // 📚 Shared catalog-api client (JSON:API fetch/decoding) - replaces this app's own
         // hand-rolled CatalogAPIClient, see sweetrpg/platform's api-client-sdks change.
-        // TEMPORARY: pinned to develop (sweetrpg/catalog-api-client.swift#3 merged there) since
-        // that repo's "Bump version" workflow_dispatch isn't currently registered on GitHub
-        // (confirmed via `gh api .../actions/workflows` - a pre-existing repo issue, not
-        // something this change caused). Switch back to a `from:` version pin once that's
-        // fixed and a real tag exists past 0.0.1.
+        // TEMPORARY: pinned to the catalog-entity-pages branch (sweetrpg/catalog-api-client.swift#5,
+        // not yet merged) for the publisher/studio/person/license attribute models and generic
+        // PATCH methods this PR depends on. Switch back to `branch: "develop"` once that PR
+        // merges (still no real version tag past 0.0.1 to pin to instead - see the prior note
+        // this replaced: `gh api .../actions/workflows` confirms the "Bump version"
+        // workflow_dispatch still isn't registered).
         .package(
-            url: "https://github.com/sweetrpg/catalog-api-client.swift.git", branch: "develop"),
+            url: "https://github.com/sweetrpg/catalog-api-client.swift.git",
+            branch: "4-catalog-entity-pages"),
     ],
     targets: [
         .executableTarget(

@@ -3,12 +3,13 @@ import Crypto
 import Foundation
 import Vapor
 
-/// Roles that may edit a volume directly (admin/editor) or propose a change for review
-/// (submitter) - mirrors auth-api's fixed role model. See platform's
-/// volume-edit-authorization spec.
-private let editCapableRoles: Set<String> = ["submitter", "editor", "admin"]
+/// Roles that may edit a volume (or, since `catalog-entity-pages`, a publisher/studio/person/
+/// license) directly (admin/editor) or propose a change for review (submitter) - mirrors
+/// auth-api's fixed role model. See platform's volume-edit-authorization spec. Not file-private
+/// - `CatalogEntitiesController` reuses `canEdit`/`canReview` for the same role gating.
+let editCapableRoles: Set<String> = ["submitter", "editor", "admin"]
 /// Roles that may review (list/accept/reject) another user's proposed changes.
-private let reviewCapableRoles: Set<String> = ["editor", "admin"]
+let reviewCapableRoles: Set<String> = ["editor", "admin"]
 /// Roles that may upload a volume's cover image - editor/admin only, unlike `editCapableRoles`:
 /// there's no submitter-facing proposal flow for a binary file (see design.md's Non-Goals in
 /// the catalog-volume-cover-upload OpenSpec change). Currently the same roles as
@@ -16,11 +17,11 @@ private let reviewCapableRoles: Set<String> = ["editor", "admin"]
 /// diverge later.
 private let coverUploadCapableRoles: Set<String> = ["editor", "admin"]
 
-private func canEdit(_ roles: [String]) -> Bool {
+func canEdit(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: editCapableRoles)
 }
 
-private func canReview(_ roles: [String]) -> Bool {
+func canReview(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: reviewCapableRoles)
 }
 
@@ -373,6 +374,16 @@ struct LeafVolumeCard: Content {
   }
 }
 
+struct LeafEntityRef: Content {
+  let id: String
+  let name: String
+
+  init(_ ref: EntityRef) {
+    self.id = ref.id
+    self.name = ref.name
+  }
+}
+
 struct LeafVolumeDetail: Content {
   let id: String
   let title: String
@@ -385,10 +396,13 @@ struct LeafVolumeDetail: Content {
   let hasSystemNames: Bool
   let publisherNames: [String]
   let hasPublisherNames: Bool
+  let publisherRefs: [LeafEntityRef]
   let studioNames: [String]
   let hasStudioNames: Bool
+  let studioRefs: [LeafEntityRef]
   let licenseNames: [String]
   let hasLicenseNames: Bool
+  let licenseRefs: [LeafEntityRef]
   let credits: [LeafCredit]
   let hasCredits: Bool
   let reviews: [LeafReview]
@@ -407,10 +421,13 @@ struct LeafVolumeDetail: Content {
     self.hasSystemNames = !volume.systemNames.isEmpty
     self.publisherNames = volume.publisherNames
     self.hasPublisherNames = !volume.publisherNames.isEmpty
+    self.publisherRefs = volume.publisherRefs.map(LeafEntityRef.init)
     self.studioNames = volume.studioNames
     self.hasStudioNames = !volume.studioNames.isEmpty
+    self.studioRefs = volume.studioRefs.map(LeafEntityRef.init)
     self.licenseNames = volume.licenseNames
     self.hasLicenseNames = !volume.licenseNames.isEmpty
+    self.licenseRefs = volume.licenseRefs.map(LeafEntityRef.init)
     self.credits = volume.credits.map(LeafCredit.init)
     self.hasCredits = !volume.credits.isEmpty
     self.reviews = volume.reviews.map(LeafReview.init)

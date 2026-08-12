@@ -38,6 +38,16 @@
 			</section>
 		#endif
 
+		<section>
+			<span class="section-label">Browse the Catalog</span>
+			<div class="hero-actions">
+				<a class="btn btn-ghost" href="#(meta.basePath)/publishers">Publishers</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/studios">Studios</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/persons">Persons</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/licenses">Licenses</a>
+			</div>
+		</section>
+
 		#if(count(tagCloud) > 0):
 			<section>
 				<span class="section-label">Browse by Tag</span>

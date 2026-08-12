@@ -1,0 +1,25 @@
+#extend("base"):
+	#export("body"):
+		<section class="page-header">
+			<span class="section-label">Browse</span>
+			<h2>Licenses</h2>
+			<form class="nav-search" action="#(meta.basePath)/licenses" method="get">
+				<input class="input" type="search" name="q" placeholder="Search licenses" value="#(query)">
+			</form>
+		</section>
+
+		#if(noResults):
+			<p class="empty-state">No licenses match "#(query)".</p>
+		#endif
+
+		<div class="card-grid">
+			#for(item in items):
+				<a class="card" href="#(meta.basePath)/licenses/#(item.id)">
+					<div class="card-body">
+						<div class="card-title">#(item.title)</div>
+					</div>
+				</a>
+			#endfor
+		</div>
+	#endexport
+#endextend

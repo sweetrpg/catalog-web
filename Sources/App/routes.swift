@@ -7,5 +7,6 @@ func routes(_ app: Application) throws {
   }
 
   try app.register(collection: CatalogController())
+  try app.register(collection: CatalogEntitiesController())
   try app.register(collection: ShelvesController())
 }

@@ -1,0 +1,25 @@
+#extend("base"):
+	#export("body"):
+		<section class="page-header">
+			<span class="section-label">Browse</span>
+			<h2>Studios</h2>
+			<form class="nav-search" action="#(meta.basePath)/studios" method="get">
+				<input class="input" type="search" name="q" placeholder="Search studios" value="#(query)">
+			</form>
+		</section>
+
+		#if(noResults):
+			<p class="empty-state">No studios match "#(query)".</p>
+		#endif
+
+		<div class="card-grid">
+			#for(item in items):
+				<a class="card" href="#(meta.basePath)/studios/#(item.id)">
+					<div class="card-body">
+						<div class="card-title">#(item.name)</div>
+					</div>
+				</a>
+			#endfor
+		</div>
+	#endexport
+#endextend
