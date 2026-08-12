@@ -1,0 +1,108 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/studios">&larr; Back</a>
+
+		#if(justProposed):
+			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+		#endif
+
+		#if(count(conflicts) > 0):
+			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+		#endif
+
+		<div>
+			<h1>#(studio.name)</h1>
+			<div class="tag-cloud">
+				#for(tag in studio.tags):
+					<span class="tag tag-accent">#(tag)</span>
+				#endfor
+			</div>
+
+			#if(canEdit):
+				<a class="btn btn-ghost" href="#(meta.basePath)/studios/#(studio.id)/edit">Edit</a>
+			#endif
+
+			#if(studio.hasWebsite):
+				<p class="detail-notes"><strong>Website:</strong> <a href="#(studio.website)">#(studio.website)</a></p>
+			#endif
+
+			#if(studio.hasNotes):
+				<p class="detail-notes"><strong>Notes:</strong> #(studio.notes)</p>
+			#endif
+
+			#if(review):
+				<div class="detail-block">
+					<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+
+					#if(review.hasMultiplePending):
+						<form class="proposal-picker" method="get" action="#(meta.basePath)/studios/#(studio.id)">
+							<label class="form-label" for="proposal">Viewing proposal from</label>
+							<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
+								#for(option in review.options):
+									<option value="#(option.id)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
+								#endfor
+							</select>
+						</form>
+					#else:
+						<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+					#endif
+
+					<form class="proposal-diff" method="post" action="#(meta.basePath)/studios/#(studio.id)/proposed-changes/#(review.selectedID)/accept">
+						<input type="hidden" name="mode" value="subset">
+						<table class="table">
+							<thead>
+								<tr>
+									<th></th>
+									<th>Field</th>
+									<th>Live value</th>
+									<th>Proposed value</th>
+								</tr>
+							</thead>
+							<tbody>
+								#for(field in review.fields):
+									<tr>
+										<td><input type="checkbox" name="fields" value="#(field.key)"></td>
+										<td>#(field.label)</td>
+										<td>#(field.oldValue)</td>
+										<td>#(field.newValue)</td>
+									</tr>
+								#endfor
+							</tbody>
+						</table>
+						<div class="form-actions table-actions">
+							<button type="submit" class="btn btn-ghost">Accept Selected</button>
+						</div>
+					</form>
+
+					<div class="table-actions">
+						<form method="post" action="#(meta.basePath)/studios/#(studio.id)/proposed-changes/#(review.selectedID)/accept">
+							<input type="hidden" name="mode" value="all">
+							<button type="submit" class="btn btn-primary">Accept All</button>
+						</form>
+						<form method="post" action="#(meta.basePath)/studios/#(studio.id)/proposed-changes/#(review.selectedID)/reject">
+							<input class="input" type="text" name="note" placeholder="Optional note">
+							<button type="submit" class="btn btn-ghost">Reject</button>
+						</form>
+					</div>
+				</div>
+			#endif
+
+			<div class="detail-block">
+				<span class="section-label">Volumes</span>
+				#if(studio.hasVolumes):
+					<div class="card-grid">
+						#for(volume in studio.volumes):
+							<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
+								<div class="card-body">
+									<div class="card-title">#(volume.title)</div>
+								</div>
+							</a>
+						#endfor
+					</div>
+				#else:
+					<p class="empty-state-inline">No volumes associated with this studio yet.</p>
+				#endif
+			</div>
+		</div>
+	#endexport
+#endextend

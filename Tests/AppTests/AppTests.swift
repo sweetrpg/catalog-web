@@ -244,11 +244,13 @@ struct AppTests {
 
   @Test("detail page shows only the metadata sections a volume has names for")
   func detailPageShowsOnlyPopulatedMetadataSections() async throws {
-    let volume = VolumeViewModel(
+    var volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: ["Shadow of the Demon Lord"],
       publisherNames: ["Schwalb Entertainment"],
       studioNames: [], licenseNames: ["OGL"])
+    volume.publisherRefs = [EntityRef(id: "pub-1", name: "Schwalb Entertainment")]
+    volume.licenseRefs = [EntityRef(id: "lic-1", name: "OGL")]
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in

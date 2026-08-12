@@ -32,6 +32,11 @@ struct CatalogAPIClientService {
       func names(_ key: String, from map: [String: String]) -> [String] {
         (rel[key]?.data?.ids ?? []).compactMap { map[$0] }
       }
+      func refs(_ key: String, from map: [String: String]) -> [EntityRef] {
+        (rel[key]?.data?.ids ?? []).compactMap { id in
+          map[id].map { EntityRef(id: id, name: $0) }
+        }
+      }
       return VolumeViewModel(
         id: resource.id,
         title: resource.attributes.title ?? "Untitled",
@@ -41,7 +46,10 @@ struct CatalogAPIClientService {
         systemNames: names("system", from: systemNames),
         publisherNames: names("publisher", from: publisherNames),
         studioNames: names("studio", from: studioNames),
-        licenseNames: names("license", from: licenseNames)
+        licenseNames: names("license", from: licenseNames),
+        publisherRefs: refs("publisher", from: publisherNames),
+        studioRefs: refs("studio", from: studioNames),
+        licenseRefs: refs("license", from: licenseNames)
       )
     }.sorted { $0.title < $1.title }
   }
@@ -116,6 +124,115 @@ struct CatalogAPIClientService {
   ) async throws -> ReviewProposalResult {
     try await sdk.rejectProposedChange(
       volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+  }
+
+  func fetchPublishers() async throws -> [PublisherViewModel] {
+    let doc = try await getCached("catalog:publishers") { try await sdk.fetchPublishers() }
+    return doc.data.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) }
+      .sorted { $0.name < $1.name }
+  }
+
+  func fetchPublisher(id: String) async throws -> PublisherViewModel? {
+    let doc = try await sdk.fetchPublisher(id: id)
+    return PublisherViewModel(id: doc.data.id, attributes: doc.data.attributes)
+  }
+
+  func fetchPublisherVolumes(id: String) async throws -> [VolumeSummary] {
+    let doc = try await sdk.fetchPublisherVolumes(id: id)
+    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+  }
+
+  func fetchStudios() async throws -> [StudioViewModel] {
+    let doc = try await getCached("catalog:studios") { try await sdk.fetchStudios() }
+    return doc.data.map { StudioViewModel(id: $0.id, attributes: $0.attributes) }
+      .sorted { $0.name < $1.name }
+  }
+
+  func fetchStudio(id: String) async throws -> StudioViewModel? {
+    let doc = try await sdk.fetchStudio(id: id)
+    return StudioViewModel(id: doc.data.id, attributes: doc.data.attributes)
+  }
+
+  func fetchStudioVolumes(id: String) async throws -> [VolumeSummary] {
+    let doc = try await sdk.fetchStudioVolumes(id: id)
+    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+  }
+
+  func fetchPersonsCatalog() async throws -> [PersonViewModel] {
+    let doc = try await getCached("catalog:persons-list") { try await sdk.fetchPersons() }
+    return doc.data.map { PersonViewModel(id: $0.id, attributes: $0.attributes) }
+      .sorted { $0.name < $1.name }
+  }
+
+  func fetchPerson(id: String) async throws -> PersonViewModel? {
+    let doc = try await sdk.fetchPerson(id: id)
+    return PersonViewModel(id: doc.data.id, attributes: doc.data.attributes)
+  }
+
+  func fetchPersonVolumes(id: String) async throws -> [VolumeSummary] {
+    let doc = try await sdk.fetchPersonVolumes(id: id)
+    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+  }
+
+  func fetchLicenses() async throws -> [LicenseViewModel] {
+    let doc = try await getCached("catalog:licenses-list") { try await sdk.fetchLicenses() }
+    return doc.data.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) }
+      .sorted { $0.title < $1.title }
+  }
+
+  func fetchLicense(id: String) async throws -> LicenseViewModel? {
+    let doc = try await sdk.fetchLicense(id: id)
+    return LicenseViewModel(id: doc.data.id, attributes: doc.data.attributes)
+  }
+
+  func fetchLicenseVolumes(id: String) async throws -> [VolumeSummary] {
+    let doc = try await sdk.fetchLicenseVolumes(id: id)
+    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+  }
+
+  /// Outcome of a generic entity PATCH - the applied document's contents aren't used by any
+  /// caller (the controller just redirects), so this discards them rather than threading a
+  /// per-type `Attributes` generic parameter up through the controller layer.
+  enum PatchOutcome {
+    case applied
+    case proposed(ProposedChangeSubmission)
+  }
+
+  /// Edits a publisher/studio/person/license, or proposes an edit for review - the generic
+  /// counterpart of `patchVolume`. `path` is the resource's collection path (e.g.
+  /// `/publishers`). Decodes the applied-case response as `NamedAttributes` regardless of the
+  /// real entity type purely to satisfy the SDK call's generic parameter - its fields
+  /// (`name`/`title`, both optional) decode successfully against any of the four types' actual
+  /// response shapes without needing to match them, since the decoded value itself is unused.
+  func patchEntity(path: String, id: String, token: String, fields: [String: String])
+    async throws -> PatchOutcome
+  {
+    let result: EntityPatchResult<NamedAttributes> = try await sdk.patchEntity(
+      path: path, id: id, token: token, fields: fields)
+    switch result {
+    case .applied: return .applied
+    case .proposed(let submission): return .proposed(submission)
+    }
+  }
+
+  func listProposedChanges(path: String, id: String, token: String) async throws
+    -> [ProposedChangeSummary]
+  {
+    try await sdk.listProposedChanges(path: path, id: id, token: token)
+  }
+
+  func acceptProposedChange(
+    path: String, id: String, proposalID: String, token: String, fields: [String]?
+  ) async throws -> ReviewProposalResult {
+    try await sdk.acceptProposedChange(
+      path: path, id: id, proposalID: proposalID, token: token, fields: fields)
+  }
+
+  func rejectProposedChange(
+    path: String, id: String, proposalID: String, token: String, note: String?
+  ) async throws -> ReviewProposalResult {
+    try await sdk.rejectProposedChange(
+      path: path, id: id, proposalID: proposalID, token: token, note: note)
   }
 
   private func fetchNameMap(path: String) async throws -> [String: String] {
