@@ -6,7 +6,7 @@
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
 		#endif
 
-		#if(conflicts):
+		#if(hasConflicts):
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
