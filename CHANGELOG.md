@@ -1,4 +1,15 @@
 
+## 0.12.0 - 2026-08-12
+
+### Added
+- Add cover-upload control to the volume detail page
+
+
+### Fixed
+- Fail open when fetching pending proposed changes
+
+
+
 ## 0.11.0 - 2026-08-11
 
 ### Added
