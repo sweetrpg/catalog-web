@@ -253,7 +253,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
         )
@@ -271,44 +271,42 @@ struct AppTests {
 
   // MARK: - catalog-volume-cover-upload
 
-  @Test("detail page shows the cover-upload control for an editor/admin session")
-  func detailShowsCoverUploadControlWhenCanUploadCover() async throws {
+  @Test("edit page shows the cover-upload control for an editor/admin session")
+  func editShowsCoverUploadControlWhenCanUploadCover() async throws {
     let volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
     try await withApp { app in
       app.views.use(.leaf)
-      app.get("test-detail") { req async throws -> View in
+      app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "detail",
-          DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: true,
-            justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(volume), canUploadCover: true, user: nil,
+            meta: await PageMeta.make(req)))
       }
-      try await app.testing().test(.GET, "test-detail") { res in
+      try await app.testing().test(.GET, "test-edit") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("cover-upload-input"))
       }
     }
   }
 
-  @Test("detail page hides the cover-upload control for a non-editor session")
-  func detailHidesCoverUploadControlWithoutRole() async throws {
+  @Test("edit page hides the cover-upload control for a submitter session")
+  func editHidesCoverUploadControlWithoutRole() async throws {
     let volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
     try await withApp { app in
       app.views.use(.leaf)
-      app.get("test-detail") { req async throws -> View in
+      app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "detail",
-          DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: true, canUploadCover: false,
-            justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(volume), canUploadCover: false, user: nil,
+            meta: await PageMeta.make(req)))
       }
-      try await app.testing().test(.GET, "test-detail") { res in
+      try await app.testing().test(.GET, "test-edit") { res in
         #expect(res.status == .ok)
         #expect(!res.body.string.contains("cover-upload-input"))
       }
@@ -338,7 +336,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: true, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: true,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -363,7 +361,7 @@ struct AppTests {
           DetailContext(
             // canEdit: true (submitter can propose), but review stays nil - only
             // CatalogController decides to populate it, gated on canReview, not canEdit.
-            volume: LeafVolumeDetail(volume), canEdit: true, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: true,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -387,7 +385,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -419,7 +417,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -444,7 +442,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: false,
             justProposed: false, review: nil,
             conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
       }
@@ -467,7 +465,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false, canUploadCover: false,
+            volume: LeafVolumeDetail(volume), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -489,7 +487,8 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(volume), user: nil, meta: await PageMeta.make(req)))
+            volume: LeafVolumeEditForm(volume), canUploadCover: false, user: nil,
+            meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-edit") { res in
         #expect(res.status == .ok)
@@ -497,6 +496,32 @@ struct AppTests {
         #expect(res.body.string.contains("A dark fantasy setting."))
         #expect(res.body.string.contains("Draft notes"))
         #expect(res.body.string.contains(#"action="/volumes/1/edit""#))
+      }
+    }
+  }
+
+  @Test("edit form renders inline edit affordances for title and description")
+  func editFormRendersInlineEditControls() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "A dark fantasy setting.", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(volume), canUploadCover: false, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("icons/edit.svg"))
+        #expect(res.body.string.contains("icons/accept.svg"))
+        #expect(res.body.string.contains("icons/cancel.svg"))
+        #expect(res.body.string.contains(#"data-field="title" data-field-type="line""#))
+        #expect(res.body.string.contains(#"data-field="description" data-field-type="block""#))
+        #expect(res.body.string.contains(#"data-field="notes" data-field-type="block""#))
       }
     }
   }

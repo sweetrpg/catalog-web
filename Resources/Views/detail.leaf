@@ -14,13 +14,6 @@
 			<div class="card-cover detail-cover">
 				<img class="card-cover-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
-				#if(canUploadCover):
-					<div class="cover-upload" data-assets-url="#(meta.sharedAssetsURL)" data-cover-path="#(volume.coverAssetPath)">
-						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
-						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-						<p class="form-error cover-upload-error" hidden></p>
-					</div>
-				#endif
 			</div>
 
 			<div>
@@ -178,64 +171,5 @@
 				</div>
 			</div>
 		</div>
-
-		#if(canUploadCover):
-			<script>
-			(function () {
-			  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-			  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-
-			  var container = document.querySelector('.cover-upload');
-			  if (!container) return;
-
-			  var input = document.getElementById('cover-upload-input');
-			  var errorEl = container.querySelector('.cover-upload-error');
-			  var coverImg = document.querySelector('.card-cover-img');
-			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.coverPath;
-
-			  function showError(message) {
-			    errorEl.textContent = message;
-			    errorEl.hidden = false;
-			  }
-
-			  function clearError() {
-			    errorEl.hidden = true;
-			    errorEl.textContent = '';
-			  }
-
-			  input.addEventListener('change', function () {
-			    var file = input.files[0];
-			    if (!file) return;
-			    clearError();
-
-			    if (ALLOWED_CONTENT_TYPES.indexOf(file.type) === -1) {
-			      showError('Cover must be a PNG, JPEG, or WEBP image.');
-			      input.value = '';
-			      return;
-			    }
-			    if (file.size > MAX_UPLOAD_BYTES) {
-			      showError('Cover must be 5 MB or smaller.');
-			      input.value = '';
-			      return;
-			    }
-
-			    var formData = new FormData();
-			    formData.append('file', file);
-
-			    fetch(uploadURL, { method: 'POST', body: formData, credentials: 'include' })
-			      .then(function (resp) {
-			        if (!resp.ok) throw new Error('Upload failed');
-			        if (coverImg) {
-			          coverImg.src = uploadURL + '?v=' + Date.now();
-			        }
-			        input.value = '';
-			      })
-			      .catch(function () {
-			        showError('Upload failed. Try again.');
-			      });
-			  });
-			})();
-			</script>
-		#endif
 	#endexport
 #endextend
