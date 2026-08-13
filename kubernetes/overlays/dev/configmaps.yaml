@@ -22,6 +22,14 @@ data:
   SHARED_SESSION_REDIS_HOST: redis.sweetrpg-auth.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
   SHARED_SESSION_REDIS_DB: "0"
+  # Same instance as REDIS_HOST above (catalog-api's own Redis in sweetrpg-catalog), a third
+  # logical DB - the durable volume-edit session store this app both writes (starting/updating
+  # a session) and, indirectly via catalog-api's finalize-session endpoint, has read at commit
+  # time. Must match catalog-api's own edit-session DB index exactly - see
+  # docs/frontend-conventions.md's edit-session schema and Redis registry in sweetrpg/platform.
+  EDIT_SESSION_REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  EDIT_SESSION_REDIS_PORT: "6379"
+  EDIT_SESSION_REDIS_DB: "2"
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,
   # so no /0 or /1 API-version prefix (that's only stripped by catalog-api's Traefik middleware
   # in front of its public ingress; see strip-prefix-v1 in

@@ -14,13 +14,6 @@
 			<div class="card-cover detail-cover">
 				<img class="card-cover-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
-				#if(canUploadCover):
-					<div class="cover-upload" data-assets-url="#(meta.sharedAssetsURL)" data-cover-path="#(volume.coverAssetPath)">
-						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
-						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-						<p class="form-error cover-upload-error" hidden></p>
-					</div>
-				#endif
 			</div>
 
 			<div>
@@ -95,6 +88,33 @@
 						#for(credit in volume.credits):
 							<p><strong>#(credit.role)</strong> &mdash; #(credit.person)</p>
 						#endfor
+					</div>
+				#endif
+
+				#if(volume.hasProperties):
+					<div class="detail-block">
+						<span class="section-label">Properties</span>
+						<table class="table">
+							<tbody>
+								#for(property in volume.properties):
+									<tr>
+										<td>#(property.name)</td>
+										<td>#(property.value)</td>
+									</tr>
+								#endfor
+							</tbody>
+						</table>
+					</div>
+				#endif
+
+				#if(volume.hasSamples):
+					<div class="detail-block">
+						<span class="section-label">Sample Pages</span>
+						<div class="sample-thumbnails" id="sample-thumbnails">
+							#for(path in volume.samplePaths):
+								<img class="sample-thumbnail" src="#(meta.sharedAssetsURL)/#(path)" alt="Sample page" loading="lazy">
+							#endfor
+						</div>
 					</div>
 				#endif
 
@@ -179,60 +199,37 @@
 			</div>
 		</div>
 
-		#if(canUploadCover):
+		#if(volume.hasSamples):
+			<div class="sample-viewer" id="sample-viewer" hidden>
+				<button type="button" class="sample-viewer-close" id="sample-viewer-close" aria-label="Close">&times;</button>
+				<img class="sample-viewer-img" id="sample-viewer-img" src="" alt="Sample page, enlarged">
+			</div>
+
 			<script>
 			(function () {
-			  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-			  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+			  // Click-to-enlarge sample viewer (task 11.1) - a plain overlay, not a full lightbox
+			  // library: this page has no client-side framework, and a handful of thumbnails don't
+			  // need more than click-to-open/click-to-close.
+			  var thumbnails = document.getElementById('sample-thumbnails');
+			  var viewer = document.getElementById('sample-viewer');
+			  var viewerImg = document.getElementById('sample-viewer-img');
+			  var closeBtn = document.getElementById('sample-viewer-close');
+			  if (!thumbnails || !viewer) return;
 
-			  var container = document.querySelector('.cover-upload');
-			  if (!container) return;
+			  thumbnails.querySelectorAll('.sample-thumbnail').forEach(function (thumb) {
+			    thumb.addEventListener('click', function () {
+			      viewerImg.src = thumb.src;
+			      viewer.hidden = false;
+			    });
+			  });
 
-			  var input = document.getElementById('cover-upload-input');
-			  var errorEl = container.querySelector('.cover-upload-error');
-			  var coverImg = document.querySelector('.card-cover-img');
-			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.coverPath;
-
-			  function showError(message) {
-			    errorEl.textContent = message;
-			    errorEl.hidden = false;
+			  function close() {
+			    viewer.hidden = true;
+			    viewerImg.src = '';
 			  }
-
-			  function clearError() {
-			    errorEl.hidden = true;
-			    errorEl.textContent = '';
-			  }
-
-			  input.addEventListener('change', function () {
-			    var file = input.files[0];
-			    if (!file) return;
-			    clearError();
-
-			    if (ALLOWED_CONTENT_TYPES.indexOf(file.type) === -1) {
-			      showError('Cover must be a PNG, JPEG, or WEBP image.');
-			      input.value = '';
-			      return;
-			    }
-			    if (file.size > MAX_UPLOAD_BYTES) {
-			      showError('Cover must be 5 MB or smaller.');
-			      input.value = '';
-			      return;
-			    }
-
-			    var formData = new FormData();
-			    formData.append('file', file);
-
-			    fetch(uploadURL, { method: 'POST', body: formData, credentials: 'include' })
-			      .then(function (resp) {
-			        if (!resp.ok) throw new Error('Upload failed');
-			        if (coverImg) {
-			          coverImg.src = uploadURL + '?v=' + Date.now();
-			        }
-			        input.value = '';
-			      })
-			      .catch(function () {
-			        showError('Upload failed. Try again.');
-			      });
+			  closeBtn.addEventListener('click', close);
+			  viewer.addEventListener('click', function (e) {
+			    if (e.target === viewer) close();
 			  });
 			})();
 			</script>

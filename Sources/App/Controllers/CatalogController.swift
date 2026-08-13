@@ -16,6 +16,11 @@ let reviewCapableRoles: Set<String> = ["editor", "admin"]
 /// `reviewCapableRoles`, but kept as its own set since the two gate unrelated actions that could
 /// diverge later.
 private let coverUploadCapableRoles: Set<String> = ["editor", "admin"]
+/// Roles that may add a new value to a shared vocabulary (contribution type today; property
+/// name/format in later task groups) - editor/admin only, per design.md's decision that a
+/// submitter can use an existing vocabulary value but never grow the list. Currently the same
+/// roles as `coverUploadCapableRoles`, kept separate for the same reason that one is its own set.
+private let vocabularyCreateCapableRoles: Set<String> = ["editor", "admin"]
 
 func canEdit(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: editCapableRoles)
@@ -29,6 +34,26 @@ private func canUploadCover(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: coverUploadCapableRoles)
 }
 
+private func canCreateVocabularyValue(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: vocabularyCreateCapableRoles)
+}
+
+/// The only `recordType` the durable edit-session mechanism supports today - see
+/// docs/frontend-conventions.md's edit-session schema in sweetrpg/platform.
+private let recordTypeVolume = "volume"
+
+/// A user's raw Auth0 subject (e.g. `auth0|abc123`, `google-oauth2|123456`) is not a valid
+/// assets-web asset id - `|` doesn't survive Werkzeug's `secure_filename`, and assets-web
+/// rejects any id that comes back changed. Staged assets are filed under this sanitized form
+/// instead (`cover-staged/<sanitized>`) - purely a frontend convention: catalog-api's
+/// `editsession`/`proposedchanges` packages treat a staged asset id as an opaque string and
+/// never reconstruct it from the sub themselves, so as long as the upload path and the id
+/// recorded in the session agree (both computed here), the rest of the system doesn't need to
+/// know or care about this sanitization.
+private func sanitizedAssetUserID(_ sub: String) -> String {
+  sub.replacingOccurrences(of: "|", with: "-")
+}
+
 /// Home, Browse, and Volume Detail - the three catalog-browsing pages, all backed by
 /// catalog-api. Grouped in one controller since they share the same volume-fetching path,
 /// unlike ShelvesController, which has its own concern.
@@ -39,6 +64,17 @@ struct CatalogController: RouteCollection {
     routes.get("volumes", ":volumeID", use: detail)
     routes.get("volumes", ":volumeID", "edit", use: editForm)
     routes.post("volumes", ":volumeID", "edit", use: submitEdit)
+    routes.post("volumes", ":volumeID", "edit", "session", "fields", use: autosaveSessionFields)
+    routes.post(
+      "volumes", ":volumeID", "edit", "session", "associations", use: autosaveSessionAssociations)
+    routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
+    routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
+    routes.post(
+      "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
+    routes.post("volumes", ":volumeID", "edit", "session", "format", use: autosaveSessionFormat)
+    routes.post("volumes", ":volumeID", "edit", "session", "samples", use: autosaveSessionSamples)
+    routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
+    routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
       "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
     routes.post(
@@ -140,7 +176,6 @@ struct CatalogController: RouteCollection {
       DetailContext(
         volume: LeafVolumeDetail(volume),
         canEdit: canEdit(roles),
-        canUploadCover: canUploadCover(roles),
         justProposed: req.query[String.self, at: "proposed"] == "1",
         review: proposalReview,
         conflicts: conflicts,
@@ -148,6 +183,32 @@ struct CatalogController: RouteCollection {
         user: sessionUser.map(LeafUser.init),
         meta: await PageMeta.make(req)
       ))
+  }
+
+  /// Loads (or starts) the caller's durable edit session for `volumeID`. Three outcomes:
+  /// - no session existed - one is created here, seeded from the volume's live values
+  /// - a session already exists for this same volume - resumed as-is (a page reload mid-edit
+  ///   must not lose in-progress field values, per task 6.2/6.6)
+  /// - a session exists for a *different* volume - returns `nil`, and the caller (`editForm`)
+  ///   renders the continue-or-discard prompt instead of the edit page. A session for a
+  ///   *different record type* never reaches this branch, since `recordTypeVolume` is fixed.
+  private func loadOrStartSession(req: Request, userSub: String, volume: VolumeViewModel)
+    async throws -> EditSession?
+  {
+    if let existing = await req.editSessions.get(userID: userSub, recordType: recordTypeVolume) {
+      return existing.recordId == volume.id ? existing : nil
+    }
+
+    let now = Date()
+    let fresh = EditSession(
+      recordId: volume.id,
+      fields: [
+        "title": .string(volume.title), "description": .string(volume.description),
+        "notes": .string(volume.notes),
+      ],
+      stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: now, updatedAt: now)
+    try await req.editSessions.set(userID: userSub, recordType: recordTypeVolume, session: fresh)
+    return fresh
   }
 
   @Sendable
@@ -163,10 +224,59 @@ struct CatalogController: RouteCollection {
       throw Abort(.notFound)
     }
 
+    guard let session = try await loadOrStartSession(req: req, userSub: user.sub, volume: volume)
+    else {
+      let existing = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume)
+      let otherVolume = existing.flatMap { session in
+        volumes.first { $0.id == session.recordId }
+      }
+      return try await req.view.render(
+        "edit-session-conflict",
+        EditSessionConflictContext(
+          volumeID: volumeID,
+          volumeTitle: volume.title,
+          otherVolumeID: existing?.recordId ?? "",
+          otherVolumeTitle: otherVolume?.title ?? "another volume",
+          otherStagedCoverPath: existing?.stagedCoverAssetId.map { "asset/cover-staged/\($0)" }
+            ?? "",
+          user: LeafUser(user),
+          meta: await PageMeta.make(req)
+        ))
+    }
+
+    async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
+    async let studioOptions = req.catalogAPI.fetchStudioOptions()
+    async let personOptions = req.catalogAPI.fetchPersonOptions()
+    async let contributionTypeOptions = req.catalogAPI.fetchVocabulary(
+      type: "contribution-type", token: user.accessToken)
+    async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
+      type: "property-name", token: user.accessToken)
+    async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+    // Only fetched for editor/admin - a submitter's token gets a 403 from
+    // GET /vocabularies/format itself (see `volume-format-selector`'s spec), so this must not
+    // even attempt the call for a submitter session.
+    let canSetFormat = canCreateVocabularyValue(user.roles)
+    let formatOptions =
+      canSetFormat
+      ? try await req.catalogAPI.fetchVocabulary(type: "format", token: user.accessToken) : []
+
+    var volumeWithCredits = volume
+    volumeWithCredits.credits = try await existingCredits
+
     return try await req.view.render(
       "edit",
       EditContext(
-        volume: LeafVolumeEditForm(volume),
+        volume: LeafVolumeEditForm(
+          volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+          publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
+          personOptions: try await personOptions,
+          contributionTypeOptions: try await contributionTypeOptions,
+          canAddContributionType: canCreateVocabularyValue(user.roles),
+          propertyNameOptions: try await propertyNameOptions,
+          canAddPropertyName: canCreateVocabularyValue(user.roles),
+          formatOptions: formatOptions, canSetFormat: canSetFormat),
+        canUploadCover: canUploadCover(user.roles),
+        submitError: nil,
         user: LeafUser(user),
         meta: await PageMeta.make(req)
       ))
@@ -178,6 +288,12 @@ struct CatalogController: RouteCollection {
     let notes: String
   }
 
+  /// Saves the form's current field values into the session (covers any edit not yet synced by
+  /// the per-commit autosave calls - e.g. the browser's default blur-before-submit ordering is
+  /// not something this app should rely on being awaited in time), then finalizes it. The
+  /// session survives a failed finalize (cap reached, or any other error) so the user's
+  /// in-progress edit isn't lost - only a successful finalize deletes it (finalize-session does
+  /// that server-side on catalog-api's end).
   @Sendable
   func submitEdit(req: Request) async throws -> Response {
     guard let volumeID = req.parameters.get("volumeID") else {
@@ -188,17 +304,349 @@ struct CatalogController: RouteCollection {
     }
     let input = try req.content.decode(EditInput.self)
 
-    let result = try await req.catalogAPI.patchVolume(
-      id: volumeID, token: user.accessToken,
-      title: input.title, description: input.description, notes: input.notes)
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.badRequest, reason: "No in-flight edit session for this volume")
+    }
+    session.fields["title"] = .string(input.title)
+    session.fields["description"] = .string(input.description)
+    session.fields["notes"] = .string(input.notes)
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
     let basePath = "\(req.basePath)/volumes/\(volumeID)"
-    switch result {
-    case .applied:
-      return req.redirect(to: basePath)
-    case .proposed:
-      return req.redirect(to: "\(basePath)?proposed=1")
+    do {
+      let result = try await req.catalogAPI.finalizeSession(id: volumeID, token: user.accessToken)
+      switch result {
+      case .applied:
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    } catch let error as CatalogAPIError {
+      // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
+      // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
+      let volumes = try await req.catalogAPI.fetchVolumes()
+      guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+        throw Abort(.notFound)
+      }
+      async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
+      async let studioOptions = req.catalogAPI.fetchStudioOptions()
+      async let personOptions = req.catalogAPI.fetchPersonOptions()
+      async let contributionTypeOptions = req.catalogAPI.fetchVocabulary(
+        type: "contribution-type", token: user.accessToken)
+      async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
+        type: "property-name", token: user.accessToken)
+      async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+      let canSetFormat = canCreateVocabularyValue(user.roles)
+      let formatOptions =
+        canSetFormat
+        ? try await req.catalogAPI.fetchVocabulary(type: "format", token: user.accessToken) : []
+
+      var volumeWithCredits = volume
+      volumeWithCredits.credits = try await existingCredits
+
+      return try await req.view.render(
+        "edit",
+        EditContext(
+          volume: LeafVolumeEditForm(
+            volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+            publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
+            personOptions: try await personOptions,
+            contributionTypeOptions: try await contributionTypeOptions,
+            canAddContributionType: canCreateVocabularyValue(user.roles),
+            propertyNameOptions: try await propertyNameOptions,
+            canAddPropertyName: canCreateVocabularyValue(user.roles),
+            formatOptions: formatOptions, canSetFormat: canSetFormat),
+          canUploadCover: canUploadCover(user.roles),
+          submitError: error.message ?? "Unable to save your changes. Try again.",
+          user: LeafUser(user),
+          meta: await PageMeta.make(req)
+        )
+      ).encodeResponse(status: .badRequest, for: req)
     }
+  }
+
+  /// Per-field autosave (task 6.3) - merges whichever of title/description/notes are present
+  /// into the session's `fields`, called by the edit page's inline commit handlers. A missing
+  /// session (expired, or the user navigated away and back before this fired) 404s rather than
+  /// silently recreating one, since re-seeding from live values here could clobber a
+  /// browser-side edit already in flight.
+  private struct AutosaveFieldsInput: Content {
+    let title: String?
+    let description: String?
+    let notes: String?
+  }
+
+  @Sendable
+  func autosaveSessionFields(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveFieldsInput.self)
+    if let title = input.title { session.fields["title"] = .string(title) }
+    if let description = input.description { session.fields["description"] = .string(description) }
+    if let notes = input.notes { session.fields["notes"] = .string(notes) }
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Publisher/studio linking (task 7.2) - each add/remove click sends the *full* resulting id
+  /// list, same full-replace semantics `PATCH /volumes/:id` itself uses for these fields, so
+  /// this never needs to diff against what's already in the session.
+  private struct AutosaveAssociationsInput: Content {
+    let publisherIds: [String]?
+    let studioIds: [String]?
+  }
+
+  @Sendable
+  func autosaveSessionAssociations(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveAssociationsInput.self)
+    if let publisherIds = input.publisherIds {
+      session.fields["publisherIds"] = .stringArray(publisherIds)
+    }
+    if let studioIds = input.studioIds { session.fields["studioIds"] = .stringArray(studioIds) }
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Contributor credits linking (task 8.2) - same full-replace semantics as
+  /// `autosaveSessionAssociations`: each add/remove in the contributor dialog sends the
+  /// *complete* resulting credit list, stored as an object array keyed `personId`/
+  /// `contributionType` (matching what `LeafVolumeEditForm.init` reads back via
+  /// `objectArrayField("credits")`).
+  private struct AutosaveCreditsInput: Content {
+    struct Credit: Content {
+      let personId: String
+      let contributionType: String
+    }
+    let credits: [Credit]
+  }
+
+  @Sendable
+  func autosaveSessionCredits(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveCreditsInput.self)
+    session.fields["credits"] = .objectArray(
+      input.credits.map { ["personId": $0.personId, "contributionType": $0.contributionType] })
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Free-form property linking (task 9.2) - same full-replace semantics as
+  /// `autosaveSessionCredits`, stored as an object array keyed `name`/`value` (matching what
+  /// `LeafVolumeEditForm.init` reads back via `objectArrayField("properties")`).
+  private struct AutosavePropertiesInput: Content {
+    struct Property: Content {
+      let name: String
+      let value: String
+    }
+    let properties: [Property]
+  }
+
+  @Sendable
+  func autosaveSessionProperties(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosavePropertiesInput.self)
+    session.fields["properties"] = .objectArray(
+      input.properties.map { ["name": $0.name, "value": $0.value] })
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Format selection (task 10.1) - editor/admin only, gated here (not just hidden client-side)
+  /// so a crafted request from a submitter session can't set it either, per
+  /// `volume-format-selector`'s spec: the whole field, not just growing its vocabulary, is
+  /// editor/admin-only.
+  private struct AutosaveFormatInput: Content {
+    let format: String
+  }
+
+  @Sendable
+  func autosaveSessionFormat(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveFormatInput.self)
+    session.fields["format"] = .string(input.format)
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Sample-image staging (task 11.2) - the browser uploads each new file directly to
+  /// assets-web (`sample-staged/<userSub>-<n>`, same reasoning as cover staging: assets-web's
+  /// auth only accepts browser-originated requests), then calls this with the *full* resulting
+  /// staged-id list, same full-replace semantics as the other pickers. Written to `sampleAssetIds`
+  /// directly (not `fields`) - it's part of `EditSession`'s own top-level schema, matching
+  /// `stagedCoverAssetId`, not a `patchVolumeRequest`-shaped field.
+  private struct AutosaveSamplesInput: Content {
+    let sampleAssetIds: [String]
+  }
+
+  @Sendable
+  func autosaveSessionSamples(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveSamplesInput.self)
+    session.sampleAssetIds = input.sampleAssetIds
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Adds a new shared-vocabulary value (contribution type today) on behalf of the editor/admin
+  /// contributor dialog's "add new" affordance (task 8.1/8.2) - a browser call can't carry the
+  /// bearer token itself, so this forwards it server-to-server and returns the vocabulary's
+  /// updated value list for the dialog's picker to pick up without a full page reload.
+  private struct AddVocabularyValueInput: Content {
+    let value: String
+  }
+
+  struct VocabularyValuesResponse: Content {
+    let values: [String]
+  }
+
+  @Sendable
+  func addVocabularyValue(req: Request) async throws -> VocabularyValuesResponse {
+    guard let type = req.parameters.get("type") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(AddVocabularyValueInput.self)
+    let values = try await req.catalogAPI.addVocabularyValue(
+      type: type, value: input.value, token: user.accessToken)
+    return VocabularyValuesResponse(values: values)
+  }
+
+  /// Records that a cover was staged to `cover-staged/<sub>` on assets-web (the upload itself
+  /// happens browser-direct, per task 6.4 - see `edit.leaf`'s script) - this just updates the
+  /// session pointer so finalize/discard know a staged file exists.
+  private struct SetStagedCoverInput: Content {
+    let assetId: String
+  }
+
+  @Sendable
+  func setSessionStagedCover(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canUploadCover(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(SetStagedCoverInput.self)
+    session.stagedCoverAssetId = input.assetId
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Discards the caller's in-flight volume edit session, wherever it points - used both by
+  /// "Discard changes" on the edit page itself (redirects back to this volume's detail page)
+  /// and by the continue-or-discard prompt's "discard and edit this instead" (redirects back to
+  /// *this* volume's edit page, which will then start a fresh session there). Reclaiming a
+  /// staged cover is done browser-side before this form submits (see `edit.leaf`/
+  /// `edit-session-conflict.leaf`) - assets-web's own auth only accepts browser-originated
+  /// requests, not this app's server-to-server calls (see assets-web's AGENTS.md).
+  private struct DiscardInput: Content {
+    let redirect: String
+  }
+
+  @Sendable
+  func discardSession(req: Request) async throws -> Response {
+    guard req.parameters.get("volumeID") != nil else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(DiscardInput.self)
+
+    await req.editSessions.delete(userID: user.sub, recordType: recordTypeVolume)
+
+    return req.redirect(to: input.redirect)
   }
 
   /// `mode` distinguishes "accept every changed field" (the Accept All button, no `fields` sent)
@@ -289,9 +737,6 @@ struct DetailContext: Content {
   /// `true` when the signed-in session's roles include submitter/editor/admin - gates the
   /// "Edit" action. `false` (including for an anonymous visitor) hides it entirely.
   let canEdit: Bool
-  /// `true` when the signed-in session's roles include editor/admin - gates the cover-upload
-  /// control. `false` (including for an anonymous visitor or a submitter) hides it entirely.
-  let canUploadCover: Bool
   /// `true` right after a submitter's edit was stored as a proposed change rather than applied
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
@@ -313,8 +758,66 @@ struct DetailContext: Content {
 
 struct EditContext: Content {
   let volume: LeafVolumeEditForm
+  /// `true` when the signed-in session's roles include editor/admin - gates the cover-upload
+  /// control. Every viewer of this page already passed `canEdit` (enforced in `editForm`), but
+  /// cover upload is editor/admin-only, same as on the detail page before it moved here.
+  let canUploadCover: Bool
+  /// Set only when `submitEdit` re-renders this page after a failed finalize (e.g. the
+  /// unapproved-submission cap) - shown as an inline banner rather than a generic error page,
+  /// task 6.5. `nil` on a normal page load.
+  let submitError: String?
+  /// A *stored* property, not computed from `submitError` - Swift's synthesized `Encodable`
+  /// (which `Content` relies on) only encodes stored properties, so a computed `hasX` here
+  /// would silently vanish from what Leaf actually sees and always render as false. Set once,
+  /// in the initializer.
+  let hasSubmitError: Bool
   let user: LeafUser?
   let meta: PageMeta
+
+  init(
+    volume: LeafVolumeEditForm, canUploadCover: Bool, submitError: String?, user: LeafUser?,
+    meta: PageMeta
+  ) {
+    self.volume = volume
+    self.canUploadCover = canUploadCover
+    self.submitError = submitError
+    self.hasSubmitError = submitError != nil
+    self.user = user
+    self.meta = meta
+  }
+}
+
+/// Shown instead of the edit form when the caller already has an in-flight session for a
+/// *different* volume (task 6.2) - a same-type conflict, distinct from having a session for a
+/// different record type, which never triggers this at all.
+struct EditSessionConflictContext: Content {
+  let volumeID: String
+  let volumeTitle: String
+  let otherVolumeID: String
+  let otherVolumeTitle: String
+  /// The other session's staged cover path (`asset/cover-staged/<id>`) - lets the "discard and
+  /// edit this instead" action reclaim it client-side before discarding, same as `edit.leaf`'s
+  /// own discard handler. Empty when the other session has no staged cover.
+  let otherStagedCoverPath: String
+  /// A *stored* property (see `EditContext.hasSubmitError`'s comment on why this can't be
+  /// computed from `otherStagedCoverPath` and still reach Leaf).
+  let hasOtherStagedCover: Bool
+  let user: LeafUser?
+  let meta: PageMeta
+
+  init(
+    volumeID: String, volumeTitle: String, otherVolumeID: String, otherVolumeTitle: String,
+    otherStagedCoverPath: String, user: LeafUser?, meta: PageMeta
+  ) {
+    self.volumeID = volumeID
+    self.volumeTitle = volumeTitle
+    self.otherVolumeID = otherVolumeID
+    self.otherVolumeTitle = otherVolumeTitle
+    self.otherStagedCoverPath = otherStagedCoverPath
+    self.hasOtherStagedCover = !otherStagedCoverPath.isEmpty
+    self.user = user
+    self.meta = meta
+  }
 }
 
 // MARK: - Leaf view models
@@ -405,9 +908,13 @@ struct LeafVolumeDetail: Content {
   let licenseRefs: [LeafEntityRef]
   let credits: [LeafCredit]
   let hasCredits: Bool
+  let properties: [LeafProperty]
+  let hasProperties: Bool
   let reviews: [LeafReview]
   let hasReviews: Bool
   let coverAssetPath: String
+  let samplePaths: [String]
+  let hasSamples: Bool
 
   init(_ volume: VolumeViewModel) {
     self.id = volume.id
@@ -430,9 +937,13 @@ struct LeafVolumeDetail: Content {
     self.licenseRefs = volume.licenseRefs.map(LeafEntityRef.init)
     self.credits = volume.credits.map(LeafCredit.init)
     self.hasCredits = !volume.credits.isEmpty
+    self.properties = volume.properties.map(LeafProperty.init)
+    self.hasProperties = !volume.properties.isEmpty
     self.reviews = volume.reviews.map(LeafReview.init)
     self.hasReviews = !volume.reviews.isEmpty
     self.coverAssetPath = volume.coverAssetPath
+    self.samplePaths = volume.samplePaths
+    self.hasSamples = !volume.samplePaths.isEmpty
   }
 }
 
@@ -440,9 +951,20 @@ struct LeafCredit: Content {
   let role: String
   let person: String
 
-  init(_ credit: (role: String, person: String)) {
+  init(_ credit: (personId: String, role: String, person: String)) {
     self.role = credit.role
     self.person = credit.person
+  }
+}
+
+/// One free-form name/value property on a volume's detail page.
+struct LeafProperty: Content {
+  let name: String
+  let value: String
+
+  init(_ property: (name: String, value: String)) {
+    self.name = property.name
+    self.value = property.value
   }
 }
 
@@ -460,17 +982,192 @@ struct LeafReview: Content {
   }
 }
 
+/// One entry in a type-to-filter picker's candidate list (publisher/studio today; person in
+/// task group 8) - both the full option set (for client-side filtering, task 7.1) and a
+/// currently-selected chip use this same shape.
+struct LeafNamedOption: Content {
+  let id: String
+  let name: String
+}
+
+/// One asset staged this session (a sample image today) - the raw id (needed by the page's JS to
+/// build the full-replace payload) plus its relative display path.
+struct LeafStagedAsset: Content {
+  let id: String
+  let path: String
+}
+
+/// One selected contributor credit - a person plus the contribution type they're credited for.
+struct LeafSelectedCredit: Content {
+  let personId: String
+  let personName: String
+  let contributionType: String
+}
+
 struct LeafVolumeEditForm: Content {
   let id: String
   let title: String
   let description: String
+  let hasDescription: Bool
   let notes: String
+  let hasNotes: Bool
+  /// The current session's cover: a staged one if the user has uploaded one this session,
+  /// otherwise the volume's existing live cover.
+  let coverAssetPath: String
+  /// The signed-in user's Auth0 subject - the id staged assets are filed under
+  /// (`cover-staged/<sub>`, see docs/frontend-conventions.md's staging convention in
+  /// sweetrpg/platform) and this page's JS needs it to build the upload URL.
+  let userSub: String
+  /// The full publisher candidate list, JSON-encoded for the page's own JS to filter
+  /// client-side (task 7.1) - no search endpoint, existing entities only, per design.md.
+  let publisherOptionsJSON: String
+  let selectedPublishers: [LeafNamedOption]
+  let hasSelectedPublishers: Bool
+  let studioOptionsJSON: String
+  let selectedStudios: [LeafNamedOption]
+  let hasSelectedStudios: Bool
+  /// The full person candidate list for the contributor dialog's person picker (task 8.1) -
+  /// same client-side-filtering, no-create-new rationale as publishers/studios.
+  let personOptionsJSON: String
+  /// Every contribution type already in use, JSON-encoded (plain strings, not id/name pairs -
+  /// a vocabulary value has no separate id). Available to any edit-capable role.
+  let contributionTypeOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates the "add a new contribution type" affordance
+  /// in the contributor dialog. A submitter sees the same vocabulary but select-only.
+  let canAddContributionType: Bool
+  let selectedCredits: [LeafSelectedCredit]
+  let hasSelectedCredits: Bool
+  /// Every property name already in use, JSON-encoded (plain strings, same shape as
+  /// `contributionTypeOptionsJSON`).
+  let propertyNameOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates the "add a new property name" affordance,
+  /// same rationale as `canAddContributionType`.
+  let canAddPropertyName: Bool
+  let selectedProperties: [LeafProperty]
+  let hasSelectedProperties: Bool
+  /// Every format value in use, JSON-encoded (plain strings). Only ever fetched/populated for
+  /// an editor/admin caller - a submitter's token can't even list this vocabulary (see
+  /// `volume-format-selector`'s spec, unlike contribution-type/property-name which submitters
+  /// can read).
+  let formatOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates the *entire* format selector, not just an
+  /// add-new affordance within it (the one field where the whole control, not just growing its
+  /// vocabulary, is editor/admin-only).
+  let canSetFormat: Bool
+  let selectedFormat: String
+  let hasSelectedFormat: Bool
+  /// The volume's existing live samples - shown read-only for context; this page has no way to
+  /// remove or reorder them individually (see `edit.leaf`'s note to the user: uploading any new
+  /// sample below replaces this entire set on save, matching `finalize-session`'s actual
+  /// promote-the-whole-staged-set behavior - there is no way to carry an existing live sample
+  /// into a fresh staged set without re-uploading it).
+  let livingSamplePaths: [String]
+  let hasLivingSamples: Bool
+  /// Samples staged this session (`sample-staged/<userSub>-<n>`) - what finalize will promote to
+  /// live, replacing `livingSamplePaths` entirely, if this is non-empty.
+  let stagedSamples: [LeafStagedAsset]
+  let hasStagedSamples: Bool
 
-  init(_ volume: VolumeViewModel) {
+  init(
+    volume: VolumeViewModel, session: EditSession, userSub: String,
+    publisherOptions: [(id: String, name: String)] = [],
+    studioOptions: [(id: String, name: String)] = [],
+    personOptions: [(id: String, name: String)] = [],
+    contributionTypeOptions: [String] = [],
+    canAddContributionType: Bool = false,
+    propertyNameOptions: [String] = [],
+    canAddPropertyName: Bool = false,
+    formatOptions: [String] = [],
+    canSetFormat: Bool = false
+  ) {
     self.id = volume.id
-    self.title = volume.title
-    self.description = volume.description
-    self.notes = volume.notes
+    self.title = session.stringField("title") ?? volume.title
+    self.description = session.stringField("description") ?? volume.description
+    self.hasDescription = !self.description.isEmpty
+    self.notes = session.stringField("notes") ?? volume.notes
+    self.hasNotes = !self.notes.isEmpty
+    self.userSub = userSub
+    if let staged = session.stagedCoverAssetId {
+      self.coverAssetPath = "asset/cover-staged/\(staged)"
+    } else {
+      self.coverAssetPath = volume.coverAssetPath
+    }
+
+    let publisherByID = Dictionary(uniqueKeysWithValues: publisherOptions)
+    let selectedPublisherIds = session.stringArrayField("publisherIds") ?? volume.publisherIds
+    self.selectedPublishers = selectedPublisherIds.map {
+      LeafNamedOption(id: $0, name: publisherByID[$0] ?? "Unknown publisher")
+    }
+    self.hasSelectedPublishers = !self.selectedPublishers.isEmpty
+    self.publisherOptionsJSON =
+      Self.encodeOptions(publisherOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+
+    let studioByID = Dictionary(uniqueKeysWithValues: studioOptions)
+    let selectedStudioIds = session.stringArrayField("studioIds") ?? volume.studioIds
+    self.selectedStudios = selectedStudioIds.map {
+      LeafNamedOption(id: $0, name: studioByID[$0] ?? "Unknown studio")
+    }
+    self.hasSelectedStudios = !self.selectedStudios.isEmpty
+    self.studioOptionsJSON =
+      Self.encodeOptions(studioOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+
+    self.personOptionsJSON =
+      Self.encodeOptions(personOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+    self.contributionTypeOptionsJSON =
+      (try? JSONEncoder().encode(contributionTypeOptions)).flatMap {
+        String(data: $0, encoding: .utf8)
+      } ?? "[]"
+    self.canAddContributionType = canAddContributionType
+
+    let personByID = Dictionary(uniqueKeysWithValues: personOptions)
+    if let sessionCredits = session.objectArrayField("credits") {
+      self.selectedCredits = sessionCredits.compactMap { entry in
+        guard let personId = entry["personId"], let contributionType = entry["contributionType"]
+        else { return nil }
+        return LeafSelectedCredit(
+          personId: personId, personName: personByID[personId] ?? "Unknown person",
+          contributionType: contributionType)
+      }
+    } else {
+      self.selectedCredits = volume.credits.map {
+        LeafSelectedCredit(personId: $0.personId, personName: $0.person, contributionType: $0.role)
+      }
+    }
+    self.hasSelectedCredits = !self.selectedCredits.isEmpty
+
+    self.propertyNameOptionsJSON =
+      (try? JSONEncoder().encode(propertyNameOptions)).flatMap {
+        String(data: $0, encoding: .utf8)
+      } ?? "[]"
+    self.canAddPropertyName = canAddPropertyName
+
+    if let sessionProperties = session.objectArrayField("properties") {
+      self.selectedProperties = sessionProperties.compactMap { entry in
+        guard let name = entry["name"], let value = entry["value"] else { return nil }
+        return LeafProperty((name: name, value: value))
+      }
+    } else {
+      self.selectedProperties = volume.properties.map(LeafProperty.init)
+    }
+    self.hasSelectedProperties = !self.selectedProperties.isEmpty
+
+    self.formatOptionsJSON =
+      (try? JSONEncoder().encode(formatOptions)).flatMap { String(data: $0, encoding: .utf8) }
+      ?? "[]"
+    self.canSetFormat = canSetFormat
+    self.selectedFormat = session.stringField("format") ?? volume.format
+    self.hasSelectedFormat = !self.selectedFormat.isEmpty
+
+    self.livingSamplePaths = volume.samplePaths
+    self.hasLivingSamples = !volume.samplePaths.isEmpty
+    self.stagedSamples = (session.sampleAssetIds ?? []).map {
+      LeafStagedAsset(id: $0, path: "asset/sample-staged/\($0)")
+    }
+    self.hasStagedSamples = !self.stagedSamples.isEmpty
+  }
+
+  private static func encodeOptions(_ options: [LeafNamedOption]) -> String {
+    (try? JSONEncoder().encode(options)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
   }
 }
 
