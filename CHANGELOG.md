@@ -1,4 +1,21 @@
 
+## 0.15.0 - 2026-08-13
+
+### Added
+- Fluid inline editing for title/description/notes/cover
+- Session-backed volume editing (durable-volume-editing)
+- Publisher/studio linking on the volume edit page
+- Contributor linking on the volume edit page
+- Properties table on the volume detail and edit pages
+- Format selector on the volume edit page
+- Sample pages on the volume detail and edit pages
+
+
+### Fixed
+- Drop live-Redis round-trip tests, CI has no Redis service
+
+
+
 ## 0.14.0 - 2026-08-12
 
 ### Added
