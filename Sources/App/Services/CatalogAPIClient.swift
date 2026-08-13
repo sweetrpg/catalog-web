@@ -47,7 +47,8 @@ struct CatalogAPIClientService {
         studioNames: names("studio", from: studioNames),
         studioIds: ids("studio"),
         licenseNames: names("license", from: licenseNames),
-        properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) }
+        properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
+        format: resource.attributes.format ?? ""
       )
     }.sorted { $0.title < $1.title }
   }

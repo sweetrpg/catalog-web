@@ -168,6 +168,22 @@
 						#endif
 					</div>
 
+					#if(volume.canSetFormat):
+						<div class="format-field" id="format-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/format" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/format" data-selected-format="#(volume.selectedFormat)">
+							<h3>Format</h3>
+							<select class="input" id="format-select">
+								<option value="">No format set</option>
+							</select>
+							<script type="application/json" id="format-options">#(volume.formatOptionsJSON)</script>
+
+							<div class="format-add-value">
+								<input type="text" class="input" id="format-new-value" placeholder="Add a new format...">
+								<button type="button" class="btn btn-ghost" id="format-add-value-trigger">Add format</button>
+								<p class="form-error" id="format-add-value-error" hidden></p>
+							</div>
+						</div>
+					#endif
+
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
 						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
@@ -676,6 +692,79 @@
 		        });
 		    });
 		  }
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Format selector (task 10.1) - the entire control is only rendered server-side for
+		  // editor/admin sessions (see edit.leaf's #if(volume.canSetFormat)), so this script has
+		  // nothing to do at all for a submitter session.
+		  var field = document.getElementById('format-field');
+		  if (!field) return;
+
+		  var sessionURL = field.dataset.sessionUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var selectedFormat = field.dataset.selectedFormat;
+		  var select = document.getElementById('format-select');
+		  var newValueInput = document.getElementById('format-new-value');
+		  var addValueBtn = document.getElementById('format-add-value-trigger');
+		  var addValueError = document.getElementById('format-add-value-error');
+
+		  var formatOptions = [];
+		  try {
+		    formatOptions = JSON.parse(document.getElementById('format-options').textContent);
+		  } catch (e) {}
+
+		  function renderFormatOptions() {
+		    var current = select.value;
+		    select.innerHTML = '<option value="">No format set</option>';
+		    formatOptions.forEach(function (format) {
+		      var option = document.createElement('option');
+		      option.value = format;
+		      option.textContent = format;
+		      select.appendChild(option);
+		    });
+		    select.value = current;
+		  }
+		  renderFormatOptions();
+		  select.value = selectedFormat;
+
+		  select.addEventListener('change', function () {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ format: select.value }),
+		      credentials: 'include'
+		    });
+		  });
+
+		  addValueBtn.addEventListener('click', function () {
+		    var value = newValueInput.value.trim();
+		    if (!value) return;
+		    addValueError.hidden = true;
+		    fetch(vocabularyURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ value: value }),
+		      credentials: 'include'
+		    })
+		      .then(function (resp) {
+		        if (!resp.ok) throw new Error('Failed to add format');
+		        return resp.json();
+		      })
+		      .then(function (data) {
+		        formatOptions = data.values || formatOptions;
+		        renderFormatOptions();
+		        select.value = value;
+		        newValueInput.value = '';
+		        select.dispatchEvent(new Event('change'));
+		      })
+		      .catch(function () {
+		        addValueError.textContent = 'Unable to add that format. Try again.';
+		        addValueError.hidden = false;
+		      });
+		  });
 		})();
 		</script>
 

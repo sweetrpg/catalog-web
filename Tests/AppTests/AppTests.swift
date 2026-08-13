@@ -1237,4 +1237,90 @@ struct AppTests {
       }
     }
   }
+
+  // MARK: - durable-volume-editing task 10 (format selector)
+
+  @Test("edit page shows the format selector, pre-filled, for an editor/admin session")
+  func editPageShowsFormatSelectorForEditor() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.format = "Hardcover"
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              formatOptions: ["Hardcover", "Paperback"], canSetFormat: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-selected-format="Hardcover""#))
+        #expect(res.body.string.contains("Paperback"))
+        #expect(res.body.string.contains("format-new-value"))
+        #expect(res.body.string.contains("/volumes/1/edit/session/format"))
+        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/format"))
+      }
+    }
+  }
+
+  @Test("edit page hides the format selector entirely for a submitter session")
+  func editPageHidesFormatSelectorForSubmitter() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.format = "Hardcover"
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // Not just the add-new affordance - the entire selector, including the live format
+        // value itself, is absent for a submitter session (per volume-format-selector's spec).
+        #expect(!res.body.string.contains(#"id="format-field""#))
+        #expect(!res.body.string.contains(">Format<"))
+        #expect(!res.body.string.contains("Hardcover"))
+      }
+    }
+  }
+
+  @Test("edit page prefers a session's pending format selection over the volume's live one")
+  func editPageShowsSessionFormatSelectionOverLiveOne() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.format = "Hardcover"
+    var session = testEditSession(for: volume)
+    session.fields["format"] = .string("Paperback")
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester",
+              formatOptions: ["Hardcover", "Paperback"], canSetFormat: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-selected-format="Paperback""#))
+      }
+    }
+  }
 }

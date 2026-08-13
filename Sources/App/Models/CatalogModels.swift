@@ -18,6 +18,10 @@ struct VolumeViewModel {
   var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
   var properties: [(name: String, value: String)] = []
+  /// Empty when unset. Editor/admin-only to set (see `volume-format-selector`'s spec) - always
+  /// readable here regardless of viewer role, since catalog-api's `GET /volumes` doesn't gate
+  /// this field the way `GET /vocabularies/format` gates the *candidate list*.
+  var format: String = ""
 
   var tagChips: [String] { Array(tags.prefix(3)) }
   /// Relative path (join with `meta.sharedAssetsURL`) to this volume's cover image on

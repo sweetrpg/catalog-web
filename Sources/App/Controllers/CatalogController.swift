@@ -70,6 +70,7 @@ struct CatalogController: RouteCollection {
     routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
     routes.post(
       "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
+    routes.post("volumes", ":volumeID", "edit", "session", "format", use: autosaveSessionFormat)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
@@ -249,6 +250,13 @@ struct CatalogController: RouteCollection {
     async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
       type: "property-name", token: user.accessToken)
     async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+    // Only fetched for editor/admin - a submitter's token gets a 403 from
+    // GET /vocabularies/format itself (see `volume-format-selector`'s spec), so this must not
+    // even attempt the call for a submitter session.
+    let canSetFormat = canCreateVocabularyValue(user.roles)
+    let formatOptions =
+      canSetFormat
+      ? try await req.catalogAPI.fetchVocabulary(type: "format", token: user.accessToken) : []
 
     var volumeWithCredits = volume
     volumeWithCredits.credits = try await existingCredits
@@ -263,7 +271,8 @@ struct CatalogController: RouteCollection {
           contributionTypeOptions: try await contributionTypeOptions,
           canAddContributionType: canCreateVocabularyValue(user.roles),
           propertyNameOptions: try await propertyNameOptions,
-          canAddPropertyName: canCreateVocabularyValue(user.roles)),
+          canAddPropertyName: canCreateVocabularyValue(user.roles),
+          formatOptions: formatOptions, canSetFormat: canSetFormat),
         canUploadCover: canUploadCover(user.roles),
         submitError: nil,
         user: LeafUser(user),
@@ -328,6 +337,10 @@ struct CatalogController: RouteCollection {
       async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
         type: "property-name", token: user.accessToken)
       async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+      let canSetFormat = canCreateVocabularyValue(user.roles)
+      let formatOptions =
+        canSetFormat
+        ? try await req.catalogAPI.fetchVocabulary(type: "format", token: user.accessToken) : []
 
       var volumeWithCredits = volume
       volumeWithCredits.credits = try await existingCredits
@@ -342,7 +355,8 @@ struct CatalogController: RouteCollection {
             contributionTypeOptions: try await contributionTypeOptions,
             canAddContributionType: canCreateVocabularyValue(user.roles),
             propertyNameOptions: try await propertyNameOptions,
-            canAddPropertyName: canCreateVocabularyValue(user.roles)),
+            canAddPropertyName: canCreateVocabularyValue(user.roles),
+            formatOptions: formatOptions, canSetFormat: canSetFormat),
           canUploadCover: canUploadCover(user.roles),
           submitError: error.message ?? "Unable to save your changes. Try again.",
           user: LeafUser(user),
@@ -484,6 +498,36 @@ struct CatalogController: RouteCollection {
     let input = try req.content.decode(AutosavePropertiesInput.self)
     session.fields["properties"] = .objectArray(
       input.properties.map { ["name": $0.name, "value": $0.value] })
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Format selection (task 10.1) - editor/admin only, gated here (not just hidden client-side)
+  /// so a crafted request from a submitter session can't set it either, per
+  /// `volume-format-selector`'s spec: the whole field, not just growing its vocabulary, is
+  /// editor/admin-only.
+  private struct AutosaveFormatInput: Content {
+    let format: String
+  }
+
+  @Sendable
+  func autosaveSessionFormat(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveFormatInput.self)
+    session.fields["format"] = .string(input.format)
     session.updatedAt = Date()
     try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
@@ -940,6 +984,17 @@ struct LeafVolumeEditForm: Content {
   let canAddPropertyName: Bool
   let selectedProperties: [LeafProperty]
   let hasSelectedProperties: Bool
+  /// Every format value in use, JSON-encoded (plain strings). Only ever fetched/populated for
+  /// an editor/admin caller - a submitter's token can't even list this vocabulary (see
+  /// `volume-format-selector`'s spec, unlike contribution-type/property-name which submitters
+  /// can read).
+  let formatOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates the *entire* format selector, not just an
+  /// add-new affordance within it (the one field where the whole control, not just growing its
+  /// vocabulary, is editor/admin-only).
+  let canSetFormat: Bool
+  let selectedFormat: String
+  let hasSelectedFormat: Bool
 
   init(
     volume: VolumeViewModel, session: EditSession, userSub: String,
@@ -949,7 +1004,9 @@ struct LeafVolumeEditForm: Content {
     contributionTypeOptions: [String] = [],
     canAddContributionType: Bool = false,
     propertyNameOptions: [String] = [],
-    canAddPropertyName: Bool = false
+    canAddPropertyName: Bool = false,
+    formatOptions: [String] = [],
+    canSetFormat: Bool = false
   ) {
     self.id = volume.id
     self.title = session.stringField("title") ?? volume.title
@@ -1021,6 +1078,13 @@ struct LeafVolumeEditForm: Content {
       self.selectedProperties = volume.properties.map(LeafProperty.init)
     }
     self.hasSelectedProperties = !self.selectedProperties.isEmpty
+
+    self.formatOptionsJSON =
+      (try? JSONEncoder().encode(formatOptions)).flatMap { String(data: $0, encoding: .utf8) }
+      ?? "[]"
+    self.canSetFormat = canSetFormat
+    self.selectedFormat = session.stringField("format") ?? volume.format
+    self.hasSelectedFormat = !self.selectedFormat.isEmpty
   }
 
   private static func encodeOptions(_ options: [LeafNamedOption]) -> String {
