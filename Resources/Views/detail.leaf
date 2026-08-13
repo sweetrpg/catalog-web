@@ -91,6 +91,33 @@
 					</div>
 				#endif
 
+				#if(volume.hasProperties):
+					<div class="detail-block">
+						<span class="section-label">Properties</span>
+						<table class="table">
+							<tbody>
+								#for(property in volume.properties):
+									<tr>
+										<td>#(property.name)</td>
+										<td>#(property.value)</td>
+									</tr>
+								#endfor
+							</tbody>
+						</table>
+					</div>
+				#endif
+
+				#if(volume.hasSamples):
+					<div class="detail-block">
+						<span class="section-label">Sample Pages</span>
+						<div class="sample-thumbnails" id="sample-thumbnails">
+							#for(path in volume.samplePaths):
+								<img class="sample-thumbnail" src="#(meta.sharedAssetsURL)/#(path)" alt="Sample page" loading="lazy">
+							#endfor
+						</div>
+					</div>
+				#endif
+
 				#if(review):
 					<div class="detail-block">
 						<span class="section-label">Pending Changes (#(review.pendingCount))</span>
@@ -171,5 +198,41 @@
 				</div>
 			</div>
 		</div>
+
+		#if(volume.hasSamples):
+			<div class="sample-viewer" id="sample-viewer" hidden>
+				<button type="button" class="sample-viewer-close" id="sample-viewer-close" aria-label="Close">&times;</button>
+				<img class="sample-viewer-img" id="sample-viewer-img" src="" alt="Sample page, enlarged">
+			</div>
+
+			<script>
+			(function () {
+			  // Click-to-enlarge sample viewer (task 11.1) - a plain overlay, not a full lightbox
+			  // library: this page has no client-side framework, and a handful of thumbnails don't
+			  // need more than click-to-open/click-to-close.
+			  var thumbnails = document.getElementById('sample-thumbnails');
+			  var viewer = document.getElementById('sample-viewer');
+			  var viewerImg = document.getElementById('sample-viewer-img');
+			  var closeBtn = document.getElementById('sample-viewer-close');
+			  if (!thumbnails || !viewer) return;
+
+			  thumbnails.querySelectorAll('.sample-thumbnail').forEach(function (thumb) {
+			    thumb.addEventListener('click', function () {
+			      viewerImg.src = thumb.src;
+			      viewer.hidden = false;
+			    });
+			  });
+
+			  function close() {
+			    viewer.hidden = true;
+			    viewerImg.src = '';
+			  }
+			  closeBtn.addEventListener('click', close);
+			  viewer.addEventListener('click', function (e) {
+			    if (e.target === viewer) close();
+			  });
+			})();
+			</script>
+		#endif
 	#endexport
 #endextend

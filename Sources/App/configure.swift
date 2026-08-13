@@ -68,6 +68,30 @@ public func configure(_ app: Application) async throws {
     )
   }
 
+  // catalog-api's own Redis instance, DB 2 - the durable volume-edit session store this app
+  // both writes (starting/updating a session) and, indirectly via catalog-api's finalize-session
+  // endpoint, has read at commit time. Same shape as SHARED_SESSION_REDIS_* above but a
+  // different instance/DB: see docs/frontend-conventions.md's edit-session schema and Redis
+  // registry in sweetrpg/platform.
+  if let editSessionRedisHost = Environment.get("EDIT_SESSION_REDIS_HOST"),
+    !editSessionRedisHost.isEmpty
+  {
+    let editSessionRedisPort =
+      Environment.get("EDIT_SESSION_REDIS_PORT").flatMap(Int.init) ?? 6379
+    let editSessionRedisDB = Environment.get("EDIT_SESSION_REDIS_DB").flatMap(Int.init) ?? 2
+    app.redis(.editSession).configuration = try RedisConfiguration(
+      hostname: editSessionRedisHost,
+      port: editSessionRedisPort,
+      password: Environment.get("EDIT_SESSION_REDIS_PASS"),
+      database: editSessionRedisDB
+    )
+    app.editSessionRedisConfigured = true
+  } else {
+    app.logger.warning(
+      "EDIT_SESSION_REDIS_HOST not set - volume edit sessions will not persist across requests."
+    )
+  }
+
   if let corsMiddleware = CORSConfig.middleware() {
     // Inserted at position 0: CORS must run before anything else so preflight OPTIONS
     // requests get a response before hitting auth/session/rate-limit logic that don't

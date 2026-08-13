@@ -29,8 +29,11 @@ struct CatalogAPIClientService {
 
     return doc.data.map { resource in
       let rel = resource.relationships ?? [:]
+      func ids(_ key: String) -> [String] {
+        rel[key]?.data?.ids ?? []
+      }
       func names(_ key: String, from map: [String: String]) -> [String] {
-        (rel[key]?.data?.ids ?? []).compactMap { map[$0] }
+        ids(key).compactMap { map[$0] }
       }
       func refs(_ key: String, from map: [String: String]) -> [EntityRef] {
         (rel[key]?.data?.ids ?? []).compactMap { id in
@@ -45,13 +48,34 @@ struct CatalogAPIClientService {
         tags: (resource.attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
         systemNames: names("system", from: systemNames),
         publisherNames: names("publisher", from: publisherNames),
+        publisherIds: ids("publisher"),
         studioNames: names("studio", from: studioNames),
+        studioIds: ids("studio"),
         licenseNames: names("license", from: licenseNames),
+        properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
+        format: resource.attributes.format ?? "",
+        sampleAssetIds: resource.attributes.sampleAssetIds ?? [],
         publisherRefs: refs("publisher", from: publisherNames),
         studioRefs: refs("studio", from: studioNames),
         licenseRefs: refs("license", from: licenseNames)
       )
     }.sorted { $0.title < $1.title }
+  }
+
+  /// Every publisher, sorted by name - the full candidate list the edit page's publisher picker
+  /// filters client-side (see design.md's decision: no search endpoint, just filtering the
+  /// existing full-collection fetch).
+  func fetchPublisherOptions() async throws -> [(id: String, name: String)] {
+    let doc = try await getCached("catalog:/publishers") {
+      try await sdk.fetchNamed(path: "/publishers")
+    }
+    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+  }
+
+  /// Every studio, sorted by name - same rationale as `fetchPublisherOptions`.
+  func fetchStudioOptions() async throws -> [(id: String, name: String)] {
+    let doc = try await getCached("catalog:/studios") { try await sdk.fetchNamed(path: "/studios") }
+    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
   }
 
   func fetchVolume(id: String, allVolumes: [VolumeViewModel]) async -> VolumeViewModel? {
@@ -62,22 +86,24 @@ struct CatalogAPIClientService {
     allVolumes.first { $0.id == id }
   }
 
-  func fetchCredits(volumeID: String) async throws -> [(role: String, person: String)] {
+  func fetchCredits(volumeID: String) async throws -> [(
+    personId: String, role: String, person: String
+  )] {
     async let contributionsDoc = getCached("catalog:contributions") {
       try await sdk.fetchContributions()
     }
     async let personNames = fetchPersonNameMap()
 
     let (doc, persons) = try await (contributionsDoc, personNames)
-    return doc.data.compactMap { resource -> (role: String, person: String)? in
+    return doc.data.compactMap { resource -> (personId: String, role: String, person: String)? in
       guard let volID = resource.relationships?["volume"]?.data?.ids.first,
         volID == volumeID
       else { return nil }
-      let personID = resource.relationships?["person"]?.data?.ids.first
+      guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
       let role =
         resource.attributes.role ?? resource.attributes.credit ?? resource.attributes.title
         ?? "Contributor"
-      return (role: role, person: personID.flatMap { persons[$0] } ?? "Unknown")
+      return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
     }
   }
 
@@ -106,6 +132,12 @@ struct CatalogAPIClientService {
       id: id, token: token, title: title, description: description, notes: notes)
   }
 
+  /// Finalizes the caller's in-flight durable edit session for a volume - see
+  /// `CatalogController.submitEdit`.
+  func finalizeSession(id: String, token: String) async throws -> VolumePatchResult {
+    try await sdk.finalizeSession(id: id, token: token)
+  }
+
   func listProposedChanges(volumeID: String, token: String) async throws
     -> [ProposedChangeSummary]
   {
@@ -124,6 +156,24 @@ struct CatalogAPIClientService {
   ) async throws -> ReviewProposalResult {
     try await sdk.rejectProposedChange(
       volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+  }
+
+  /// Every person, sorted by name - the contributor dialog's person picker candidate list
+  /// (task 8.1), same client-side-filtering rationale as `fetchPublisherOptions`.
+  func fetchPersonOptions() async throws -> [(id: String, name: String)] {
+    let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
+    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+  }
+
+  /// Lists a shared vocabulary's values (contribution-type/property-name/format).
+  func fetchVocabulary(type: String, token: String) async throws -> [String] {
+    try await sdk.fetchVocabulary(type: type, token: token).values
+  }
+
+  /// Adds a new value to a shared vocabulary - editor/admin only, enforced by catalog-api.
+  /// Returns the vocabulary's full value list after the add.
+  func addVocabularyValue(type: String, value: String, token: String) async throws -> [String] {
+    try await sdk.addVocabularyValue(type: type, value: value, token: token).values
   }
 
   func fetchPublishers() async throws -> [PublisherViewModel] {
