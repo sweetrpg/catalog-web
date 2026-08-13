@@ -1,0 +1,25 @@
+#extend("base"):
+	#export("body"):
+		<section class="page-header">
+			<span class="section-label">Browse</span>
+			<h2>Persons</h2>
+			<form class="nav-search" action="#(meta.basePath)/persons" method="get">
+				<input class="input" type="search" name="q" placeholder="Search persons" value="#(query)">
+			</form>
+		</section>
+
+		#if(noResults):
+			<p class="empty-state">No persons match "#(query)".</p>
+		#endif
+
+		<div class="card-grid">
+			#for(item in items):
+				<a class="card" href="#(meta.basePath)/persons/#(item.id)">
+					<div class="card-body">
+						<div class="card-title">#(item.name)</div>
+					</div>
+				</a>
+			#endfor
+		</div>
+	#endexport
+#endextend

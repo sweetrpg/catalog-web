@@ -1,5 +1,5 @@
 {
-  "originHash" : "6bd2fb4e9701a24a881cc4dc7d4a11935ed9531ea31aaa7f9caf9441ab2a6d3b",
+  "originHash" : "6233cbf4def62c557bba41554cfa65dc37361e4ce075eab218c5a5e63d536103",
   "pins" : [
     {
       "identity" : "admin-api-client.swift",

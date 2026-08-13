@@ -1,4 +1,13 @@
+import CatalogAPIClient
 import Foundation
+
+/// An id+name pair for a related record - carries enough to both display a name and link to
+/// that record's own detail page (`catalog-entity-detail`'s "volume links to its associated
+/// entities" requirement), unlike a plain `[String]` of names.
+struct EntityRef {
+  let id: String
+  let name: String
+}
 
 /// Flattened, view-ready representation of a Volume plus whatever related names/credits/reviews
 /// have been resolved for it. Controllers assemble this from the raw JSON:API responses so Leaf
@@ -25,6 +34,9 @@ struct VolumeViewModel {
   /// The volume's live sample-image ids (e.g. `["vol-1-0", "vol-1-1"]`) - empty until a session
   /// with staged samples has been finalized at least once (see `volume-sample-pages`'s spec).
   var sampleAssetIds: [String] = []
+  var publisherRefs: [EntityRef] = []
+  var studioRefs: [EntityRef] = []
+  var licenseRefs: [EntityRef] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }
   /// Relative path (join with `meta.sharedAssetsURL`) to this volume's cover image on
@@ -37,4 +49,91 @@ struct VolumeViewModel {
   /// Relative paths to this volume's live sample images, same `asset/<kind>/<id>` shape as
   /// `coverAssetPath`.
   var samplePaths: [String] { sampleAssetIds.map { "asset/sample/\($0)" } }
+}
+
+/// A volume's id+title, as much as an entity detail page's associated-volumes list needs -
+/// distinct from `VolumeViewModel`, which carries a full volume's own detail-page data.
+struct VolumeSummary {
+  let id: String
+  let title: String
+}
+
+struct PublisherViewModel {
+  let id: String
+  let name: String
+  let address: String
+  let website: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: PublisherAttributes) {
+    self.id = id
+    self.name = attributes.name ?? "Untitled"
+    self.address = attributes.address ?? ""
+    self.website = attributes.website ?? ""
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
+}
+
+struct StudioViewModel {
+  let id: String
+  let name: String
+  let website: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: StudioAttributes) {
+    self.id = id
+    self.name = attributes.name ?? "Untitled"
+    self.website = attributes.website ?? ""
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
+}
+
+struct PersonViewModel {
+  let id: String
+  let name: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: PersonAttributes) {
+    self.id = id
+    self.name = attributes.displayName
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
+}
+
+struct LicenseViewModel {
+  let id: String
+  let title: String
+  let shortTitle: String
+  let version: String
+  let deed: String
+  let legalCode: String
+  let website: String
+  let status: String
+  let availability: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: LicenseAttributes) {
+    self.id = id
+    self.title = attributes.title ?? "Untitled"
+    self.shortTitle = attributes.shortTitle ?? ""
+    self.version = attributes.version ?? ""
+    self.deed = attributes.deed ?? ""
+    self.legalCode = attributes.legalCode ?? ""
+    self.website = attributes.website ?? ""
+    self.status = attributes.status ?? ""
+    self.availability = attributes.availability ?? ""
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
 }
