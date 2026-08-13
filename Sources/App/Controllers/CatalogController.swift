@@ -71,6 +71,7 @@ struct CatalogController: RouteCollection {
     routes.post(
       "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
     routes.post("volumes", ":volumeID", "edit", "session", "format", use: autosaveSessionFormat)
+    routes.post("volumes", ":volumeID", "edit", "session", "samples", use: autosaveSessionSamples)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
@@ -534,6 +535,38 @@ struct CatalogController: RouteCollection {
     return Response(status: .noContent)
   }
 
+  /// Sample-image staging (task 11.2) - the browser uploads each new file directly to
+  /// assets-web (`sample-staged/<userSub>-<n>`, same reasoning as cover staging: assets-web's
+  /// auth only accepts browser-originated requests), then calls this with the *full* resulting
+  /// staged-id list, same full-replace semantics as the other pickers. Written to `sampleAssetIds`
+  /// directly (not `fields`) - it's part of `EditSession`'s own top-level schema, matching
+  /// `stagedCoverAssetId`, not a `patchVolumeRequest`-shaped field.
+  private struct AutosaveSamplesInput: Content {
+    let sampleAssetIds: [String]
+  }
+
+  @Sendable
+  func autosaveSessionSamples(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveSamplesInput.self)
+    session.sampleAssetIds = input.sampleAssetIds
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
   /// Adds a new shared-vocabulary value (contribution type today) on behalf of the editor/admin
   /// contributor dialog's "add new" affordance (task 8.1/8.2) - a browser call can't carry the
   /// bearer token itself, so this forwards it server-to-server and returns the vocabulary's
@@ -866,6 +899,8 @@ struct LeafVolumeDetail: Content {
   let reviews: [LeafReview]
   let hasReviews: Bool
   let coverAssetPath: String
+  let samplePaths: [String]
+  let hasSamples: Bool
 
   init(_ volume: VolumeViewModel) {
     self.id = volume.id
@@ -890,6 +925,8 @@ struct LeafVolumeDetail: Content {
     self.reviews = volume.reviews.map(LeafReview.init)
     self.hasReviews = !volume.reviews.isEmpty
     self.coverAssetPath = volume.coverAssetPath
+    self.samplePaths = volume.samplePaths
+    self.hasSamples = !volume.samplePaths.isEmpty
   }
 }
 
@@ -934,6 +971,13 @@ struct LeafReview: Content {
 struct LeafNamedOption: Content {
   let id: String
   let name: String
+}
+
+/// One asset staged this session (a sample image today) - the raw id (needed by the page's JS to
+/// build the full-replace payload) plus its relative display path.
+struct LeafStagedAsset: Content {
+  let id: String
+  let path: String
 }
 
 /// One selected contributor credit - a person plus the contribution type they're credited for.
@@ -995,6 +1039,17 @@ struct LeafVolumeEditForm: Content {
   let canSetFormat: Bool
   let selectedFormat: String
   let hasSelectedFormat: Bool
+  /// The volume's existing live samples - shown read-only for context; this page has no way to
+  /// remove or reorder them individually (see `edit.leaf`'s note to the user: uploading any new
+  /// sample below replaces this entire set on save, matching `finalize-session`'s actual
+  /// promote-the-whole-staged-set behavior - there is no way to carry an existing live sample
+  /// into a fresh staged set without re-uploading it).
+  let livingSamplePaths: [String]
+  let hasLivingSamples: Bool
+  /// Samples staged this session (`sample-staged/<userSub>-<n>`) - what finalize will promote to
+  /// live, replacing `livingSamplePaths` entirely, if this is non-empty.
+  let stagedSamples: [LeafStagedAsset]
+  let hasStagedSamples: Bool
 
   init(
     volume: VolumeViewModel, session: EditSession, userSub: String,
@@ -1085,6 +1140,13 @@ struct LeafVolumeEditForm: Content {
     self.canSetFormat = canSetFormat
     self.selectedFormat = session.stringField("format") ?? volume.format
     self.hasSelectedFormat = !self.selectedFormat.isEmpty
+
+    self.livingSamplePaths = volume.samplePaths
+    self.hasLivingSamples = !volume.samplePaths.isEmpty
+    self.stagedSamples = (session.sampleAssetIds ?? []).map {
+      LeafStagedAsset(id: $0, path: "asset/sample-staged/\($0)")
+    }
+    self.hasStagedSamples = !self.stagedSamples.isEmpty
   }
 
   private static func encodeOptions(_ options: [LeafNamedOption]) -> String {

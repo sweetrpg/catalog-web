@@ -286,6 +286,54 @@ struct AppTests {
     }
   }
 
+  @Test("detail page shows a sample thumbnail row and viewer when the volume has samples")
+  func detailPageShowsSampleThumbnails() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.sampleAssetIds = ["1-0", "1-1"]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("asset/sample/1-0"))
+        #expect(res.body.string.contains("asset/sample/1-1"))
+        #expect(res.body.string.contains("sample-viewer"))
+      }
+    }
+  }
+
+  @Test("detail page hides the sample thumbnail row and viewer when the volume has no samples")
+  func detailPageHidesSampleThumbnailsWithoutSamples() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("sample-thumbnails"))
+        #expect(!res.body.string.contains("sample-viewer"))
+      }
+    }
+  }
+
   @Test("detail page shows only the metadata sections a volume has names for")
   func detailPageShowsOnlyPopulatedMetadataSections() async throws {
     let volume = VolumeViewModel(
@@ -1320,6 +1368,92 @@ struct AppTests {
       try await app.testing().test(.GET, "test-edit") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains(#"data-selected-format="Paperback""#))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing task 11 (sample pages)
+
+  @Test("edit page shows the volume's live samples read-only alongside the upload control")
+  func editPageShowsLiveSamplesReadOnly() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.sampleAssetIds = ["1-0"]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("asset/sample/1-0"))
+        #expect(res.body.string.contains("replaces this whole set"))
+        #expect(res.body.string.contains("sample-upload-input"))
+        #expect(res.body.string.contains(#"accept="image/png,image/jpeg,image/webp""#))
+      }
+    }
+  }
+
+  @Test("edit page shows staged sample chips from the session, up to the 5-sample cap")
+  func editPageShowsStagedSampleChipsAtCap() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    var session = testEditSession(for: volume)
+    session.sampleAssetIds = [
+      "auth0-tester-0", "auth0-tester-1", "auth0-tester-2", "auth0-tester-3", "auth0-tester-4",
+    ]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        for n in 0..<5 {
+          #expect(res.body.string.contains(#"data-id="auth0-tester-\#(n)""#))
+        }
+        // The client-side cap is enforced by JS reading this constant, not by omitting markup -
+        // this asserts the cap value actually reaches the page's script.
+        #expect(res.body.string.contains("MAX_SAMPLES = 5"))
+      }
+    }
+  }
+
+  @Test(
+    "edit page shows no sample section content when the volume has neither live nor staged samples")
+  func editPageHidesSamplesWhenNoneExist() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("replaces this whole set"))
+        #expect(!res.body.string.contains("sample-thumbnail\""))
       }
     }
   }

@@ -184,6 +184,28 @@
 						</div>
 					#endif
 
+					<div class="samples-field" id="samples-field" data-assets-url="#(meta.sharedAssetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
+						<h3>Sample Pages</h3>
+						#if(volume.hasLivingSamples):
+							<p class="empty-state-inline">Current samples - uploading new ones below replaces this whole set when you save.</p>
+							<div class="sample-thumbnails">
+								#for(path in volume.livingSamplePaths):
+									<img class="sample-thumbnail" src="#(meta.sharedAssetsURL)/#(path)" alt="Sample page" loading="lazy">
+								#endfor
+							</div>
+						#endif
+
+						<div class="chip-list" id="staged-sample-list" data-chip-list>
+							#for(sample in volume.stagedSamples):
+								<span class="chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.sharedAssetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
+							#endfor
+						</div>
+
+						<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
+						<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+						<p class="form-error" id="sample-upload-error" hidden></p>
+					</div>
+
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
 						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
@@ -763,6 +785,135 @@
 		      .catch(function () {
 		        addValueError.textContent = 'Unable to add that format. Try again.';
 		        addValueError.hidden = false;
+		      });
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Sample-image staging (task 11.2/11.3) - each new file uploads immediately to
+		  // assets-web as `sample-staged/<userSub>-<n>`, same staged-then-promoted pattern as the
+		  // cover upload above. Capped at 5 staged samples client-side; catalog-api enforces the
+		  // same cap server-side at finalize (task 4.4), so a crafted request past this UI can't
+		  // exceed it either.
+		  var MAX_SAMPLES = 5;
+		  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+		  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+		  var field = document.getElementById('samples-field');
+		  if (!field) return;
+
+		  var assetsURL = field.dataset.assetsUrl;
+		  var userSub = field.dataset.userSub;
+		  var sessionURL = field.dataset.sessionUrl;
+		  var list = document.getElementById('staged-sample-list');
+		  var input = document.getElementById('sample-upload-input');
+		  var uploadTrigger = document.getElementById('sample-upload-trigger');
+		  var errorEl = document.getElementById('sample-upload-error');
+
+		  var nextIndex = list.querySelectorAll('.chip').length;
+
+		  function showError(message) {
+		    errorEl.textContent = message;
+		    errorEl.hidden = false;
+		  }
+
+		  function clearError() {
+		    errorEl.hidden = true;
+		    errorEl.textContent = '';
+		  }
+
+		  function stagedIds() {
+		    return Array.prototype.map.call(
+		      list.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+		  }
+
+		  function autosave() {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ sampleAssetIds: stagedIds() }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function updateUploadEnabled() {
+		    var atCap = stagedIds().length >= MAX_SAMPLES;
+		    uploadTrigger.setAttribute('aria-disabled', atCap ? 'true' : 'false');
+		    input.disabled = atCap;
+		  }
+		  updateUploadEnabled();
+
+		  function addChip(id, path) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.id = id;
+		    var thumb = document.createElement('img');
+		    thumb.className = 'chip-thumbnail';
+		    thumb.src = assetsURL + '/' + path;
+		    thumb.alt = 'Staged sample';
+		    chip.appendChild(thumb);
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove this sample';
+		    removeBtn.textContent = '×';
+		    removeBtn.addEventListener('click', function () {
+		      chip.remove();
+		      autosave();
+		      updateUploadEnabled();
+		    });
+		    chip.appendChild(removeBtn);
+		    list.appendChild(chip);
+		  }
+
+		  list.querySelectorAll('.chip-remove').forEach(function (btn) {
+		    btn.addEventListener('click', function () {
+		      btn.closest('.chip').remove();
+		      autosave();
+		      updateUploadEnabled();
+		    });
+		  });
+
+		  input.addEventListener('change', function () {
+		    var file = input.files[0];
+		    if (!file) return;
+		    clearError();
+
+		    if (stagedIds().length >= MAX_SAMPLES) {
+		      showError('A volume may have at most ' + MAX_SAMPLES + ' samples.');
+		      input.value = '';
+		      return;
+		    }
+		    if (ALLOWED_CONTENT_TYPES.indexOf(file.type) === -1) {
+		      showError('Samples must be PNG, JPEG, or WEBP images.');
+		      input.value = '';
+		      return;
+		    }
+		    if (file.size > MAX_UPLOAD_BYTES) {
+		      showError('Samples must be 5 MB or smaller.');
+		      input.value = '';
+		      return;
+		    }
+
+		    var id = userSub + '-' + nextIndex;
+		    var path = 'asset/sample-staged/' + id;
+		    var formData = new FormData();
+		    formData.append('file', file);
+
+		    fetch(assetsURL + '/' + path, { method: 'POST', body: formData, credentials: 'include' })
+		      .then(function (resp) {
+		        if (!resp.ok) throw new Error('Sample upload failed');
+		        nextIndex += 1;
+		        addChip(id, path);
+		        autosave();
+		        updateUploadEnabled();
+		        input.value = '';
+		      })
+		      .catch(function () {
+		        showError('Sample upload failed. Try again.');
+		        input.value = '';
 		      });
 		  });
 		})();

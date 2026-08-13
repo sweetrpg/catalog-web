@@ -22,6 +22,9 @@ struct VolumeViewModel {
   /// readable here regardless of viewer role, since catalog-api's `GET /volumes` doesn't gate
   /// this field the way `GET /vocabularies/format` gates the *candidate list*.
   var format: String = ""
+  /// The volume's live sample-image ids (e.g. `["vol-1-0", "vol-1-1"]`) - empty until a session
+  /// with staged samples has been finalized at least once (see `volume-sample-pages`'s spec).
+  var sampleAssetIds: [String] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }
   /// Relative path (join with `meta.sharedAssetsURL`) to this volume's cover image on
@@ -31,4 +34,7 @@ struct VolumeViewModel {
   /// assets-web's `cover` kind hasn't deployed yet - `onerror` fires on any non-2xx image
   /// response, so the fallback still degrades correctly either way).
   var coverAssetPath: String { "asset/cover/\(id).svg" }
+  /// Relative paths to this volume's live sample images, same `asset/<kind>/<id>` shape as
+  /// `coverAssetPath`.
+  var samplePaths: [String] { sampleAssetIds.map { "asset/sample/\($0)" } }
 }
