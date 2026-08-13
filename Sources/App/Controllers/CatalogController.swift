@@ -15,6 +15,11 @@ private let reviewCapableRoles: Set<String> = ["editor", "admin"]
 /// `reviewCapableRoles`, but kept as its own set since the two gate unrelated actions that could
 /// diverge later.
 private let coverUploadCapableRoles: Set<String> = ["editor", "admin"]
+/// Roles that may add a new value to a shared vocabulary (contribution type today; property
+/// name/format in later task groups) - editor/admin only, per design.md's decision that a
+/// submitter can use an existing vocabulary value but never grow the list. Currently the same
+/// roles as `coverUploadCapableRoles`, kept separate for the same reason that one is its own set.
+private let vocabularyCreateCapableRoles: Set<String> = ["editor", "admin"]
 
 private func canEdit(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: editCapableRoles)
@@ -26,6 +31,10 @@ private func canReview(_ roles: [String]) -> Bool {
 
 private func canUploadCover(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: coverUploadCapableRoles)
+}
+
+private func canCreateVocabularyValue(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: vocabularyCreateCapableRoles)
 }
 
 /// The only `recordType` the durable edit-session mechanism supports today - see
@@ -58,7 +67,9 @@ struct CatalogController: RouteCollection {
     routes.post(
       "volumes", ":volumeID", "edit", "session", "associations", use: autosaveSessionAssociations)
     routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
+    routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
+    routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
       "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
     routes.post(
@@ -230,13 +241,23 @@ struct CatalogController: RouteCollection {
 
     async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
     async let studioOptions = req.catalogAPI.fetchStudioOptions()
+    async let personOptions = req.catalogAPI.fetchPersonOptions()
+    async let contributionTypeOptions = req.catalogAPI.fetchVocabulary(
+      type: "contribution-type", token: user.accessToken)
+    async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+
+    var volumeWithCredits = volume
+    volumeWithCredits.credits = try await existingCredits
 
     return try await req.view.render(
       "edit",
       EditContext(
         volume: LeafVolumeEditForm(
-          volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub),
-          publisherOptions: try await publisherOptions, studioOptions: try await studioOptions),
+          volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+          publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
+          personOptions: try await personOptions,
+          contributionTypeOptions: try await contributionTypeOptions,
+          canAddContributionType: canCreateVocabularyValue(user.roles)),
         canUploadCover: canUploadCover(user.roles),
         submitError: nil,
         user: LeafUser(user),
@@ -295,12 +316,23 @@ struct CatalogController: RouteCollection {
       }
       async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
       async let studioOptions = req.catalogAPI.fetchStudioOptions()
+      async let personOptions = req.catalogAPI.fetchPersonOptions()
+      async let contributionTypeOptions = req.catalogAPI.fetchVocabulary(
+        type: "contribution-type", token: user.accessToken)
+      async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+
+      var volumeWithCredits = volume
+      volumeWithCredits.credits = try await existingCredits
+
       return try await req.view.render(
         "edit",
         EditContext(
           volume: LeafVolumeEditForm(
-            volume: volume, session: session, userSub: sanitizedAssetUserID(user.sub),
-            publisherOptions: try await publisherOptions, studioOptions: try await studioOptions),
+            volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+            publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
+            personOptions: try await personOptions,
+            contributionTypeOptions: try await contributionTypeOptions,
+            canAddContributionType: canCreateVocabularyValue(user.roles)),
           canUploadCover: canUploadCover(user.roles),
           submitError: error.message ?? "Unable to save your changes. Try again.",
           user: LeafUser(user),
@@ -376,6 +408,68 @@ struct CatalogController: RouteCollection {
     try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
     return Response(status: .noContent)
+  }
+
+  /// Contributor credits linking (task 8.2) - same full-replace semantics as
+  /// `autosaveSessionAssociations`: each add/remove in the contributor dialog sends the
+  /// *complete* resulting credit list, stored as an object array keyed `personId`/
+  /// `contributionType` (matching what `LeafVolumeEditForm.init` reads back via
+  /// `objectArrayField("credits")`).
+  private struct AutosaveCreditsInput: Content {
+    struct Credit: Content {
+      let personId: String
+      let contributionType: String
+    }
+    let credits: [Credit]
+  }
+
+  @Sendable
+  func autosaveSessionCredits(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosaveCreditsInput.self)
+    session.fields["credits"] = .objectArray(
+      input.credits.map { ["personId": $0.personId, "contributionType": $0.contributionType] })
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Adds a new shared-vocabulary value (contribution type today) on behalf of the editor/admin
+  /// contributor dialog's "add new" affordance (task 8.1/8.2) - a browser call can't carry the
+  /// bearer token itself, so this forwards it server-to-server and returns the vocabulary's
+  /// updated value list for the dialog's picker to pick up without a full page reload.
+  private struct AddVocabularyValueInput: Content {
+    let value: String
+  }
+
+  struct VocabularyValuesResponse: Content {
+    let values: [String]
+  }
+
+  @Sendable
+  func addVocabularyValue(req: Request) async throws -> VocabularyValuesResponse {
+    guard let type = req.parameters.get("type") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    let input = try req.content.decode(AddVocabularyValueInput.self)
+    let values = try await req.catalogAPI.addVocabularyValue(
+      type: type, value: input.value, token: user.accessToken)
+    return VocabularyValuesResponse(values: values)
   }
 
   /// Records that a cover was staged to `cover-staged/<sub>` on assets-web (the upload itself
@@ -711,7 +805,7 @@ struct LeafCredit: Content {
   let role: String
   let person: String
 
-  init(_ credit: (role: String, person: String)) {
+  init(_ credit: (personId: String, role: String, person: String)) {
     self.role = credit.role
     self.person = credit.person
   }
@@ -739,6 +833,13 @@ struct LeafNamedOption: Content {
   let name: String
 }
 
+/// One selected contributor credit - a person plus the contribution type they're credited for.
+struct LeafSelectedCredit: Content {
+  let personId: String
+  let personName: String
+  let contributionType: String
+}
+
 struct LeafVolumeEditForm: Content {
   let id: String
   let title: String
@@ -761,11 +862,25 @@ struct LeafVolumeEditForm: Content {
   let studioOptionsJSON: String
   let selectedStudios: [LeafNamedOption]
   let hasSelectedStudios: Bool
+  /// The full person candidate list for the contributor dialog's person picker (task 8.1) -
+  /// same client-side-filtering, no-create-new rationale as publishers/studios.
+  let personOptionsJSON: String
+  /// Every contribution type already in use, JSON-encoded (plain strings, not id/name pairs -
+  /// a vocabulary value has no separate id). Available to any edit-capable role.
+  let contributionTypeOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates the "add a new contribution type" affordance
+  /// in the contributor dialog. A submitter sees the same vocabulary but select-only.
+  let canAddContributionType: Bool
+  let selectedCredits: [LeafSelectedCredit]
+  let hasSelectedCredits: Bool
 
   init(
     volume: VolumeViewModel, session: EditSession, userSub: String,
     publisherOptions: [(id: String, name: String)] = [],
-    studioOptions: [(id: String, name: String)] = []
+    studioOptions: [(id: String, name: String)] = [],
+    personOptions: [(id: String, name: String)] = [],
+    contributionTypeOptions: [String] = [],
+    canAddContributionType: Bool = false
   ) {
     self.id = volume.id
     self.title = session.stringField("title") ?? volume.title
@@ -797,6 +912,30 @@ struct LeafVolumeEditForm: Content {
     self.hasSelectedStudios = !self.selectedStudios.isEmpty
     self.studioOptionsJSON =
       Self.encodeOptions(studioOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+
+    self.personOptionsJSON =
+      Self.encodeOptions(personOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+    self.contributionTypeOptionsJSON =
+      (try? JSONEncoder().encode(contributionTypeOptions)).flatMap {
+        String(data: $0, encoding: .utf8)
+      } ?? "[]"
+    self.canAddContributionType = canAddContributionType
+
+    let personByID = Dictionary(uniqueKeysWithValues: personOptions)
+    if let sessionCredits = session.objectArrayField("credits") {
+      self.selectedCredits = sessionCredits.compactMap { entry in
+        guard let personId = entry["personId"], let contributionType = entry["contributionType"]
+        else { return nil }
+        return LeafSelectedCredit(
+          personId: personId, personName: personByID[personId] ?? "Unknown person",
+          contributionType: contributionType)
+      }
+    } else {
+      self.selectedCredits = volume.credits.map {
+        LeafSelectedCredit(personId: $0.personId, personName: $0.person, contributionType: $0.role)
+      }
+    }
+    self.hasSelectedCredits = !self.selectedCredits.isEmpty
   }
 
   private static func encodeOptions(_ options: [LeafNamedOption]) -> String {

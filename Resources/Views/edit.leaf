@@ -101,6 +101,47 @@
 						<script type="application/json" class="picker-options">#(volume.studioOptionsJSON)</script>
 					</div>
 
+					<div class="credits-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
+						<h3>Contributors</h3>
+						<div class="chip-list" data-chip-list>
+							#for(credit in volume.selectedCredits):
+								<span class="chip" data-person-id="#(credit.personId)" data-person-name="#(credit.personName)" data-contribution-type="#(credit.contributionType)">#(credit.personName) &mdash; #(credit.contributionType)<button type="button" class="chip-remove" title="Remove #(credit.personName)">&times;</button></span>
+							#endfor
+						</div>
+						<button type="button" class="btn btn-ghost" id="add-contributor-trigger">Add contributor</button>
+						<script type="application/json" id="contributor-person-options">#(volume.personOptionsJSON)</script>
+						<script type="application/json" id="contributor-type-options">#(volume.contributionTypeOptionsJSON)</script>
+
+						<div class="contributor-dialog" id="contributor-dialog" hidden>
+							<label class="contributor-dialog-label">
+								Person
+								<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
+								<ul class="picker-results" id="contributor-person-results" hidden></ul>
+							</label>
+							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
+
+							<label class="contributor-dialog-label">
+								Contribution type
+								<select class="input" id="contributor-type-select">
+									<option value="">Select a type&hellip;</option>
+								</select>
+							</label>
+
+							#if(volume.canAddContributionType):
+								<div class="contributor-add-type">
+									<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
+									<button type="button" class="btn btn-ghost" id="contributor-add-type-trigger">Add type</button>
+									<p class="form-error" id="contributor-add-type-error" hidden></p>
+								</div>
+							#endif
+
+							<div class="contributor-dialog-actions">
+								<button type="button" class="btn btn-primary" id="contributor-confirm-trigger" disabled>Add</button>
+								<button type="button" class="btn btn-ghost" id="contributor-cancel-trigger">Cancel</button>
+							</div>
+						</div>
+					</div>
+
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
 						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
@@ -287,6 +328,202 @@
 		      // Deferred so a click on a result fires before the list disappears.
 		      setTimeout(function () { results.hidden = true; }, 150);
 		    });
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Contributor dialog (task 8.1/8.2): picks an existing person (type-to-filter, same
+		  // no-create-new rationale as publisher/studio) and an existing contribution type
+		  // (select-only for a submitter; editor/admin additionally gets an "add a new type"
+		  // affordance that calls the vocabulary endpoint server-side, since the bearer token
+		  // isn't available to this script). Confirming sends the *full* resulting credit list
+		  // to the session, same full-replace semantics as the other pickers.
+		  var field = document.getElementById('credits-field');
+		  if (!field) return;
+
+		  var sessionURL = field.dataset.sessionUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var dialog = document.getElementById('contributor-dialog');
+		  var openBtn = document.getElementById('add-contributor-trigger');
+		  var personFilter = document.getElementById('contributor-person-filter');
+		  var personResults = document.getElementById('contributor-person-results');
+		  var selectedPersonLabel = document.getElementById('contributor-selected-person');
+		  var typeSelect = document.getElementById('contributor-type-select');
+		  var newTypeInput = document.getElementById('contributor-new-type');
+		  var addTypeBtn = document.getElementById('contributor-add-type-trigger');
+		  var addTypeError = document.getElementById('contributor-add-type-error');
+		  var confirmBtn = document.getElementById('contributor-confirm-trigger');
+		  var cancelBtn = document.getElementById('contributor-cancel-trigger');
+
+		  var personOptions = [];
+		  try {
+		    personOptions = JSON.parse(document.getElementById('contributor-person-options').textContent);
+		  } catch (e) {}
+		  var typeOptions = [];
+		  try {
+		    typeOptions = JSON.parse(document.getElementById('contributor-type-options').textContent);
+		  } catch (e) {}
+
+		  var selectedPerson = null;
+
+		  function renderTypeOptions() {
+		    var current = typeSelect.value;
+		    typeSelect.innerHTML = '<option value="">Select a type…</option>';
+		    typeOptions.forEach(function (type) {
+		      var option = document.createElement('option');
+		      option.value = type;
+		      option.textContent = type;
+		      typeSelect.appendChild(option);
+		    });
+		    typeSelect.value = current;
+		  }
+		  renderTypeOptions();
+
+		  function credits() {
+		    return Array.prototype.map.call(chipList.querySelectorAll('.chip'), function (chip) {
+		      return { personId: chip.dataset.personId, contributionType: chip.dataset.contributionType };
+		    });
+		  }
+
+		  function autosave() {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ credits: credits() }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function addChip(personId, personName, contributionType) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.personId = personId;
+		    chip.dataset.personName = personName;
+		    chip.dataset.contributionType = contributionType;
+		    chip.textContent = personName + ' — ' + contributionType;
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove ' + personName;
+		    removeBtn.textContent = '×';
+		    removeBtn.addEventListener('click', function () {
+		      chip.remove();
+		      autosave();
+		    });
+		    chip.appendChild(removeBtn);
+		    chipList.appendChild(chip);
+		  }
+
+		  chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
+		    btn.addEventListener('click', function () {
+		      btn.closest('.chip').remove();
+		      autosave();
+		    });
+		  });
+
+		  function updateConfirmEnabled() {
+		    confirmBtn.disabled = !selectedPerson || !typeSelect.value;
+		  }
+
+		  function resetDialog() {
+		    selectedPerson = null;
+		    selectedPersonLabel.hidden = true;
+		    selectedPersonLabel.textContent = '';
+		    personFilter.value = '';
+		    personResults.hidden = true;
+		    typeSelect.value = '';
+		    if (newTypeInput) newTypeInput.value = '';
+		    if (addTypeError) addTypeError.hidden = true;
+		    updateConfirmEnabled();
+		  }
+
+		  function openDialog() {
+		    resetDialog();
+		    dialog.hidden = false;
+		  }
+
+		  function closeDialog() {
+		    dialog.hidden = true;
+		  }
+
+		  openBtn.addEventListener('click', openDialog);
+		  cancelBtn.addEventListener('click', closeDialog);
+
+		  function renderPersonResults(query) {
+		    personResults.innerHTML = '';
+		    if (!query) {
+		      personResults.hidden = true;
+		      return;
+		    }
+		    var needle = query.toLowerCase();
+		    var matches = personOptions.filter(function (option) {
+		      return option.name.toLowerCase().indexOf(needle) !== -1;
+		    }).slice(0, 8);
+
+		    if (matches.length === 0) {
+		      personResults.hidden = true;
+		      return;
+		    }
+		    matches.forEach(function (option) {
+		      var item = document.createElement('li');
+		      item.textContent = option.name;
+		      item.addEventListener('click', function () {
+		        selectedPerson = option;
+		        selectedPersonLabel.textContent = 'Selected: ' + option.name;
+		        selectedPersonLabel.hidden = false;
+		        personFilter.value = '';
+		        personResults.hidden = true;
+		        updateConfirmEnabled();
+		      });
+		      personResults.appendChild(item);
+		    });
+		    personResults.hidden = false;
+		  }
+
+		  personFilter.addEventListener('input', function () { renderPersonResults(personFilter.value.trim()); });
+		  personFilter.addEventListener('blur', function () {
+		    setTimeout(function () { personResults.hidden = true; }, 150);
+		  });
+
+		  typeSelect.addEventListener('change', updateConfirmEnabled);
+
+		  if (addTypeBtn) {
+		    addTypeBtn.addEventListener('click', function () {
+		      var value = newTypeInput.value.trim();
+		      if (!value) return;
+		      addTypeError.hidden = true;
+		      fetch(vocabularyURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify({ value: value }),
+		        credentials: 'include'
+		      })
+		        .then(function (resp) {
+		          if (!resp.ok) throw new Error('Failed to add contribution type');
+		          return resp.json();
+		        })
+		        .then(function (data) {
+		          typeOptions = data.values || typeOptions;
+		          renderTypeOptions();
+		          typeSelect.value = value;
+		          newTypeInput.value = '';
+		          updateConfirmEnabled();
+		        })
+		        .catch(function () {
+		          addTypeError.textContent = 'Unable to add that contribution type. Try again.';
+		          addTypeError.hidden = false;
+		        });
+		    });
+		  }
+
+		  confirmBtn.addEventListener('click', function () {
+		    if (!selectedPerson || !typeSelect.value) return;
+		    addChip(selectedPerson.id, selectedPerson.name, typeSelect.value);
+		    autosave();
+		    closeDialog();
 		  });
 		})();
 		</script>

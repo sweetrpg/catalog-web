@@ -15,7 +15,7 @@ struct VolumeViewModel {
   let studioNames: [String]
   var studioIds: [String] = []
   let licenseNames: [String]
-  var credits: [(role: String, person: String)] = []
+  var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }

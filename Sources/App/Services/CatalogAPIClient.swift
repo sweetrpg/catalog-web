@@ -75,22 +75,24 @@ struct CatalogAPIClientService {
     allVolumes.first { $0.id == id }
   }
 
-  func fetchCredits(volumeID: String) async throws -> [(role: String, person: String)] {
+  func fetchCredits(volumeID: String) async throws -> [(
+    personId: String, role: String, person: String
+  )] {
     async let contributionsDoc = getCached("catalog:contributions") {
       try await sdk.fetchContributions()
     }
     async let personNames = fetchPersonNameMap()
 
     let (doc, persons) = try await (contributionsDoc, personNames)
-    return doc.data.compactMap { resource -> (role: String, person: String)? in
+    return doc.data.compactMap { resource -> (personId: String, role: String, person: String)? in
       guard let volID = resource.relationships?["volume"]?.data?.ids.first,
         volID == volumeID
       else { return nil }
-      let personID = resource.relationships?["person"]?.data?.ids.first
+      guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
       let role =
         resource.attributes.role ?? resource.attributes.credit ?? resource.attributes.title
         ?? "Contributor"
-      return (role: role, person: personID.flatMap { persons[$0] } ?? "Unknown")
+      return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
     }
   }
 
@@ -143,6 +145,24 @@ struct CatalogAPIClientService {
   ) async throws -> ReviewProposalResult {
     try await sdk.rejectProposedChange(
       volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+  }
+
+  /// Every person, sorted by name - the contributor dialog's person picker candidate list
+  /// (task 8.1), same client-side-filtering rationale as `fetchPublisherOptions`.
+  func fetchPersonOptions() async throws -> [(id: String, name: String)] {
+    let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
+    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+  }
+
+  /// Lists a shared vocabulary's values (contribution-type/property-name/format).
+  func fetchVocabulary(type: String, token: String) async throws -> [String] {
+    try await sdk.fetchVocabulary(type: type, token: token).values
+  }
+
+  /// Adds a new value to a shared vocabulary - editor/admin only, enforced by catalog-api.
+  /// Returns the vocabulary's full value list after the add.
+  func addVocabularyValue(type: String, value: String, token: String) async throws -> [String] {
+    try await sdk.addVocabularyValue(type: type, value: value, token: token).values
   }
 
   private func fetchNameMap(path: String) async throws -> [String: String] {

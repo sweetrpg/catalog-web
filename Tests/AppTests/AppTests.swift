@@ -918,4 +918,141 @@ struct AppTests {
       }
     }
   }
+
+  // MARK: - durable-volume-editing task 8 (contributor linking)
+
+  @Test("edit page contributor dialog completes a credit from person + contribution type options")
+  func editPageContributorDialogRendersPersonAndTypeOptions() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              personOptions: [("person-1", "Gary Gygax")],
+              contributionTypeOptions: ["Author", "Illustrator"], canAddContributionType: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("add-contributor-trigger"))
+        #expect(res.body.string.contains("Gary Gygax"))
+        #expect(res.body.string.contains("Author"))
+        #expect(res.body.string.contains("Illustrator"))
+        #expect(res.body.string.contains("/volumes/1/edit/session/credits"))
+      }
+    }
+  }
+
+  @Test("edit page shows the add-new-contribution-type affordance for an editor/admin session")
+  func editPageShowsAddContributionTypeForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              contributionTypeOptions: ["Author"], canAddContributionType: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("contributor-new-type"))
+        #expect(res.body.string.contains("Add type"))
+        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/contribution-type"))
+      }
+    }
+  }
+
+  @Test("edit page hides the add-new-contribution-type affordance for a submitter session")
+  func editPageHidesAddContributionTypeForSubmitter() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              contributionTypeOptions: ["Author"], canAddContributionType: false),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // The JS still references `contributor-new-type` by id (harmlessly - `getElementById`
+        // returns nil and every use is guarded), so this checks for the actual markup element,
+        // not the bare id string which also appears in the always-present script block.
+        #expect(!res.body.string.contains(#"id="contributor-new-type""#))
+        #expect(!res.body.string.contains(">Add type<"))
+      }
+    }
+  }
+
+  @Test("edit page falls back to a volume's live credits when the session has none staged")
+  func editPageShowsLiveCreditsWithoutSessionOverride() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.credits = [(personId: "person-1", role: "Author", person: "Gary Gygax")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-person-id="person-1""#))
+        #expect(res.body.string.contains("Gary Gygax"))
+        #expect(res.body.string.contains("Author"))
+      }
+    }
+  }
+
+  @Test("edit page contributor dialog has no path to create a new person")
+  func editPageContributorDialogHasNoCreatePersonPath() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              personOptions: [("person-1", "Gary Gygax")], canAddContributionType: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("Create person"))
+        #expect(!res.body.string.contains("Add new person"))
+        #expect(!res.body.string.contains("Add person"))
+      }
+    }
+  }
 }
