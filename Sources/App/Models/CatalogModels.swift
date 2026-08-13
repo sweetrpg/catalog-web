@@ -17,6 +17,7 @@ struct VolumeViewModel {
   let licenseNames: [String]
   var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
+  var properties: [(name: String, value: String)] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }
   /// Relative path (join with `meta.sharedAssetsURL`) to this volume's cover image on

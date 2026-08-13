@@ -68,6 +68,8 @@ struct CatalogController: RouteCollection {
       "volumes", ":volumeID", "edit", "session", "associations", use: autosaveSessionAssociations)
     routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
     routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
+    routes.post(
+      "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
@@ -244,6 +246,8 @@ struct CatalogController: RouteCollection {
     async let personOptions = req.catalogAPI.fetchPersonOptions()
     async let contributionTypeOptions = req.catalogAPI.fetchVocabulary(
       type: "contribution-type", token: user.accessToken)
+    async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
+      type: "property-name", token: user.accessToken)
     async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
 
     var volumeWithCredits = volume
@@ -257,7 +261,9 @@ struct CatalogController: RouteCollection {
           publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
           personOptions: try await personOptions,
           contributionTypeOptions: try await contributionTypeOptions,
-          canAddContributionType: canCreateVocabularyValue(user.roles)),
+          canAddContributionType: canCreateVocabularyValue(user.roles),
+          propertyNameOptions: try await propertyNameOptions,
+          canAddPropertyName: canCreateVocabularyValue(user.roles)),
         canUploadCover: canUploadCover(user.roles),
         submitError: nil,
         user: LeafUser(user),
@@ -319,6 +325,8 @@ struct CatalogController: RouteCollection {
       async let personOptions = req.catalogAPI.fetchPersonOptions()
       async let contributionTypeOptions = req.catalogAPI.fetchVocabulary(
         type: "contribution-type", token: user.accessToken)
+      async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
+        type: "property-name", token: user.accessToken)
       async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
 
       var volumeWithCredits = volume
@@ -332,7 +340,9 @@ struct CatalogController: RouteCollection {
             publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
             personOptions: try await personOptions,
             contributionTypeOptions: try await contributionTypeOptions,
-            canAddContributionType: canCreateVocabularyValue(user.roles)),
+            canAddContributionType: canCreateVocabularyValue(user.roles),
+            propertyNameOptions: try await propertyNameOptions,
+            canAddPropertyName: canCreateVocabularyValue(user.roles)),
           canUploadCover: canUploadCover(user.roles),
           submitError: error.message ?? "Unable to save your changes. Try again.",
           user: LeafUser(user),
@@ -440,6 +450,40 @@ struct CatalogController: RouteCollection {
     let input = try req.content.decode(AutosaveCreditsInput.self)
     session.fields["credits"] = .objectArray(
       input.credits.map { ["personId": $0.personId, "contributionType": $0.contributionType] })
+    session.updatedAt = Date()
+    try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
+
+    return Response(status: .noContent)
+  }
+
+  /// Free-form property linking (task 9.2) - same full-replace semantics as
+  /// `autosaveSessionCredits`, stored as an object array keyed `name`/`value` (matching what
+  /// `LeafVolumeEditForm.init` reads back via `objectArrayField("properties")`).
+  private struct AutosavePropertiesInput: Content {
+    struct Property: Content {
+      let name: String
+      let value: String
+    }
+    let properties: [Property]
+  }
+
+  @Sendable
+  func autosaveSessionProperties(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canEdit(user.roles) else {
+      throw Abort(.forbidden)
+    }
+    guard var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
+      session.recordId == volumeID
+    else {
+      throw Abort(.notFound)
+    }
+
+    let input = try req.content.decode(AutosavePropertiesInput.self)
+    session.fields["properties"] = .objectArray(
+      input.properties.map { ["name": $0.name, "value": $0.value] })
     session.updatedAt = Date()
     try await req.editSessions.set(userID: user.sub, recordType: recordTypeVolume, session: session)
 
@@ -773,6 +817,8 @@ struct LeafVolumeDetail: Content {
   let hasLicenseNames: Bool
   let credits: [LeafCredit]
   let hasCredits: Bool
+  let properties: [LeafProperty]
+  let hasProperties: Bool
   let reviews: [LeafReview]
   let hasReviews: Bool
   let coverAssetPath: String
@@ -795,6 +841,8 @@ struct LeafVolumeDetail: Content {
     self.hasLicenseNames = !volume.licenseNames.isEmpty
     self.credits = volume.credits.map(LeafCredit.init)
     self.hasCredits = !volume.credits.isEmpty
+    self.properties = volume.properties.map(LeafProperty.init)
+    self.hasProperties = !volume.properties.isEmpty
     self.reviews = volume.reviews.map(LeafReview.init)
     self.hasReviews = !volume.reviews.isEmpty
     self.coverAssetPath = volume.coverAssetPath
@@ -808,6 +856,17 @@ struct LeafCredit: Content {
   init(_ credit: (personId: String, role: String, person: String)) {
     self.role = credit.role
     self.person = credit.person
+  }
+}
+
+/// One free-form name/value property on a volume's detail page.
+struct LeafProperty: Content {
+  let name: String
+  let value: String
+
+  init(_ property: (name: String, value: String)) {
+    self.name = property.name
+    self.value = property.value
   }
 }
 
@@ -873,6 +932,14 @@ struct LeafVolumeEditForm: Content {
   let canAddContributionType: Bool
   let selectedCredits: [LeafSelectedCredit]
   let hasSelectedCredits: Bool
+  /// Every property name already in use, JSON-encoded (plain strings, same shape as
+  /// `contributionTypeOptionsJSON`).
+  let propertyNameOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates the "add a new property name" affordance,
+  /// same rationale as `canAddContributionType`.
+  let canAddPropertyName: Bool
+  let selectedProperties: [LeafProperty]
+  let hasSelectedProperties: Bool
 
   init(
     volume: VolumeViewModel, session: EditSession, userSub: String,
@@ -880,7 +947,9 @@ struct LeafVolumeEditForm: Content {
     studioOptions: [(id: String, name: String)] = [],
     personOptions: [(id: String, name: String)] = [],
     contributionTypeOptions: [String] = [],
-    canAddContributionType: Bool = false
+    canAddContributionType: Bool = false,
+    propertyNameOptions: [String] = [],
+    canAddPropertyName: Bool = false
   ) {
     self.id = volume.id
     self.title = session.stringField("title") ?? volume.title
@@ -936,6 +1005,22 @@ struct LeafVolumeEditForm: Content {
       }
     }
     self.hasSelectedCredits = !self.selectedCredits.isEmpty
+
+    self.propertyNameOptionsJSON =
+      (try? JSONEncoder().encode(propertyNameOptions)).flatMap {
+        String(data: $0, encoding: .utf8)
+      } ?? "[]"
+    self.canAddPropertyName = canAddPropertyName
+
+    if let sessionProperties = session.objectArrayField("properties") {
+      self.selectedProperties = sessionProperties.compactMap { entry in
+        guard let name = entry["name"], let value = entry["value"] else { return nil }
+        return LeafProperty((name: name, value: value))
+      }
+    } else {
+      self.selectedProperties = volume.properties.map(LeafProperty.init)
+    }
+    self.hasSelectedProperties = !self.selectedProperties.isEmpty
   }
 
   private static func encodeOptions(_ options: [LeafNamedOption]) -> String {

@@ -240,6 +240,52 @@ struct AppTests {
     }
   }
 
+  @Test("detail page shows a properties table when the volume has properties")
+  func detailPageShowsPropertiesTable() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Page count"))
+        #expect(res.body.string.contains("320"))
+      }
+    }
+  }
+
+  @Test("detail page hides the properties table when the volume has no properties")
+  func detailPageHidesPropertiesTableWithoutProperties() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains(">Properties<"))
+      }
+    }
+  }
+
   @Test("detail page shows only the metadata sections a volume has names for")
   func detailPageShowsOnlyPopulatedMetadataSections() async throws {
     let volume = VolumeViewModel(
@@ -1052,6 +1098,142 @@ struct AppTests {
         #expect(!res.body.string.contains("Create person"))
         #expect(!res.body.string.contains("Add new person"))
         #expect(!res.body.string.contains("Add person"))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing task 9 (properties table)
+
+  @Test("edit page shows a selected property chip and the name/value picker")
+  func editPageShowsPropertyPicker() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              propertyNameOptions: ["Page count", "Weight"], canAddPropertyName: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-name="Page count""#))
+        #expect(res.body.string.contains("320"))
+        #expect(res.body.string.contains("Weight"))
+        #expect(res.body.string.contains("/volumes/1/edit/session/properties"))
+      }
+    }
+  }
+
+  @Test("edit page shows the add-new-property-name affordance for an editor/admin session")
+  func editPageShowsAddPropertyNameForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              propertyNameOptions: ["Page count"], canAddPropertyName: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("property-new-name"))
+        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/property-name"))
+      }
+    }
+  }
+
+  @Test("edit page hides the add-new-property-name affordance for a submitter session")
+  func editPageHidesAddPropertyNameForSubmitter() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              propertyNameOptions: ["Page count"], canAddPropertyName: false),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // The JS still references `property-new-name` by id (harmlessly - `getElementById`
+        // returns nil and every use is guarded), so this checks for the actual markup element,
+        // not the bare id string which also appears in the always-present script block.
+        #expect(!res.body.string.contains(#"id="property-new-name""#))
+        #expect(!res.body.string.contains(">Add name<"))
+      }
+    }
+  }
+
+  @Test("edit page falls back to a volume's live properties when the session has none staged")
+  func editPageShowsLivePropertiesWithoutSessionOverride() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-name="Page count""#))
+        #expect(res.body.string.contains("320"))
+      }
+    }
+  }
+
+  @Test("edit page prefers a session's pending property selection over the volume's live ones")
+  func editPageShowsSessionPropertySelectionOverLiveOnes() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    var session = testEditSession(for: volume)
+    session.fields["properties"] = .objectArray([["name": "Weight", "value": "1.2kg"]])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-name="Weight""#))
+        #expect(res.body.string.contains("1.2kg"))
+        #expect(!res.body.string.contains(#"data-name="Page count""#))
       }
     }
   }

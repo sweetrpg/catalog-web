@@ -91,6 +91,22 @@
 					</div>
 				#endif
 
+				#if(volume.hasProperties):
+					<div class="detail-block">
+						<span class="section-label">Properties</span>
+						<table class="table">
+							<tbody>
+								#for(property in volume.properties):
+									<tr>
+										<td>#(property.name)</td>
+										<td>#(property.value)</td>
+									</tr>
+								#endfor
+							</tbody>
+						</table>
+					</div>
+				#endif
+
 				#if(review):
 					<div class="detail-block">
 						<span class="section-label">Pending Changes (#(review.pendingCount))</span>

@@ -142,6 +142,32 @@
 						</div>
 					</div>
 
+					<div class="properties-field" id="properties-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/properties" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/property-name">
+						<h3>Properties</h3>
+						<div class="chip-list" data-chip-list>
+							#for(property in volume.selectedProperties):
+								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.name): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.name)">&times;</button></span>
+							#endfor
+						</div>
+						<script type="application/json" id="property-name-options">#(volume.propertyNameOptionsJSON)</script>
+
+						<div class="property-add-row">
+							<select class="input" id="property-name-select">
+								<option value="">Select a property&hellip;</option>
+							</select>
+							<input type="text" class="input" id="property-value-input" placeholder="Value">
+							<button type="button" class="btn btn-ghost" id="property-add-trigger" disabled>Add</button>
+						</div>
+
+						#if(volume.canAddPropertyName):
+							<div class="property-add-name">
+								<input type="text" class="input" id="property-new-name" placeholder="Add a new property name...">
+								<button type="button" class="btn btn-ghost" id="property-add-name-trigger">Add name</button>
+								<p class="form-error" id="property-add-name-error" hidden></p>
+							</div>
+						#endif
+					</div>
+
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
 						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
@@ -525,6 +551,131 @@
 		    autosave();
 		    closeDialog();
 		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Free-form property editing (task 9.2): pick an existing property name (select-only for
+		  // a submitter; editor/admin additionally gets an "add a new name" affordance, same
+		  // vocabulary-endpoint pattern as the contributor dialog's contribution type) plus a free
+		  // text value. Confirming sends the *full* resulting property list to the session, same
+		  // full-replace semantics as the other pickers.
+		  var field = document.getElementById('properties-field');
+		  if (!field) return;
+
+		  var sessionURL = field.dataset.sessionUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var nameSelect = document.getElementById('property-name-select');
+		  var valueInput = document.getElementById('property-value-input');
+		  var addBtn = document.getElementById('property-add-trigger');
+		  var newNameInput = document.getElementById('property-new-name');
+		  var addNameBtn = document.getElementById('property-add-name-trigger');
+		  var addNameError = document.getElementById('property-add-name-error');
+
+		  var nameOptions = [];
+		  try {
+		    nameOptions = JSON.parse(document.getElementById('property-name-options').textContent);
+		  } catch (e) {}
+
+		  function renderNameOptions() {
+		    var current = nameSelect.value;
+		    nameSelect.innerHTML = '<option value="">Select a property…</option>';
+		    nameOptions.forEach(function (name) {
+		      var option = document.createElement('option');
+		      option.value = name;
+		      option.textContent = name;
+		      nameSelect.appendChild(option);
+		    });
+		    nameSelect.value = current;
+		  }
+		  renderNameOptions();
+
+		  function properties() {
+		    return Array.prototype.map.call(chipList.querySelectorAll('.chip'), function (chip) {
+		      return { name: chip.dataset.name, value: chip.dataset.value };
+		    });
+		  }
+
+		  function autosave() {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ properties: properties() }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function addChip(name, value) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.name = name;
+		    chip.dataset.value = value;
+		    chip.textContent = name + ': ' + value;
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove ' + name;
+		    removeBtn.textContent = '×';
+		    removeBtn.addEventListener('click', function () {
+		      chip.remove();
+		      autosave();
+		    });
+		    chip.appendChild(removeBtn);
+		    chipList.appendChild(chip);
+		  }
+
+		  chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
+		    btn.addEventListener('click', function () {
+		      btn.closest('.chip').remove();
+		      autosave();
+		    });
+		  });
+
+		  function updateAddEnabled() {
+		    addBtn.disabled = !nameSelect.value || !valueInput.value.trim();
+		  }
+		  nameSelect.addEventListener('change', updateAddEnabled);
+		  valueInput.addEventListener('input', updateAddEnabled);
+
+		  addBtn.addEventListener('click', function () {
+		    if (!nameSelect.value || !valueInput.value.trim()) return;
+		    addChip(nameSelect.value, valueInput.value.trim());
+		    autosave();
+		    nameSelect.value = '';
+		    valueInput.value = '';
+		    updateAddEnabled();
+		  });
+
+		  if (addNameBtn) {
+		    addNameBtn.addEventListener('click', function () {
+		      var value = newNameInput.value.trim();
+		      if (!value) return;
+		      addNameError.hidden = true;
+		      fetch(vocabularyURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify({ value: value }),
+		        credentials: 'include'
+		      })
+		        .then(function (resp) {
+		          if (!resp.ok) throw new Error('Failed to add property name');
+		          return resp.json();
+		        })
+		        .then(function (data) {
+		          nameOptions = data.values || nameOptions;
+		          renderNameOptions();
+		          nameSelect.value = value;
+		          newNameInput.value = '';
+		          updateAddEnabled();
+		        })
+		        .catch(function () {
+		          addNameError.textContent = 'Unable to add that property name. Try again.';
+		          addNameError.hidden = false;
+		        });
+		    });
+		  }
 		})();
 		</script>
 
