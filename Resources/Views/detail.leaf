@@ -53,8 +53,8 @@
 					<div class="detail-block">
 						<span class="section-label">Publisher</span>
 						<div class="tag-cloud">
-							#for(name in volume.publisherNames):
-								<span class="tag tag-neutral">#(name)</span>
+							#for(ref in volume.publisherRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)</a>
 							#endfor
 						</div>
 					</div>
@@ -64,8 +64,8 @@
 					<div class="detail-block">
 						<span class="section-label">Studio</span>
 						<div class="tag-cloud">
-							#for(name in volume.studioNames):
-								<span class="tag tag-neutral">#(name)</span>
+							#for(ref in volume.studioRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)</a>
 							#endfor
 						</div>
 					</div>
@@ -75,8 +75,8 @@
 					<div class="detail-block">
 						<span class="section-label">License</span>
 						<div class="tag-cloud">
-							#for(name in volume.licenseNames):
-								<span class="tag tag-neutral">#(name)</span>
+							#for(ref in volume.licenseRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)</a>
 							#endfor
 						</div>
 					</div>

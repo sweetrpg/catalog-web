@@ -12,10 +12,11 @@ struct PageMeta: Content {
   let buildDate: String
   let buildHash: String
   let banners: [LeafBanner]
-  /// `auth-web`'s login link, with `return_to` set to this request's own full path (including
-  /// `basePath`) so a successful login lands the visitor back where they started. `auth-web`
-  /// sits at `/auth` on the same host root, not under this app's own `basePath` - see
-  /// design.md's "auth-web is the sole owner of the Authorization Code exchange" decision.
+  /// `auth-web`'s login/logout links, each with `return_to` set to this request's own full path
+  /// (including `basePath`) so a successful login, or a completed logout, lands the visitor back
+  /// where they started. `auth-web` sits at `/auth` on the same host root, not under this app's
+  /// own `basePath` - see design.md's "auth-web is the sole owner of the Authorization Code
+  /// exchange" decision.
   let loginURL: String
   let logoutURL: String
   /// Fixed paths on the shared `dev.sweetrpg.com` host, matching `/catalog`'s own convention -
@@ -47,7 +48,7 @@ struct PageMeta: Content {
       buildHash: String(req.buildInfo.sha.prefix(8)),
       banners: banners,
       loginURL: "/auth/login?return_to=\(encodedReturnTo)",
-      logoutURL: "/auth/logout",
+      logoutURL: "/auth/logout?return_to=\(encodedReturnTo)",
       adminURL: "/admin",
       userSettingsURL: "/users"
     )

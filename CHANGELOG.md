@@ -1,4 +1,26 @@
 
+## 0.14.0 - 2026-08-12
+
+### Added
+- Add browse/detail/edit pages for publishers, studios, persons, licenses
+
+
+
+## 0.13.0 - 2026-08-12
+
+### Added
+- Report build version on /status/ping
+
+
+
+## 0.12.1 - 2026-08-12
+
+### Fixed
+- Stop conflicts banner from showing with no conflicts
+- Pass return_to on logout link
+
+
+
 ## 0.12.0 - 2026-08-12
 
 ### Added

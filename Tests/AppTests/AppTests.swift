@@ -9,11 +9,12 @@ import VaporTesting
 
 @Suite("App")
 struct AppTests {
-  @Test("status ping responds ok")
+  @Test("status ping responds ok and reports the build version")
   func statusPing() async throws {
     try await withApp(configure: configure) { app in
       try await app.testing().test(.GET, "status/ping") { res in
         #expect(res.status == .ok)
+        #expect(res.body.string.contains(#""version":"dev""#))
       }
     }
   }
@@ -138,6 +139,7 @@ struct AppTests {
         #expect(res.body.string.contains(#"href="/users""#))
         #expect(!res.body.string.contains(#"href="/admin""#))
         #expect(res.body.string.contains("avatar-menu-item-danger"))
+        #expect(res.body.string.contains(#"action="/auth/logout?return_to=/test-home""#))
       }
     }
   }
@@ -242,11 +244,13 @@ struct AppTests {
 
   @Test("detail page shows only the metadata sections a volume has names for")
   func detailPageShowsOnlyPopulatedMetadataSections() async throws {
-    let volume = VolumeViewModel(
+    var volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: ["Shadow of the Demon Lord"],
       publisherNames: ["Schwalb Entertainment"],
       studioNames: [], licenseNames: ["OGL"])
+    volume.publisherRefs = [EntityRef(id: "pub-1", name: "Schwalb Entertainment")]
+    volume.licenseRefs = [EntityRef(id: "lic-1", name: "OGL")]
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in

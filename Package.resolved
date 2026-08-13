@@ -1,5 +1,5 @@
 {
-  "originHash" : "6bd2fb4e9701a24a881cc4dc7d4a11935ed9531ea31aaa7f9caf9441ab2a6d3b",
+  "originHash" : "6233cbf4def62c557bba41554cfa65dc37361e4ce075eab218c5a5e63d536103",
   "pins" : [
     {
       "identity" : "admin-api-client.swift",
@@ -34,7 +34,7 @@
       "location" : "https://github.com/sweetrpg/catalog-api-client.swift.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "8661b29490a20e32ee3987c7e246291ad9c3dc62"
+        "revision" : "9a4271965a5fd59a5d9fdf9793137882e3eacf12"
       }
     },
     {
@@ -161,15 +161,6 @@
       "state" : {
         "revision" : "a0cb0954ecb21e4e31b0070e6ed5674e8556685a",
         "version" : "1.6.0"
-      }
-    },
-    {
-      "identity" : "swift-configuration",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-configuration.git",
-      "state" : {
-        "revision" : "be76c4ad929eb6c4bcaf3351799f2adf9e6848a9",
-        "version" : "1.2.0"
       }
     },
     {
