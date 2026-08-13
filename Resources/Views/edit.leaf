@@ -2,25 +2,215 @@
 	#export("body"):
 		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
 
-		<section class="page-header">
-			<span class="section-label">Edit</span>
-			<h2>#(volume.title)</h2>
-		</section>
-
-		<form class="form" action="#(meta.basePath)/volumes/#(volume.id)/edit" method="post">
-			<label class="form-label" for="title">Title</label>
-			<input class="input" type="text" id="title" name="title" value="#(volume.title)" required>
-
-			<label class="form-label" for="description">Description</label>
-			<textarea class="input" id="description" name="description" rows="4">#(volume.description)</textarea>
-
-			<label class="form-label" for="notes">Notes</label>
-			<textarea class="input" id="notes" name="notes" rows="3">#(volume.notes)</textarea>
-
-			<div class="form-actions">
-				<button type="submit" class="btn btn-primary">Save changes</button>
-				<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
+		<div class="detail-layout">
+			<div class="card-cover detail-cover">
+				<img class="card-cover-img" id="cover-preview-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<span class="card-cover-fallback">Cover pending</span>
+				#if(canUploadCover):
+					<div class="cover-upload" data-assets-url="#(meta.sharedAssetsURL)" data-cover-path="#(volume.coverAssetPath)">
+						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
+						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+						<p class="form-error cover-upload-error" hidden></p>
+					</div>
+				#endif
 			</div>
-		</form>
+
+			<div>
+				<form id="edit-form" action="#(meta.basePath)/volumes/#(volume.id)/edit" method="post">
+					<div class="field-row" data-field="title" data-field-type="line">
+						<h1 class="field-display">#(volume.title)</h1>
+						<input class="input field-input" type="text" name="title" value="#(volume.title)" required hidden>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit title">
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/edit.svg" alt="Edit title">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
+					<div class="field-row field-row-block" data-field="description" data-field-type="block">
+						#if(volume.hasDescription):
+							<p class="detail-description field-display">#(volume.description)</p>
+						#else:
+							<p class="detail-description detail-description-empty field-display">No description on file yet for this volume.</p>
+						#endif
+						<textarea class="input field-input" name="description" rows="4" hidden>#(volume.description)</textarea>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit description">
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/edit.svg" alt="Edit description">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
+					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
+						#if(volume.hasNotes):
+							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
+						#else:
+							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
+						#endif
+						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/edit.svg" alt="Edit notes">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedAssetsURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
+					<div class="form-actions">
+						<button type="submit" class="btn btn-primary">Save changes</button>
+						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<script>
+		(function () {
+		  // Inline per-field editing: "line" fields (title) commit on Enter or blur; "block"
+		  // fields (description, notes) commit via explicit accept/cancel icon buttons, since
+		  // Enter needs to insert a newline instead of submitting. Neither commit path talks to
+		  // the server - both just update the field's own <input>/<textarea> value, which is
+		  // what actually gets sent when the whole form is saved.
+		  document.querySelectorAll('.field-row[data-field]').forEach(function (row) {
+		    var type = row.dataset.fieldType;
+		    var display = row.querySelector('.field-display');
+		    var input = row.querySelector('.field-input');
+		    var editBtn = row.querySelector('.field-edit-trigger');
+		    var acceptBtn = row.querySelector('.field-accept-trigger');
+		    var cancelBtn = row.querySelector('.field-cancel-trigger');
+		    var originalValue = input.value;
+
+		    function showEditing() {
+		      display.hidden = true;
+		      input.hidden = false;
+		      editBtn.hidden = true;
+		      if (acceptBtn) acceptBtn.hidden = false;
+		      if (cancelBtn) cancelBtn.hidden = false;
+		      input.focus();
+		      if (type === 'line') input.select();
+		    }
+
+		    function commit() {
+		      display.textContent = input.value;
+		      display.hidden = false;
+		      input.hidden = true;
+		      editBtn.hidden = false;
+		      if (acceptBtn) acceptBtn.hidden = true;
+		      if (cancelBtn) cancelBtn.hidden = true;
+		    }
+
+		    function cancel() {
+		      input.value = originalValue;
+		      commit();
+		    }
+
+		    editBtn.addEventListener('click', showEditing);
+
+		    if (type === 'line') {
+		      input.addEventListener('keydown', function (e) {
+		        if (e.key === 'Enter') {
+		          e.preventDefault();
+		          commit();
+		        }
+		      });
+		      input.addEventListener('blur', commit);
+		    } else {
+		      acceptBtn.addEventListener('click', commit);
+		      cancelBtn.addEventListener('click', cancel);
+		    }
+		  });
+		})();
+		</script>
+
+		#if(canUploadCover):
+			<script>
+			(function () {
+			  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+			  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+			  var container = document.querySelector('.cover-upload');
+			  if (!container) return;
+
+			  var input = document.getElementById('cover-upload-input');
+			  var errorEl = container.querySelector('.cover-upload-error');
+			  var coverImg = document.getElementById('cover-preview-img');
+			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.coverPath;
+			  var form = document.getElementById('edit-form');
+			  var previewURL = null;
+
+			  function showError(message) {
+			    errorEl.textContent = message;
+			    errorEl.hidden = false;
+			  }
+
+			  function clearError() {
+			    errorEl.hidden = true;
+			    errorEl.textContent = '';
+			  }
+
+			  // Selecting a file only previews it locally (no network call) - the actual upload
+			  // to assets-web is deferred until the whole edit session is saved, so canceling
+			  // out of the edit page never leaves an orphaned cover file behind to reclaim.
+			  input.addEventListener('change', function () {
+			    var file = input.files[0];
+			    if (!file) return;
+			    clearError();
+
+			    if (ALLOWED_CONTENT_TYPES.indexOf(file.type) === -1) {
+			      showError('Cover must be a PNG, JPEG, or WEBP image.');
+			      input.value = '';
+			      return;
+			    }
+			    if (file.size > MAX_UPLOAD_BYTES) {
+			      showError('Cover must be 5 MB or smaller.');
+			      input.value = '';
+			      return;
+			    }
+
+			    if (previewURL) URL.revokeObjectURL(previewURL);
+			    previewURL = URL.createObjectURL(file);
+			    if (coverImg) {
+			      coverImg.style.display = '';
+			      coverImg.src = previewURL;
+			    }
+			  });
+
+			  form.addEventListener('submit', function (e) {
+			    var file = input.files[0];
+			    if (!file) return;
+			    e.preventDefault();
+
+			    var formData = new FormData();
+			    formData.append('file', file);
+
+			    fetch(uploadURL, { method: 'POST', body: formData, credentials: 'include' })
+			      .then(function (resp) {
+			        if (!resp.ok) throw new Error('Cover upload failed');
+			        form.submit();
+			      })
+			      .catch(function () {
+			        showError('Cover upload failed. Try again.');
+			      });
+			  });
+			})();
+			</script>
+		#endif
 	#endexport
 #endextend

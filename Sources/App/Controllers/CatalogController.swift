@@ -140,7 +140,6 @@ struct CatalogController: RouteCollection {
       DetailContext(
         volume: LeafVolumeDetail(volume),
         canEdit: canEdit(roles),
-        canUploadCover: canUploadCover(roles),
         justProposed: req.query[String.self, at: "proposed"] == "1",
         review: proposalReview,
         conflicts: conflicts,
@@ -167,6 +166,7 @@ struct CatalogController: RouteCollection {
       "edit",
       EditContext(
         volume: LeafVolumeEditForm(volume),
+        canUploadCover: canUploadCover(user.roles),
         user: LeafUser(user),
         meta: await PageMeta.make(req)
       ))
@@ -289,9 +289,6 @@ struct DetailContext: Content {
   /// `true` when the signed-in session's roles include submitter/editor/admin - gates the
   /// "Edit" action. `false` (including for an anonymous visitor) hides it entirely.
   let canEdit: Bool
-  /// `true` when the signed-in session's roles include editor/admin - gates the cover-upload
-  /// control. `false` (including for an anonymous visitor or a submitter) hides it entirely.
-  let canUploadCover: Bool
   /// `true` right after a submitter's edit was stored as a proposed change rather than applied
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
@@ -313,6 +310,10 @@ struct DetailContext: Content {
 
 struct EditContext: Content {
   let volume: LeafVolumeEditForm
+  /// `true` when the signed-in session's roles include editor/admin - gates the cover-upload
+  /// control. Every viewer of this page already passed `canEdit` (enforced in `editForm`), but
+  /// cover upload is editor/admin-only, same as on the detail page before it moved here.
+  let canUploadCover: Bool
   let user: LeafUser?
   let meta: PageMeta
 }
@@ -465,12 +466,14 @@ struct LeafVolumeEditForm: Content {
   let title: String
   let description: String
   let notes: String
+  let coverAssetPath: String
 
   init(_ volume: VolumeViewModel) {
     self.id = volume.id
     self.title = volume.title
     self.description = volume.description
     self.notes = volume.notes
+    self.coverAssetPath = volume.coverAssetPath
   }
 }
 
