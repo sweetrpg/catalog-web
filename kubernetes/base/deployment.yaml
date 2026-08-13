@@ -27,6 +27,8 @@ spec:
                 component: web
                 version: v1
                 release: prometheus
+            annotations:
+                reloader.stakater.com/auto: "true"
         spec:
             serviceAccountName: web
             enableServiceLinks: false
