@@ -38,6 +38,15 @@ private func canCreateVocabularyValue(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: vocabularyCreateCapableRoles)
 }
 
+/// Roles that may roll a record back to a past version - admin only per design.md's decision:
+/// unlike `reviewCapableRoles`, an editor can create/accept/reject versions but not arbitrarily
+/// rewind history.
+private let rollbackCapableRoles: Set<String> = ["admin"]
+
+private func canRollback(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: rollbackCapableRoles)
+}
+
 /// The only `recordType` the durable edit-session mechanism supports today - see
 /// docs/frontend-conventions.md's edit-session schema in sweetrpg/platform.
 private let recordTypeVolume = "volume"
@@ -79,6 +88,10 @@ struct CatalogController: RouteCollection {
       "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
     routes.post(
       "volumes", ":volumeID", "proposed-changes", ":proposalID", "reject", use: rejectProposal)
+    routes.get("volumes", ":volumeID", "versions", use: versionHistory)
+    routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
+    routes.post(
+      "volumes", ":volumeID", "versions", ":version", "restore", use: restoreVersion)
   }
 
   @Sendable
@@ -183,6 +196,93 @@ struct CatalogController: RouteCollection {
         user: sessionUser.map(LeafUser.init),
         meta: await PageMeta.make(req)
       ))
+  }
+
+  /// Lists a volume's version history, newest first - anyone who can view the volume itself can
+  /// view its history (no role gate on the list/detail views; only restoring a past version is
+  /// role-gated, per `canRollback`).
+  @Sendable
+  func versionHistory(req: Request) async throws -> View {
+    guard let volumeID = req.parameters.get("volumeID") else {
+      throw Abort(.badRequest)
+    }
+    let volumes = try await req.catalogAPI.fetchVolumes()
+    guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      throw Abort(.notFound)
+    }
+    let sessionUser = await req.currentUser
+    let roles = sessionUser?.roles ?? []
+    // Fails open the same way the review section does (detail(_:)) - a version-skewed or
+    // unavailable catalog-api deployment shows an empty history rather than 500ing the page.
+    var versions: [VolumeVersionAttributes] = []
+    if let token = sessionUser?.accessToken {
+      do {
+        versions = try await req.catalogAPI.fetchVolumeVersions(volumeID: volumeID, token: token)
+      } catch {
+        req.logger.warning("failed to fetch versions for volume \(volumeID): \(error)")
+      }
+    }
+
+    return try await req.view.render(
+      "version-history",
+      VersionHistoryContext(
+        volumeID: volumeID,
+        volumeTitle: volume.title,
+        versions: versions.map(LeafVersionSummary.init),
+        canRollback: canRollback(roles),
+        user: sessionUser.map(LeafUser.init),
+        meta: await PageMeta.make(req)
+      ))
+  }
+
+  /// Shows one version's full field snapshot.
+  @Sendable
+  func versionDetail(req: Request) async throws -> View {
+    guard let volumeID = req.parameters.get("volumeID"),
+      let versionParam = req.parameters.get("version"), let version = Int(versionParam)
+    else {
+      throw Abort(.badRequest)
+    }
+    let sessionUser = await req.currentUser
+    guard let token = sessionUser?.accessToken else {
+      throw Abort(.notFound)
+    }
+    let versionAttributes: VolumeVersionAttributes
+    do {
+      versionAttributes = try await req.catalogAPI.fetchVolumeVersion(
+        volumeID: volumeID, version: version, token: token)
+    } catch let error as CatalogAPIError where error.statusCode == 404 {
+      throw Abort(.notFound)
+    }
+
+    return try await req.view.render(
+      "version-detail",
+      VersionDetailContext(
+        volumeID: volumeID,
+        version: LeafVersionDetail(versionAttributes),
+        canRollback: canRollback(sessionUser?.roles ?? []),
+        user: sessionUser.map(LeafUser.init),
+        meta: await PageMeta.make(req)
+      ))
+  }
+
+  /// Restores an arbitrary past version as current - admin only, enforced both here and by
+  /// catalog-api itself.
+  @Sendable
+  func restoreVersion(req: Request) async throws -> Response {
+    guard let volumeID = req.parameters.get("volumeID"),
+      let versionParam = req.parameters.get("version"), let version = Int(versionParam)
+    else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canRollback(user.roles) else {
+      throw Abort(.forbidden)
+    }
+
+    _ = try await req.catalogAPI.setCurrentVolumeVersion(
+      volumeID: volumeID, version: version, token: user.accessToken)
+
+    return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
   }
 
   /// Loads (or starts) the caller's durable edit session for `volumeID`. Three outcomes:
@@ -754,6 +854,99 @@ struct DetailContext: Content {
   let hasConflicts: Bool
   let user: LeafUser?
   let meta: PageMeta
+}
+
+struct VersionHistoryContext: Content {
+  let volumeID: String
+  let volumeTitle: String
+  let versions: [LeafVersionSummary]
+  let canRollback: Bool
+  let user: LeafUser?
+  let meta: PageMeta
+}
+
+struct VersionDetailContext: Content {
+  let volumeID: String
+  let version: LeafVersionDetail
+  let canRollback: Bool
+  let user: LeafUser?
+  let meta: PageMeta
+}
+
+/// One row in a volume's version-history list.
+struct LeafVersionSummary: Content {
+  let version: Int
+  let state: String
+  let isLive: Bool
+  let submittedBy: String
+  let submittedAtLabel: String
+  let reviewedBy: String
+  let hasReviewedBy: Bool
+  let reviewNote: String
+  let hasReviewNote: Bool
+
+  init(_ attributes: VolumeVersionAttributes) {
+    self.version = attributes.version
+    self.state = attributes.state
+    self.isLive = attributes.state == "live"
+    self.submittedBy = attributes.submittedBy
+    self.submittedAtLabel = LeafVersionSummary.format(attributes.submittedAt)
+    self.reviewedBy = attributes.reviewedBy ?? ""
+    self.hasReviewedBy = attributes.reviewedBy != nil
+    self.reviewNote = attributes.reviewNote ?? ""
+    self.hasReviewNote = attributes.reviewNote != nil
+  }
+
+  private static func format(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+  }
+}
+
+/// One version's full field snapshot, for the single-version inspection view.
+struct LeafVersionDetail: Content {
+  let version: Int
+  let state: String
+  let isLive: Bool
+  let title: String
+  let description: String
+  let hasDescription: Bool
+  let notes: String
+  let hasNotes: Bool
+  let format: String
+  let submittedBy: String
+  let submittedAtLabel: String
+  let reviewedBy: String
+  let hasReviewedBy: Bool
+  let reviewNote: String
+  let hasReviewNote: Bool
+
+  init(_ attributes: VolumeVersionAttributes) {
+    self.version = attributes.version
+    self.state = attributes.state
+    self.isLive = attributes.state == "live"
+    self.title = attributes.title
+    self.description = attributes.description
+    self.hasDescription = !attributes.description.isEmpty
+    self.notes = attributes.notes
+    self.hasNotes = !attributes.notes.isEmpty
+    self.format = attributes.format
+    self.submittedBy = attributes.submittedBy
+    self.submittedAtLabel = LeafVersionDetail.format(attributes.submittedAt)
+    self.reviewedBy = attributes.reviewedBy ?? ""
+    self.hasReviewedBy = attributes.reviewedBy != nil
+    self.reviewNote = attributes.reviewNote ?? ""
+    self.hasReviewNote = attributes.reviewNote != nil
+  }
+
+  private static func format(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+  }
 }
 
 struct EditContext: Content {

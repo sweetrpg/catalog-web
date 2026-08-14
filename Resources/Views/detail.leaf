@@ -27,6 +27,7 @@
 				#if(canEdit):
 					<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/edit">Edit</a>
 				#endif
+				<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/versions">Version History</a>
 
 				#if(volume.hasDescription):
 					<p class="detail-description">#(volume.description)</p>
