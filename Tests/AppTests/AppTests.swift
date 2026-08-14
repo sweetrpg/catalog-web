@@ -1461,4 +1461,107 @@ struct AppTests {
       }
     }
   }
+
+  private func testVersion(
+    version: Int, state: String, submittedBy: String = "auth0|submitter",
+    reviewedBy: String? = nil, reviewNote: String? = nil
+  ) -> VolumeVersionAttributes {
+    VolumeVersionAttributes(
+      id: "ver-\(version)", recordId: "1", version: version, title: "Rusthaven",
+      description: "", notes: "", format: "", coverAssetId: "", sampleAssetIds: [], state: state,
+      baseVersion: version > 1 ? version - 1 : nil, submittedBy: submittedBy,
+      submittedAt: Date(timeIntervalSince1970: 0), reviewedBy: reviewedBy, reviewedAt: nil,
+      reviewNote: reviewNote, resultingVersion: nil)
+  }
+
+  @Test("version-history page lists every version with its state")
+  func versionHistoryListsVersions() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-versions") { req async throws -> View in
+        try await req.view.render(
+          "version-history",
+          VersionHistoryContext(
+            volumeID: "1", volumeTitle: "Rusthaven",
+            versions: [
+              LeafVersionSummary(testVersion(version: 2, state: "live")),
+              LeafVersionSummary(testVersion(version: 1, state: "archived")),
+            ],
+            canRollback: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-versions") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("/volumes/1/versions/2"))
+        #expect(res.body.string.contains("/volumes/1/versions/1"))
+        #expect(res.body.string.contains("live"))
+        #expect(res.body.string.contains("archived"))
+      }
+    }
+  }
+
+  @Test("version-history page hides the restore action without rollback rights")
+  func versionHistoryHidesRestoreWithoutRollbackRights() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-versions") { req async throws -> View in
+        try await req.view.render(
+          "version-history",
+          VersionHistoryContext(
+            volumeID: "1", volumeTitle: "Rusthaven",
+            versions: [LeafVersionSummary(testVersion(version: 1, state: "archived"))],
+            canRollback: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-versions") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("Restore"))
+      }
+    }
+  }
+
+  @Test("version-history page shows the restore action for a non-live version with rollback rights")
+  func versionHistoryShowsRestoreForNonLiveVersionWithRollbackRights() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-versions") { req async throws -> View in
+        try await req.view.render(
+          "version-history",
+          VersionHistoryContext(
+            volumeID: "1", volumeTitle: "Rusthaven",
+            versions: [
+              LeafVersionSummary(testVersion(version: 2, state: "live")),
+              LeafVersionSummary(testVersion(version: 1, state: "archived")),
+            ],
+            canRollback: true, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-versions") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("/volumes/1/versions/1/restore"))
+        #expect(!res.body.string.contains("/volumes/1/versions/2/restore"))
+      }
+    }
+  }
+
+  @Test("version-detail page shows the submission and review audit trail")
+  func versionDetailShowsAuditTrail() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-version-detail") { req async throws -> View in
+        try await req.view.render(
+          "version-detail",
+          VersionDetailContext(
+            volumeID: "1",
+            version: LeafVersionDetail(
+              testVersion(
+                version: 2, state: "rejected", reviewedBy: "auth0|editor",
+                reviewNote: "not needed")),
+            canRollback: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-version-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("auth0|submitter"))
+        #expect(res.body.string.contains("auth0|editor"))
+        #expect(res.body.string.contains("not needed"))
+      }
+    }
+  }
 }

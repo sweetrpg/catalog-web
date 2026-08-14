@@ -1,0 +1,63 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; Back to #(volumeTitle)</a>
+
+		<section class="page-header">
+			<span class="section-label">Version History</span>
+			<h2>#(volumeTitle)</h2>
+		</section>
+
+		#if(versions):
+			<table class="table">
+				<thead>
+					<tr>
+						<th>Version</th>
+						<th>State</th>
+						<th>Submitted by</th>
+						<th>Submitted at</th>
+						<th>Reviewed by</th>
+						<th>Note</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					#for(version in versions):
+						<tr>
+							<td><a href="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)">#(version.version)</a></td>
+							<td>
+								#if(version.isLive):
+									<span class="tag tag-accent">live</span>
+								#else:
+									<span class="tag tag-neutral">#(version.state)</span>
+								#endif
+							</td>
+							<td>#(version.submittedBy)</td>
+							<td>#(version.submittedAtLabel)</td>
+							<td>
+								#if(version.hasReviewedBy):
+									#(version.reviewedBy)
+								#endif
+							</td>
+							<td>
+								#if(version.hasReviewNote):
+									#(version.reviewNote)
+								#endif
+							</td>
+							<td>
+								#if(canRollback):
+									#if(!version.isLive):
+										<form method="post" action="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)/restore">
+											<button type="submit" class="btn btn-ghost">Restore</button>
+										</form>
+									#endif
+								#endif
+							</td>
+						</tr>
+					#endfor
+				</tbody>
+			</table>
+		#else:
+			<p class="empty-state">No version history available.</p>
+		#endif
+	#endexport
+#endextend
