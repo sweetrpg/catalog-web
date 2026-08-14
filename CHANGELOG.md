@@ -1,4 +1,15 @@
 
+## 0.17.0 - 2026-08-14
+
+### Added
+- Route generic error status codes to shared-web
+
+
+### Fixed
+- Decode the shared session's expiry as RFC 3339
+
+
+
 ## 0.16.0 - 2026-08-14
 
 ### Added
