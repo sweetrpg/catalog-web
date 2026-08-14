@@ -13,6 +13,15 @@ extension RedisID {
   static let sharedSession = RedisID("sharedSession")
 }
 
+/// `docs/frontend-conventions.md`'s "Shared session schema" documents `expiry` as an RFC 3339
+/// timestamp string, per `auth-web`'s writer - a plain `JSONDecoder` defaults to
+/// `.deferredToDate`, which expects a raw `Double` instead and would fail to parse this.
+private let sharedSessionDecoder: JSONDecoder = {
+  let decoder = JSONDecoder()
+  decoder.dateDecodingStrategy = .iso8601
+  return decoder
+}()
+
 extension Request {
   /// Reads (never writes) the session `auth-web` established for this visitor, if any. Fails
   /// open on every error path (disabled, unreachable Redis, missing cookie, missing key,
@@ -35,7 +44,7 @@ extension Request {
           .get(),
         let userJSON = sessionData["user"],
         let data = userJSON.data(using: .utf8),
-        let user = try? JSONDecoder().decode(SessionUser.self, from: data),
+        let user = try? sharedSessionDecoder.decode(SessionUser.self, from: data),
         user.expiry > Date()
       else { return nil }
 
