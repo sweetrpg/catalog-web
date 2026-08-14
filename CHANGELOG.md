@@ -1,4 +1,11 @@
 
+## 0.16.0 - 2026-08-14
+
+### Added
+- Add volume version-history and single-version views
+
+
+
 ## 0.15.0 - 2026-08-13
 
 ### Added
