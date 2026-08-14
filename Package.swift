@@ -36,8 +36,12 @@ let package = Package(
         // registered (confirmed via `gh api .../actions/workflows` - a pre-existing repo issue,
         // not something this change caused) and it has no other release automation. Switch back
         // to a `from:` version pin once a real tag exists past 0.0.1.
+        // TEMPORARY (catalog-entity-versioning): pinned to this branch instead of develop until
+        // sweetrpg/catalog-api-client.swift#11 merges - brings fetchVolumeVersions/
+        // fetchVolumeVersion/setCurrentVolumeVersion this app's version-history UI depends on.
         .package(
-            url: "https://github.com/sweetrpg/catalog-api-client.swift.git", branch: "develop"),
+            url: "https://github.com/sweetrpg/catalog-api-client.swift.git",
+            branch: "39-catalog-entity-versioning"),
     ],
     targets: [
         .executableTarget(

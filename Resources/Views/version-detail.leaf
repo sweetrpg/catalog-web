@@ -1,0 +1,50 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)/versions">&larr; Back to Version History</a>
+
+		<section class="page-header">
+			<span class="section-label">Version #(version.version)</span>
+			<h2>#(version.title)</h2>
+			#if(version.isLive):
+				<span class="tag tag-accent">live</span>
+			#else:
+				<span class="tag tag-neutral">#(version.state)</span>
+			#endif
+		</section>
+
+		#if(canRollback):
+			#if(!version.isLive):
+				<form method="post" action="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)/restore">
+					<button type="submit" class="btn btn-primary">Restore This Version</button>
+				</form>
+			#endif
+		#endif
+
+		<div class="detail-block">
+			#if(version.hasDescription):
+				<p class="detail-description">#(version.description)</p>
+			#else:
+				<p class="detail-description detail-description-empty">No description on file for this version.</p>
+			#endif
+
+			#if(version.hasNotes):
+				<p class="detail-notes"><strong>Notes:</strong> #(version.notes)</p>
+			#endif
+
+			#if(version.format):
+				<p><strong>Format:</strong> #(version.format)</p>
+			#endif
+		</div>
+
+		<div class="detail-block">
+			<span class="section-label">Audit</span>
+			<p>Submitted by #(version.submittedBy) on #(version.submittedAtLabel).</p>
+			#if(version.hasReviewedBy):
+				<p>Reviewed by #(version.reviewedBy).</p>
+			#endif
+			#if(version.hasReviewNote):
+				<p><strong>Review note:</strong> #(version.reviewNote)</p>
+			#endif
+		</div>
+	#endexport
+#endextend

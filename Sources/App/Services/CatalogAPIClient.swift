@@ -158,6 +158,28 @@ struct CatalogAPIClientService {
       volumeID: volumeID, proposalID: proposalID, token: token, note: note)
   }
 
+  /// Lists a volume's version history, newest first.
+  func fetchVolumeVersions(volumeID: String, token: String) async throws
+    -> [VolumeVersionAttributes]
+  {
+    try await sdk.fetchVolumeVersions(id: volumeID, token: token)
+  }
+
+  /// Fetches one version's full field snapshot, regardless of whether it's current.
+  func fetchVolumeVersion(volumeID: String, version: Int, token: String) async throws
+    -> VolumeVersionAttributes
+  {
+    try await sdk.fetchVolumeVersion(id: volumeID, version: version, token: token)
+  }
+
+  /// Rolls a volume back (or forward) to an arbitrary existing version - admin only, enforced by
+  /// catalog-api.
+  func setCurrentVolumeVersion(volumeID: String, version: Int, token: String) async throws
+    -> VolumeVersionAttributes
+  {
+    try await sdk.setCurrentVolumeVersion(id: volumeID, version: version, token: token)
+  }
+
   /// Every person, sorted by name - the contributor dialog's person picker candidate list
   /// (task 8.1), same client-side-filtering rationale as `fetchPublisherOptions`.
   func fetchPersonOptions() async throws -> [(id: String, name: String)] {
