@@ -6,7 +6,7 @@ metadata:
   name: web-env
 
 data:
-  ENV: dev
+  ENV: local
   PORT: "8080"
   REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
   REDIS_PORT: "6379"
@@ -47,12 +47,13 @@ data:
 
   # Where the SweetRPG logo in the nav links out to - the platform's root site, not this app's
   # own home page. Differs per environment; see AppPaths.swift's rootURL.
-  SWEETRPG_ROOT_URL: https://sweetrpg.local/
+  ROOT_URL: https://sweetrpg.local/
 
   # Base URL for shared frontend static assets (logo, favicon, stylesheet), served from
   # assets-web rather than this app's own Public/ - see docs/frontend-conventions.md in
-  # sweetrpg/platform and AppPaths.swift's sharedAssetsURL.
-  SHARED_ASSETS_URL: https://sweetrpg.local/assets
+  # sweetrpg/platform and AppPaths.swift's assetsURL.
+  ASSETS_URL: https://sweetrpg.local/assets
+  SHARED_URL: https://sweetrpg.local/shared
 
   # ALLOWED_ORIGINS: unset - this app is server-rendered, so same-origin page loads and form
   # posts never trigger a CORS preflight. Only set this if catalog-web starts exposing an API

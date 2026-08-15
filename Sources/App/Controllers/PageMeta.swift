@@ -7,7 +7,8 @@ import Vapor
 struct PageMeta: Content {
   let basePath: String
   let rootURL: String
-  let sharedAssetsURL: String
+  let sharedURL: String
+  let assetsURL: String
   let buildVersion: String
   let buildDate: String
   let buildHash: String
@@ -42,7 +43,8 @@ struct PageMeta: Content {
     return PageMeta(
       basePath: req.basePath,
       rootURL: req.rootURL,
-      sharedAssetsURL: req.sharedAssetsURL,
+      sharedURL: req.sharedURL,
+      assetsURL: req.assetsURL,
       buildVersion: req.buildInfo.version,
       buildDate: req.buildInfo.date,
       buildHash: String(req.buildInfo.sha.prefix(8)),
