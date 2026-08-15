@@ -1,4 +1,5 @@
 import Redis
+import Tracing
 import Vapor
 
 /// Generic get-or-set cache over Vapor's Redis client. Falls through to calling `fetch` directly
@@ -10,19 +11,21 @@ struct CacheService {
   func getOrSet<T: Codable & Sendable>(
     _ key: String, ttlSeconds: Int, fetch: @Sendable () async throws -> T
   ) async throws -> T {
-    guard request.application.redisConfigured else {
-      return try await fetch()
-    }
+    try await withSpan("cache-get-or-set") { _ in
+      guard request.application.redisConfigured else {
+        return try await fetch()
+      }
 
-    if let cached = try? await request.redis.get(RedisKey(key), asJSON: T.self).get() {
-      return cached
-    }
+      if let cached = try? await request.redis.get(RedisKey(key), asJSON: T.self).get() {
+        return cached
+      }
 
-    let value = try await fetch()
-    try? await request.redis.setex(
-      RedisKey(key), toJSON: value, expirationInSeconds: ttlSeconds
-    ).get()
-    return value
+      let value = try await fetch()
+      try? await request.redis.setex(
+        RedisKey(key), toJSON: value, expirationInSeconds: ttlSeconds
+      ).get()
+      return value
+    }
   }
 }
 
