@@ -120,7 +120,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [], user: nil,
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -143,7 +143,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -169,7 +169,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
@@ -196,7 +196,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -219,7 +219,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token",
@@ -245,7 +245,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 1, trending: [LeafVolumeCard(volume)], tagCloud: [], user: nil,
+            volumeCount: 1, lastUpdated: "", trending: [LeafVolumeCard(volume)], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
