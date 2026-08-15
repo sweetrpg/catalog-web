@@ -106,7 +106,6 @@ struct PersonsController: RouteCollection {
     try await rejectProposal(req: req, path: "/persons")
   }
 
-
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same
   /// in-memory filtering the existing volume browse page uses (these collections are small
   /// enough that no dedicated search endpoint is needed).

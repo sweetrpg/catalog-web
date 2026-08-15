@@ -3,7 +3,6 @@ import Crypto
 import Foundation
 import Vapor
 
-
 struct LeafVolumeCard: Content {
   let id: String
   let title: String
@@ -244,7 +243,6 @@ struct LeafVolumeEditForm: Content {
     (try? JSONEncoder().encode(options)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
   }
 }
-
 
 struct LeafVolumeSummary: Content {
   let id: String

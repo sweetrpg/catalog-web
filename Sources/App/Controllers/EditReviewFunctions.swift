@@ -10,7 +10,7 @@ import Vapor
 /// four entity types share it. Fails open (nil) on any fetch error, matching that same
 /// fail-open contract, since a review-fetch failure must degrade to "no pending changes
 /// shown" rather than breaking the whole detail page for every editor/admin viewer.
- func buildReview(
+func buildReview(
   req: Request, path: String, recordID: String, fieldSpecs: [EntityFieldSpec],
   sessionUser: SessionUser?
 ) async -> LeafEntityProposalReview? {
@@ -31,7 +31,7 @@ import Vapor
   }
 }
 
- func makeEditContext(
+func makeEditContext(
   id: String, basePath: String, fields: [EntityFieldSpec], values: [String: String],
   user: SessionUser, meta: PageMeta
 ) -> EntityEditContext {
@@ -47,7 +47,7 @@ import Vapor
   )
 }
 
- func submitEdit(req: Request, path: String, fields: [EntityFieldSpec]) async throws
+func submitEdit(req: Request, path: String, fields: [EntityFieldSpec]) async throws
   -> Response
 {
   guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
@@ -69,12 +69,12 @@ import Vapor
   }
 }
 
- struct AcceptInput: Content {
+struct AcceptInput: Content {
   let mode: String
   let fields: [String]?
 }
 
- func acceptProposal(req: Request, path: String) async throws -> Response {
+func acceptProposal(req: Request, path: String) async throws -> Response {
   guard let id = req.parameters.get("id"), let proposalID = req.parameters.get("proposalID")
   else {
     throw Abort(.badRequest)
@@ -93,11 +93,11 @@ import Vapor
   return req.redirect(to: redirectPath)
 }
 
- struct RejectInput: Content {
+struct RejectInput: Content {
   let note: String?
 }
 
- func rejectProposal(req: Request, path: String) async throws -> Response {
+func rejectProposal(req: Request, path: String) async throws -> Response {
   guard let id = req.parameters.get("id"), let proposalID = req.parameters.get("proposalID")
   else {
     throw Abort(.badRequest)

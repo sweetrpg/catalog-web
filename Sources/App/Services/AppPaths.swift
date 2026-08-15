@@ -29,6 +29,6 @@ extension Request {
 
   /// Base URL for catalog assets (book covers, samples, etc.)
   var assetsURL: String {
-      Environment.get("ASSETS_URL") ?? "http://localhost:8081"
+    Environment.get("ASSETS_URL") ?? "http://localhost:8081"
   }
 }

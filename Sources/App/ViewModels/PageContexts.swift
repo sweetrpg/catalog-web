@@ -254,7 +254,6 @@ struct EntityDetailContext: Content {
   }
 }
 
-
 /// The generic counterpart of `LeafProposalReview` (CatalogController.swift), parameterized by
 /// a per-type patchable-fields list instead of volume's hardcoded three fields.
 struct LeafEntityProposalReview: Content {

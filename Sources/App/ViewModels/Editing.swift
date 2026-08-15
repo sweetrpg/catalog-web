@@ -73,7 +73,6 @@ struct LeafProposalReview: Content {
   }
 }
 
-
 /// The volume detail page's fixed, ordered list of fields a `PATCH`/proposal can touch -
 /// `ProposedChangeSummary.diff` is a `[String: FieldChange]` dictionary with no defined
 /// iteration order, so the diff table and review UI both walk this list instead of the raw
@@ -83,7 +82,6 @@ private let patchableFields: [(key: String, label: String)] = [
   ("description", "Description"),
   ("notes", "Notes"),
 ]
-
 
 struct EntityEditContext: Content {
   let id: String

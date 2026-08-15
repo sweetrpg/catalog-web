@@ -2,7 +2,6 @@ import CatalogAPIClient
 import Foundation
 import Vapor
 
-
 /// Browse, detail, and edit pages for publishers, studios, persons, and licenses - the four
 /// catalog entity types that, unlike volumes, previously had no pages of their own. One
 /// controller for all four types (rather than four near-identical controllers) since their
