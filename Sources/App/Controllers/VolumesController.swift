@@ -197,7 +197,8 @@ struct VolumesController: RouteCollection {
       return existing.recordId == volume.id ? existing : nil
     }
 
-    req.logger.info("loadOrStartSession: starting new session for user \(userSub); volume \(volume.id)")
+    req.logger.info(
+      "loadOrStartSession: starting new session for user \(userSub); volume \(volume.id)")
 
     let now = Date()
     let fresh = EditSession(
@@ -209,7 +210,8 @@ struct VolumesController: RouteCollection {
       stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: now, updatedAt: now)
     try await req.editSessions.set(userID: userSub, recordType: recordTypeVolume, session: fresh)
 
-    req.logger.info("loadOrStartSession: new session started for user \(userSub); volume \(volume.id)")
+    req.logger.info(
+      "loadOrStartSession: new session started for user \(userSub); volume \(volume.id)")
 
     return fresh
   }
@@ -226,7 +228,7 @@ struct VolumesController: RouteCollection {
       req.logger.error("editForm: user is not authorized")
       throw Abort(.forbidden)
     }
-    let volumes = try await req.catalogAPI.fetchVolumes() // TODO: fix this travesty
+    let volumes = try await req.catalogAPI.fetchVolumes()  // TODO: fix this travesty
     guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
       req.logger.error("editForm: volume \(volumeID) not found")
       throw Abort(.notFound)
@@ -239,7 +241,9 @@ struct VolumesController: RouteCollection {
         volumes.first { $0.id == session.recordId }
       }
 
-      req.logger.info("editForm: session conflict for user \(user.sub); volume \(volumeID) vs \(existing?.recordId ?? "another volume")")
+      req.logger.info(
+        "editForm: session conflict for user \(user.sub); volume \(volumeID) vs \(existing?.recordId ?? "another volume")"
+      )
 
       return try await req.view.render(
         "edit-session-conflict",
