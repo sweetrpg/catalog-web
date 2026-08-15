@@ -7,7 +7,7 @@
 	<link rel="icon" type="image/png" href="#(meta.sharedURL)/static/img/favicon.png">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/main.css">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/avatar-menu.css">
-	<link rel="stylesheet" href="#(meta.basePath)/css/theme.css">
+	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/theme.css">
 	<script>
 	/* Applied synchronously, before first paint, so the page never flashes the wrong theme.
 	   Reads the same localStorage key main-web's theme toggle writes - this app has no toggle

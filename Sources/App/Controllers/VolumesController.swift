@@ -191,9 +191,14 @@ struct VolumesController: RouteCollection {
   private func loadOrStartSession(req: Request, userSub: String, volume: VolumeViewModel)
     async throws -> EditSession?
   {
+    req.logger.info("loadOrStartSession: user \(userSub); volume \(volume.id)")
+
     if let existing = await req.editSessions.get(userID: userSub, recordType: recordTypeVolume) {
       return existing.recordId == volume.id ? existing : nil
     }
+
+    req.logger.info(
+      "loadOrStartSession: starting new session for user \(userSub); volume \(volume.id)")
 
     let now = Date()
     let fresh = EditSession(
@@ -204,19 +209,28 @@ struct VolumesController: RouteCollection {
       ],
       stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: now, updatedAt: now)
     try await req.editSessions.set(userID: userSub, recordType: recordTypeVolume, session: fresh)
+
+    req.logger.info(
+      "loadOrStartSession: new session started for user \(userSub); volume \(volume.id)")
+
     return fresh
   }
 
   @Sendable
   func editForm(req: Request) async throws -> View {
+    req.logger.info("editForm: volumeID=\(String(describing: req.parameters.get("volumeID")))")
+
     guard let volumeID = req.parameters.get("volumeID") else {
+      req.logger.error("editForm: volumeID is missing")
       throw Abort(.badRequest)
     }
     guard let user = await req.currentUser, canEdit(user.roles) else {
+      req.logger.error("editForm: user is not authorized")
       throw Abort(.forbidden)
     }
-    let volumes = try await req.catalogAPI.fetchVolumes()
+    let volumes = try await req.catalogAPI.fetchVolumes()  // TODO: fix this travesty
     guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      req.logger.error("editForm: volume \(volumeID) not found")
       throw Abort(.notFound)
     }
 
@@ -226,6 +240,11 @@ struct VolumesController: RouteCollection {
       let otherVolume = existing.flatMap { session in
         volumes.first { $0.id == session.recordId }
       }
+
+      req.logger.info(
+        "editForm: session conflict for user \(user.sub); volume \(volumeID) vs \(existing?.recordId ?? "another volume")"
+      )
+
       return try await req.view.render(
         "edit-session-conflict",
         EditSessionConflictContext(
@@ -258,6 +277,8 @@ struct VolumesController: RouteCollection {
 
     var volumeWithCredits = volume
     volumeWithCredits.credits = try await existingCredits
+
+    req.logger.info("editForm: volume \(volumeID) loaded for user \(user.sub)")
 
     return try await req.view.render(
       "edit",

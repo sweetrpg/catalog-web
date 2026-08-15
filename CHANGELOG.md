@@ -1,4 +1,15 @@
 
+## 0.19.0 - 2026-08-15
+
+### Added
+- Add logging and mark volume fetch as TODO
+
+
+### Fixed
+- Use sharedURL for theme.css path
+
+
+
 ## 0.18.0 - 2026-08-15
 
 ### Added
