@@ -710,7 +710,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [], user: nil,
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       return try await test(app)
