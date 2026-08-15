@@ -245,8 +245,8 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 1, lastUpdated: "", trending: [LeafVolumeCard(volume)], tagCloud: [], user: nil,
-            meta: await PageMeta.make(req)))
+            volumeCount: 1, lastUpdated: "", trending: [LeafVolumeCard(volume)], tagCloud: [],
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
