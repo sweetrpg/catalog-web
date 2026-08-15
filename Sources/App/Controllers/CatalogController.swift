@@ -104,6 +104,7 @@ struct CatalogController: RouteCollection {
       "home",
       HomeContext(
         volumeCount: volumes.count,
+        lastUpdated: "TODO",
         trending: trending.map(LeafVolumeCard.init),
         tagCloud: tagCloud.map { LeafTag(name: $0) },
         user: (await req.currentUser).map(LeafUser.init),

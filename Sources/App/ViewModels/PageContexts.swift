@@ -13,6 +13,7 @@ import Vapor
 
 struct HomeContext: Content {
   let volumeCount: Int
+  let lastUpdated: String
   let trending: [LeafVolumeCard]
   let tagCloud: [LeafTag]
   let user: LeafUser?
