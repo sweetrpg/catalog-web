@@ -2,7 +2,6 @@ import CatalogAPIClient
 import Foundation
 import Vapor
 
-
 let publisherFields: [EntityFieldSpec] = [
   EntityFieldSpec(key: "name", label: "Name"),
   EntityFieldSpec(key: "address", label: "Address"),
