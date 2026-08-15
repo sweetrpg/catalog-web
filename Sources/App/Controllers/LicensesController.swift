@@ -1,5 +1,6 @@
 import CatalogAPIClient
 import Foundation
+import Tracing
 import Vapor
 
 let licenseFields: [EntityFieldSpec] = [
@@ -43,59 +44,66 @@ struct LicensesController: RouteCollection {
 
   @Sendable
   func browseLicenses(req: Request) async throws -> View {
-    let query = try req.query.decode(BrowseQuery.self)
-    let licenses = try await req.catalogAPI.fetchLicenses()
-    let filtered = filterByName(licenses, query: query.q) { $0.title }
+    try await withSpan("licenses-browse") { _ in
+      let query = try req.query.decode(BrowseQuery.self)
+      let licenses = try await req.catalogAPI.fetchLicenses()
+      let filtered = filterByName(licenses, query: query.q) { $0.title }
 
-    return try await req.view.render(
-      "licenses/browse",
-      EntityBrowseContext(
-        query: query.q ?? "",
-        items: filtered.map { LeafLicenseCard($0) },
-        noResults: filtered.isEmpty,
-        user: (await req.currentUser).map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "licenses/browse",
+        EntityBrowseContext(
+          query: query.q ?? "",
+          items: filtered.map { LeafLicenseCard($0) },
+          noResults: filtered.isEmpty,
+          user: (await req.currentUser).map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func detailLicense(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard var license = try await req.catalogAPI.fetchLicense(id: id) else {
-      throw Abort(.notFound)
-    }
-    license.volumes = try await req.catalogAPI.fetchLicenseVolumes(id: id)
-    let sessionUser = await req.currentUser
-    let review = await buildReview(
-      req: req, path: "/licenses", recordID: id, fieldSpecs: licenseFields,
-      sessionUser: sessionUser)
+    try await withSpan("licenses-detail") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard var license = try await req.catalogAPI.fetchLicense(id: id) else {
+        throw Abort(.notFound)
+      }
+      license.volumes = try await req.catalogAPI.fetchLicenseVolumes(id: id)
+      let sessionUser = await req.currentUser
+      let review = await buildReview(
+        req: req, path: "/licenses", recordID: id, fieldSpecs: licenseFields,
+        sessionUser: sessionUser)
 
-    return try await req.view.render(
-      "licenses/detail",
-      EntityDetailContext(
-        license: LeafLicenseDetail(license),
-        canEdit: canEdit(sessionUser?.roles ?? []),
-        justProposed: req.query[String.self, at: "proposed"] == "1",
-        review: review,
-        conflicts: (req.query[String.self, at: "conflicts"] ?? "")
-          .split(separator: ",").map(String.init),
-        user: sessionUser.map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "licenses/detail",
+        EntityDetailContext(
+          license: LeafLicenseDetail(license),
+          canEdit: canEdit(sessionUser?.roles ?? []),
+          justProposed: req.query[String.self, at: "proposed"] == "1",
+          review: review,
+          conflicts: (req.query[String.self, at: "conflicts"] ?? "")
+            .split(separator: ",").map(String.init),
+          user: sessionUser.map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func editLicenseForm(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-    guard let license = try await req.catalogAPI.fetchLicense(id: id) else {
-      throw Abort(.notFound)
+    try await withSpan("licenses-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      guard let license = try await req.catalogAPI.fetchLicense(id: id) else {
+        throw Abort(.notFound)
+      }
+
+      return try await req.view.render(
+        "licenses/edit",
+        makeEditContext(
+          id: id, basePath: "/licenses", fields: licenseFields,
+          values: fieldValues(license), user: user, meta: await PageMeta.make(req)))
     }
-    return try await req.view.render(
-      "licenses/edit",
-      makeEditContext(
-        id: id, basePath: "/licenses", fields: licenseFields,
-        values: fieldValues(license), user: user, meta: await PageMeta.make(req)))
   }
 
   @Sendable

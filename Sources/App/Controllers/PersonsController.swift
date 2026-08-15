@@ -1,5 +1,6 @@
 import CatalogAPIClient
 import Foundation
+import Tracing
 import Vapor
 
 let personFields: [EntityFieldSpec] = [
@@ -36,59 +37,66 @@ struct PersonsController: RouteCollection {
 
   @Sendable
   func browsePersons(req: Request) async throws -> View {
-    let query = try req.query.decode(BrowseQuery.self)
-    let persons = try await req.catalogAPI.fetchPersonsCatalog()
-    let filtered = filterByName(persons, query: query.q) { $0.name }
+    try await withSpan("persons-browse") { _ in
+      let query = try req.query.decode(BrowseQuery.self)
+      let persons = try await req.catalogAPI.fetchPersonsCatalog()
+      let filtered = filterByName(persons, query: query.q) { $0.name }
 
-    return try await req.view.render(
-      "persons/browse",
-      EntityBrowseContext(
-        query: query.q ?? "",
-        items: filtered.map { LeafPersonCard($0) },
-        noResults: filtered.isEmpty,
-        user: (await req.currentUser).map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "persons/browse",
+        EntityBrowseContext(
+          query: query.q ?? "",
+          items: filtered.map { LeafPersonCard($0) },
+          noResults: filtered.isEmpty,
+          user: (await req.currentUser).map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func detailPerson(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard var person = try await req.catalogAPI.fetchPerson(id: id) else {
-      throw Abort(.notFound)
-    }
-    person.volumes = try await req.catalogAPI.fetchPersonVolumes(id: id)
-    let sessionUser = await req.currentUser
-    let review = await buildReview(
-      req: req, path: "/persons", recordID: id, fieldSpecs: personFields,
-      sessionUser: sessionUser)
+    try await withSpan("persons-detail") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard var person = try await req.catalogAPI.fetchPerson(id: id) else {
+        throw Abort(.notFound)
+      }
+      person.volumes = try await req.catalogAPI.fetchPersonVolumes(id: id)
+      let sessionUser = await req.currentUser
+      let review = await buildReview(
+        req: req, path: "/persons", recordID: id, fieldSpecs: personFields,
+        sessionUser: sessionUser)
 
-    return try await req.view.render(
-      "persons/detail",
-      EntityDetailContext(
-        person: LeafPersonDetail(person),
-        canEdit: canEdit(sessionUser?.roles ?? []),
-        justProposed: req.query[String.self, at: "proposed"] == "1",
-        review: review,
-        conflicts: (req.query[String.self, at: "conflicts"] ?? "")
-          .split(separator: ",").map(String.init),
-        user: sessionUser.map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "persons/detail",
+        EntityDetailContext(
+          person: LeafPersonDetail(person),
+          canEdit: canEdit(sessionUser?.roles ?? []),
+          justProposed: req.query[String.self, at: "proposed"] == "1",
+          review: review,
+          conflicts: (req.query[String.self, at: "conflicts"] ?? "")
+            .split(separator: ",").map(String.init),
+          user: sessionUser.map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func editPersonForm(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-    guard let person = try await req.catalogAPI.fetchPerson(id: id) else {
-      throw Abort(.notFound)
+    try await withSpan("persons-edit-form") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      guard let person = try await req.catalogAPI.fetchPerson(id: id) else {
+        throw Abort(.notFound)
+      }
+
+      return try await req.view.render(
+        "persons/edit",
+        makeEditContext(
+          id: id, basePath: "/persons", fields: personFields,
+          values: fieldValues(person), user: user, meta: await PageMeta.make(req)))
     }
-    return try await req.view.render(
-      "persons/edit",
-      makeEditContext(
-        id: id, basePath: "/persons", fields: personFields,
-        values: fieldValues(person), user: user, meta: await PageMeta.make(req)))
   }
 
   @Sendable

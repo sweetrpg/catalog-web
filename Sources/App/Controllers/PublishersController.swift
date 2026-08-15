@@ -1,5 +1,6 @@
 import CatalogAPIClient
 import Foundation
+import Tracing
 import Vapor
 
 let publisherFields: [EntityFieldSpec] = [
@@ -40,59 +41,66 @@ struct PublishersController: RouteCollection {
 
   @Sendable
   func browsePublishers(req: Request) async throws -> View {
-    let query = try req.query.decode(BrowseQuery.self)
-    let publishers = try await req.catalogAPI.fetchPublishers()
-    let filtered = filterByName(publishers, query: query.q) { $0.name }
+    try await withSpan("publishers-browse") { _ in
+      let query = try req.query.decode(BrowseQuery.self)
+      let publishers = try await req.catalogAPI.fetchPublishers()
+      let filtered = filterByName(publishers, query: query.q) { $0.name }
 
-    return try await req.view.render(
-      "publishers/browse",
-      EntityBrowseContext(
-        query: query.q ?? "",
-        items: filtered.map { LeafPublisherCard($0) },
-        noResults: filtered.isEmpty,
-        user: (await req.currentUser).map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "publishers/browse",
+        EntityBrowseContext(
+          query: query.q ?? "",
+          items: filtered.map { LeafPublisherCard($0) },
+          noResults: filtered.isEmpty,
+          user: (await req.currentUser).map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func detailPublisher(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard var publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
-      throw Abort(.notFound)
-    }
-    publisher.volumes = try await req.catalogAPI.fetchPublisherVolumes(id: id)
-    let sessionUser = await req.currentUser
-    let review = await buildReview(
-      req: req, path: "/publishers", recordID: id, fieldSpecs: publisherFields,
-      sessionUser: sessionUser)
+    try await withSpan("publishers-detail") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard var publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
+        throw Abort(.notFound)
+      }
+      publisher.volumes = try await req.catalogAPI.fetchPublisherVolumes(id: id)
+      let sessionUser = await req.currentUser
+      let review = await buildReview(
+        req: req, path: "/publishers", recordID: id, fieldSpecs: publisherFields,
+        sessionUser: sessionUser)
 
-    return try await req.view.render(
-      "publishers/detail",
-      EntityDetailContext(
-        publisher: LeafPublisherDetail(publisher),
-        canEdit: canEdit(sessionUser?.roles ?? []),
-        justProposed: req.query[String.self, at: "proposed"] == "1",
-        review: review,
-        conflicts: (req.query[String.self, at: "conflicts"] ?? "")
-          .split(separator: ",").map(String.init),
-        user: sessionUser.map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "publishers/detail",
+        EntityDetailContext(
+          publisher: LeafPublisherDetail(publisher),
+          canEdit: canEdit(sessionUser?.roles ?? []),
+          justProposed: req.query[String.self, at: "proposed"] == "1",
+          review: review,
+          conflicts: (req.query[String.self, at: "conflicts"] ?? "")
+            .split(separator: ",").map(String.init),
+          user: sessionUser.map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func editPublisherForm(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-    guard let publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
-      throw Abort(.notFound)
+    try await withSpan("publishers-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      guard let publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
+        throw Abort(.notFound)
+      }
+
+      return try await req.view.render(
+        "publishers/edit",
+        makeEditContext(
+          id: id, basePath: "/publishers", fields: publisherFields,
+          values: fieldValues(publisher), user: user, meta: await PageMeta.make(req)))
     }
-    return try await req.view.render(
-      "publishers/edit",
-      makeEditContext(
-        id: id, basePath: "/publishers", fields: publisherFields,
-        values: fieldValues(publisher), user: user, meta: await PageMeta.make(req)))
   }
 
   @Sendable
