@@ -83,6 +83,8 @@ struct CatalogAPIClientService {
     // second round trip for a single resource - fine at this data size (dozens to low
     // hundreds of volumes); revisit if the catalog grows large enough that fetching every
     // volume up front to find one stops being cheap.
+    // TODO: dear robot, this is dumb and not forward-looking; a single entity retrieval should
+    // never be an expensive operation
     allVolumes.first { $0.id == id }
   }
 
