@@ -4,9 +4,9 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Catalogue</title>
-	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/img/favicon.png">
-	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/css/main.css">
-	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/css/avatar-menu.css">
+	<link rel="icon" type="image/png" href="#(meta.sharedURL)/static/img/favicon.png">
+	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/main.css">
+	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/avatar-menu.css">
 	<link rel="stylesheet" href="#(meta.basePath)/css/theme.css">
 	<script>
 	/* Applied synchronously, before first paint, so the page never flashes the wrong theme.
@@ -34,7 +34,7 @@
 		#import("body")
 	</main>
 	#extend("partials/footer")
-	<script src="#(meta.sharedAssetsURL)/static/js/avatar-menu.js" defer></script>
-	<script src="#(meta.sharedAssetsURL)/static/js/theme.js" defer></script>
+	<script src="#(meta.sharedURL)/static/js/avatar-menu.js" defer></script>
+	<script src="#(meta.sharedURL)/static/js/theme.js" defer></script>
 </body>
 </html>

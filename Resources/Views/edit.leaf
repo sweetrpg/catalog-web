@@ -8,10 +8,10 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" id="cover-preview-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
 				#if(canUploadCover):
-					<div class="cover-upload" data-assets-url="#(meta.sharedAssetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover">
+					<div class="cover-upload" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover">
 						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
 						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
 						<p class="form-error cover-upload-error" hidden></p>
@@ -26,13 +26,13 @@
 						<input class="input field-input" type="text" name="title" value="#(volume.title)" required hidden>
 						<span class="field-actions">
 							<button type="button" class="icon-btn field-edit-trigger" title="Edit title">
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/edit.svg" alt="Edit title">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit title">
 							</button>
 							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/accept.svg" alt="Accept">
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
 							</button>
 							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/cancel.svg" alt="Cancel">
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
 							</button>
 						</span>
 					</div>
@@ -46,13 +46,13 @@
 						<textarea class="input field-input" name="description" rows="4" hidden>#(volume.description)</textarea>
 						<span class="field-actions">
 							<button type="button" class="icon-btn field-edit-trigger" title="Edit description">
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/edit.svg" alt="Edit description">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit description">
 							</button>
 							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/accept.svg" alt="Accept">
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
 							</button>
 							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/cancel.svg" alt="Cancel">
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
 							</button>
 						</span>
 					</div>
@@ -66,13 +66,13 @@
 						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
 						<span class="field-actions">
 							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/edit.svg" alt="Edit notes">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit notes">
 							</button>
 							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/accept.svg" alt="Accept">
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
 							</button>
 							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
-								<img src="#(meta.sharedAssetsURL)/static/img/icons/cancel.svg" alt="Cancel">
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
 							</button>
 						</span>
 					</div>
@@ -184,20 +184,20 @@
 						</div>
 					#endif
 
-					<div class="samples-field" id="samples-field" data-assets-url="#(meta.sharedAssetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
+					<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
 						<h3>Sample Pages</h3>
 						#if(volume.hasLivingSamples):
 							<p class="empty-state-inline">Current samples - uploading new ones below replaces this whole set when you save.</p>
 							<div class="sample-thumbnails">
 								#for(path in volume.livingSamplePaths):
-									<img class="sample-thumbnail" src="#(meta.sharedAssetsURL)/#(path)" alt="Sample page" loading="lazy">
+									<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
 								#endfor
 							</div>
 						#endif
 
 						<div class="chip-list" id="staged-sample-list" data-chip-list>
 							#for(sample in volume.stagedSamples):
-								<span class="chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.sharedAssetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
+								<span class="chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
 							#endfor
 						</div>
 
@@ -212,7 +212,7 @@
 					</div>
 				</form>
 
-				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.sharedAssetsURL)">
+				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.assetsURL)">
 					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volume.id)">
 					<button type="submit" class="btn btn-ghost">Discard changes</button>
 				</form>

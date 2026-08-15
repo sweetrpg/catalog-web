@@ -10,7 +10,7 @@
 			<div class="form-actions">
 				<a class="btn btn-primary" href="#(meta.basePath)/volumes/#(otherVolumeID)/edit">Continue editing "#(otherVolumeTitle)"</a>
 
-				<form id="discard-other-form" action="#(meta.basePath)/volumes/#(volumeID)/edit/session/discard" method="post" data-assets-url="#(meta.sharedAssetsURL)" data-staged-cover-path="#(otherStagedCoverPath)">
+				<form id="discard-other-form" action="#(meta.basePath)/volumes/#(volumeID)/edit/session/discard" method="post" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="#(otherStagedCoverPath)">
 					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volumeID)/edit">
 					<button type="submit" class="btn btn-ghost">Discard it and edit "#(volumeTitle)" instead</button>
 				</form>

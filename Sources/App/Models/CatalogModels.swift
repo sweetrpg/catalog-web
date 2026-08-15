@@ -39,7 +39,7 @@ struct VolumeViewModel {
   var licenseRefs: [EntityRef] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }
-  /// Relative path (join with `meta.sharedAssetsURL`) to this volume's cover image on
+  /// Relative path (join with `meta.assetsURL`) to this volume's cover image on
   /// assets-web's dedicated `cover` asset kind (see the `expand-volume-detail-page` OpenSpec
   /// change). Most volumes have no file stored yet, so templates render this optimistically and
   /// let `onerror` reveal the existing "Cover pending" fallback on a 404 (or a 400, while
