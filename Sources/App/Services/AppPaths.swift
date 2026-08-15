@@ -19,11 +19,16 @@ extension Request {
   }
 
   /// Base URL for shared frontend static assets (logo, favicon, stylesheet), served from
-  /// assets-web rather than this app's own Public/ - see docs/frontend-conventions.md in
-  /// sweetrpg/platform. Differs per environment (e.g. https://dev.sweetrpg.com/assets in dev).
+  /// shared-web rather than this app's own Public/ - see docs/frontend-conventions.md in
+  /// sweetrpg/platform. Differs per environment (e.g. https://dev.sweetrpg.com/shared in dev).
   /// Falls back to a local assets-web instance's own address, so a developer running catalog-web
   /// alone still sees a rendered logo/stylesheet rather than a broken reference.
   var sharedURL: String {
     Environment.get("SHARED_URL") ?? "http://localhost:8081"
+  }
+
+  /// Base URL for catalog assets (book covers, samples, etc.)
+  var assetsURL: String {
+    Environment.get("ASSETS_URL") ?? "http://localhost:8081"
   }
 }

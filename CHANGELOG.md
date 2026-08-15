@@ -1,4 +1,18 @@
 
+## 0.18.0 - 2026-08-15
+
+### Added
+- Add assetsURL for catalog assets and update sharedURL comment
+- Add lastUpdated display to home page
+
+
+### Changed
+- Split shared assets URL into shared and assets URLs
+- Split CatalogEntitiesController into per-entity controllers and view models
+- More reorganization
+
+
+
 ## 0.17.0 - 2026-08-14
 
 ### Added
