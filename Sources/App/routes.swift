@@ -10,6 +10,10 @@ func routes(_ app: Application) throws {
   }
 
   try app.register(collection: CatalogController())
-  try app.register(collection: CatalogEntitiesController())
+  try app.register(collection: VolumesController())
+  try app.register(collection: PublishersController())
+  try app.register(collection: StudiosController())
+  try app.register(collection: PersonsController())
+  try app.register(collection: LicensesController())
   try app.register(collection: ShelvesController())
 }
