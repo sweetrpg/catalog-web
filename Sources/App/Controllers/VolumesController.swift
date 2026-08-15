@@ -11,28 +11,28 @@ import Vapor
 /// shared template would need as much per-type conditional logic as separate ones.
 struct VolumesController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
-      routes.get("volumes", ":volumeID", use: detail)
-      routes.get("volumes", ":volumeID", "edit", use: editForm)
-      routes.post("volumes", ":volumeID", "edit", use: submitEdit)
-      routes.post("volumes", ":volumeID", "edit", "session", "fields", use: autosaveSessionFields)
-      routes.post(
-        "volumes", ":volumeID", "edit", "session", "associations", use: autosaveSessionAssociations)
-      routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
-      routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
-      routes.post(
-        "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
-      routes.post("volumes", ":volumeID", "edit", "session", "format", use: autosaveSessionFormat)
-      routes.post("volumes", ":volumeID", "edit", "session", "samples", use: autosaveSessionSamples)
-      routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
-      routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
-      routes.post(
-        "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
-      routes.post(
-        "volumes", ":volumeID", "proposed-changes", ":proposalID", "reject", use: rejectProposal)
-      routes.get("volumes", ":volumeID", "versions", use: versionHistory)
-      routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
-      routes.post(
-        "volumes", ":volumeID", "versions", ":version", "restore", use: restoreVersion)
+    routes.get("volumes", ":volumeID", use: detail)
+    routes.get("volumes", ":volumeID", "edit", use: editForm)
+    routes.post("volumes", ":volumeID", "edit", use: submitEdit)
+    routes.post("volumes", ":volumeID", "edit", "session", "fields", use: autosaveSessionFields)
+    routes.post(
+      "volumes", ":volumeID", "edit", "session", "associations", use: autosaveSessionAssociations)
+    routes.post("volumes", ":volumeID", "edit", "session", "cover", use: setSessionStagedCover)
+    routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
+    routes.post(
+      "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
+    routes.post("volumes", ":volumeID", "edit", "session", "format", use: autosaveSessionFormat)
+    routes.post("volumes", ":volumeID", "edit", "session", "samples", use: autosaveSessionSamples)
+    routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
+    routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
+    routes.post(
+      "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
+    routes.post(
+      "volumes", ":volumeID", "proposed-changes", ":proposalID", "reject", use: rejectProposal)
+    routes.get("volumes", ":volumeID", "versions", use: versionHistory)
+    routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
+    routes.post(
+      "volumes", ":volumeID", "versions", ":version", "restore", use: restoreVersion)
   }
 
   private struct BrowseQuery: Content {
