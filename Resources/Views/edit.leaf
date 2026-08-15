@@ -1,0 +1,1014 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
+
+		#if(hasSubmitError):
+			<p class="form-error">#(submitError)</p>
+		#endif
+
+		<div class="detail-layout">
+			<div class="card-cover detail-cover">
+				<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<span class="card-cover-fallback">Cover pending</span>
+				#if(canUploadCover):
+					<div class="cover-upload" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover">
+						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
+						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+						<p class="form-error cover-upload-error" hidden></p>
+					</div>
+				#endif
+			</div>
+
+			<div>
+				<form id="edit-form" action="#(meta.basePath)/volumes/#(volume.id)/edit" method="post" data-session-fields-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/fields">
+					<div class="field-row" data-field="title" data-field-type="line">
+						<h1 class="field-display">#(volume.title)</h1>
+						<input class="input field-input" type="text" name="title" value="#(volume.title)" required hidden>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit title">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit title">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
+					<div class="field-row field-row-block" data-field="description" data-field-type="block">
+						#if(volume.hasDescription):
+							<p class="detail-description field-display">#(volume.description)</p>
+						#else:
+							<p class="detail-description detail-description-empty field-display">No description on file yet for this volume.</p>
+						#endif
+						<textarea class="input field-input" name="description" rows="4" hidden>#(volume.description)</textarea>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit description">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit description">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
+					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
+						#if(volume.hasNotes):
+							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
+						#else:
+							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
+						#endif
+						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit notes">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
+					<div class="picker-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+						<h3>Publishers</h3>
+						<div class="chip-list" data-chip-list>
+							#for(pub in volume.selectedPublishers):
+								<span class="chip" data-id="#(pub.id)">#(pub.name)<button type="button" class="chip-remove" title="Remove #(pub.name)">&times;</button></span>
+							#endfor
+						</div>
+						<input type="text" class="input picker-filter" placeholder="Add a publisher..." autocomplete="off">
+						<ul class="picker-results" hidden></ul>
+						<script type="application/json" class="picker-options">#(volume.publisherOptionsJSON)</script>
+					</div>
+
+					<div class="picker-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+						<h3>Studios</h3>
+						<div class="chip-list" data-chip-list>
+							#for(studio in volume.selectedStudios):
+								<span class="chip" data-id="#(studio.id)">#(studio.name)<button type="button" class="chip-remove" title="Remove #(studio.name)">&times;</button></span>
+							#endfor
+						</div>
+						<input type="text" class="input picker-filter" placeholder="Add a studio..." autocomplete="off">
+						<ul class="picker-results" hidden></ul>
+						<script type="application/json" class="picker-options">#(volume.studioOptionsJSON)</script>
+					</div>
+
+					<div class="credits-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
+						<h3>Contributors</h3>
+						<div class="chip-list" data-chip-list>
+							#for(credit in volume.selectedCredits):
+								<span class="chip" data-person-id="#(credit.personId)" data-person-name="#(credit.personName)" data-contribution-type="#(credit.contributionType)">#(credit.personName) &mdash; #(credit.contributionType)<button type="button" class="chip-remove" title="Remove #(credit.personName)">&times;</button></span>
+							#endfor
+						</div>
+						<button type="button" class="btn btn-ghost" id="add-contributor-trigger">Add contributor</button>
+						<script type="application/json" id="contributor-person-options">#(volume.personOptionsJSON)</script>
+						<script type="application/json" id="contributor-type-options">#(volume.contributionTypeOptionsJSON)</script>
+
+						<div class="contributor-dialog" id="contributor-dialog" hidden>
+							<label class="contributor-dialog-label">
+								Person
+								<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
+								<ul class="picker-results" id="contributor-person-results" hidden></ul>
+							</label>
+							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
+
+							<label class="contributor-dialog-label">
+								Contribution type
+								<select class="input" id="contributor-type-select">
+									<option value="">Select a type&hellip;</option>
+								</select>
+							</label>
+
+							#if(volume.canAddContributionType):
+								<div class="contributor-add-type">
+									<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
+									<button type="button" class="btn btn-ghost" id="contributor-add-type-trigger">Add type</button>
+									<p class="form-error" id="contributor-add-type-error" hidden></p>
+								</div>
+							#endif
+
+							<div class="contributor-dialog-actions">
+								<button type="button" class="btn btn-primary" id="contributor-confirm-trigger" disabled>Add</button>
+								<button type="button" class="btn btn-ghost" id="contributor-cancel-trigger">Cancel</button>
+							</div>
+						</div>
+					</div>
+
+					<div class="properties-field" id="properties-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/properties" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/property-name">
+						<h3>Properties</h3>
+						<div class="chip-list" data-chip-list>
+							#for(property in volume.selectedProperties):
+								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.name): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.name)">&times;</button></span>
+							#endfor
+						</div>
+						<script type="application/json" id="property-name-options">#(volume.propertyNameOptionsJSON)</script>
+
+						<div class="property-add-row">
+							<select class="input" id="property-name-select">
+								<option value="">Select a property&hellip;</option>
+							</select>
+							<input type="text" class="input" id="property-value-input" placeholder="Value">
+							<button type="button" class="btn btn-ghost" id="property-add-trigger" disabled>Add</button>
+						</div>
+
+						#if(volume.canAddPropertyName):
+							<div class="property-add-name">
+								<input type="text" class="input" id="property-new-name" placeholder="Add a new property name...">
+								<button type="button" class="btn btn-ghost" id="property-add-name-trigger">Add name</button>
+								<p class="form-error" id="property-add-name-error" hidden></p>
+							</div>
+						#endif
+					</div>
+
+					#if(volume.canSetFormat):
+						<div class="format-field" id="format-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/format" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/format" data-selected-format="#(volume.selectedFormat)">
+							<h3>Format</h3>
+							<select class="input" id="format-select">
+								<option value="">No format set</option>
+							</select>
+							<script type="application/json" id="format-options">#(volume.formatOptionsJSON)</script>
+
+							<div class="format-add-value">
+								<input type="text" class="input" id="format-new-value" placeholder="Add a new format...">
+								<button type="button" class="btn btn-ghost" id="format-add-value-trigger">Add format</button>
+								<p class="form-error" id="format-add-value-error" hidden></p>
+							</div>
+						</div>
+					#endif
+
+					<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
+						<h3>Sample Pages</h3>
+						#if(volume.hasLivingSamples):
+							<p class="empty-state-inline">Current samples - uploading new ones below replaces this whole set when you save.</p>
+							<div class="sample-thumbnails">
+								#for(path in volume.livingSamplePaths):
+									<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
+								#endfor
+							</div>
+						#endif
+
+						<div class="chip-list" id="staged-sample-list" data-chip-list>
+							#for(sample in volume.stagedSamples):
+								<span class="chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
+							#endfor
+						</div>
+
+						<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
+						<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+						<p class="form-error" id="sample-upload-error" hidden></p>
+					</div>
+
+					<div class="form-actions">
+						<button type="submit" class="btn btn-primary">Save changes</button>
+						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
+					</div>
+				</form>
+
+				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.assetsURL)">
+					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volume.id)">
+					<button type="submit" class="btn btn-ghost">Discard changes</button>
+				</form>
+			</div>
+		</div>
+
+		<script>
+		(function () {
+		  // Inline per-field editing: "line" fields (title) commit on Enter or blur; "block"
+		  // fields (description, notes) commit via explicit accept/cancel icon buttons, since
+		  // Enter needs to insert a newline instead of submitting. Each commit both updates the
+		  // field's own <input>/<textarea> value (what "Save changes" ultimately submits) and
+		  // autosaves it into the durable edit session, so a page reload mid-edit resumes from
+		  // the last committed value rather than the volume's original one.
+		  var sessionFieldsURL = document.getElementById('edit-form').dataset.sessionFieldsUrl;
+
+		  function autosave(field, value) {
+		    var body = {};
+		    body[field] = value;
+		    fetch(sessionFieldsURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify(body),
+		      credentials: 'include'
+		    });
+		  }
+
+		  document.querySelectorAll('.field-row[data-field]').forEach(function (row) {
+		    var field = row.dataset.field;
+		    var type = row.dataset.fieldType;
+		    var display = row.querySelector('.field-display');
+		    var input = row.querySelector('.field-input');
+		    var editBtn = row.querySelector('.field-edit-trigger');
+		    var acceptBtn = row.querySelector('.field-accept-trigger');
+		    var cancelBtn = row.querySelector('.field-cancel-trigger');
+		    var originalValue = input.value;
+
+		    function showEditing() {
+		      display.hidden = true;
+		      input.hidden = false;
+		      editBtn.hidden = true;
+		      if (acceptBtn) acceptBtn.hidden = false;
+		      if (cancelBtn) cancelBtn.hidden = false;
+		      input.focus();
+		      if (type === 'line') input.select();
+		    }
+
+		    function commit() {
+		      display.textContent = input.value;
+		      display.hidden = false;
+		      input.hidden = true;
+		      editBtn.hidden = false;
+		      if (acceptBtn) acceptBtn.hidden = true;
+		      if (cancelBtn) cancelBtn.hidden = true;
+		      autosave(field, input.value);
+		    }
+
+		    function cancel() {
+		      input.value = originalValue;
+		      display.hidden = false;
+		      input.hidden = true;
+		      editBtn.hidden = false;
+		      if (acceptBtn) acceptBtn.hidden = true;
+		      if (cancelBtn) cancelBtn.hidden = true;
+		    }
+
+		    editBtn.addEventListener('click', showEditing);
+
+		    if (type === 'line') {
+		      input.addEventListener('keydown', function (e) {
+		        if (e.key === 'Enter') {
+		          e.preventDefault();
+		          commit();
+		        }
+		      });
+		      input.addEventListener('blur', commit);
+		    } else {
+		      acceptBtn.addEventListener('click', commit);
+		      cancelBtn.addEventListener('click', cancel);
+		    }
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Type-to-filter publisher/studio picker (task 7.1/7.2): filters the full candidate
+		  // list embedded as JSON at page load client-side (no search endpoint - existing
+		  // entities only, per design.md), and there is deliberately no way to add a name that
+		  // doesn't match an existing option. Each add/remove sends the *full* resulting id list
+		  // to the session (full-replace, same semantics PATCH itself uses for these fields).
+		  document.querySelectorAll('.picker-field').forEach(function (field) {
+		    var sessionURL = field.dataset.sessionUrl;
+		    var pickerKind = field.dataset.picker;
+		    var fieldKey = pickerKind + 'Ids';
+		    var chipList = field.querySelector('[data-chip-list]');
+		    var input = field.querySelector('.picker-filter');
+		    var results = field.querySelector('.picker-results');
+		    var optionsScript = field.querySelector('.picker-options');
+		    var options = [];
+		    try { options = JSON.parse(optionsScript.textContent); } catch (e) {}
+
+		    function selectedIds() {
+		      return Array.prototype.map.call(
+		        chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+		    }
+
+		    function autosave() {
+		      var body = {};
+		      body[fieldKey] = selectedIds();
+		      fetch(sessionURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify(body),
+		        credentials: 'include'
+		      });
+		    }
+
+		    function addChip(option) {
+		      var chip = document.createElement('span');
+		      chip.className = 'chip';
+		      chip.dataset.id = option.id;
+		      chip.textContent = option.name;
+		      var removeBtn = document.createElement('button');
+		      removeBtn.type = 'button';
+		      removeBtn.className = 'chip-remove';
+		      removeBtn.title = 'Remove ' + option.name;
+		      removeBtn.textContent = '×';
+		      removeBtn.addEventListener('click', function () {
+		        chip.remove();
+		        autosave();
+		      });
+		      chip.appendChild(removeBtn);
+		      chipList.appendChild(chip);
+		    }
+
+		    chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
+		      btn.addEventListener('click', function () {
+		        btn.closest('.chip').remove();
+		        autosave();
+		      });
+		    });
+
+		    function renderResults(query) {
+		      results.innerHTML = '';
+		      if (!query) {
+		        results.hidden = true;
+		        return;
+		      }
+		      var selected = selectedIds();
+		      var needle = query.toLowerCase();
+		      var matches = options.filter(function (option) {
+		        return selected.indexOf(option.id) === -1
+		          && option.name.toLowerCase().indexOf(needle) !== -1;
+		      }).slice(0, 8);
+
+		      if (matches.length === 0) {
+		        results.hidden = true;
+		        return;
+		      }
+		      matches.forEach(function (option) {
+		        var item = document.createElement('li');
+		        item.textContent = option.name;
+		        item.addEventListener('click', function () {
+		          addChip(option);
+		          autosave();
+		          input.value = '';
+		          results.hidden = true;
+		        });
+		        results.appendChild(item);
+		      });
+		      results.hidden = false;
+		    }
+
+		    input.addEventListener('input', function () { renderResults(input.value.trim()); });
+		    input.addEventListener('blur', function () {
+		      // Deferred so a click on a result fires before the list disappears.
+		      setTimeout(function () { results.hidden = true; }, 150);
+		    });
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Contributor dialog (task 8.1/8.2): picks an existing person (type-to-filter, same
+		  // no-create-new rationale as publisher/studio) and an existing contribution type
+		  // (select-only for a submitter; editor/admin additionally gets an "add a new type"
+		  // affordance that calls the vocabulary endpoint server-side, since the bearer token
+		  // isn't available to this script). Confirming sends the *full* resulting credit list
+		  // to the session, same full-replace semantics as the other pickers.
+		  var field = document.getElementById('credits-field');
+		  if (!field) return;
+
+		  var sessionURL = field.dataset.sessionUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var dialog = document.getElementById('contributor-dialog');
+		  var openBtn = document.getElementById('add-contributor-trigger');
+		  var personFilter = document.getElementById('contributor-person-filter');
+		  var personResults = document.getElementById('contributor-person-results');
+		  var selectedPersonLabel = document.getElementById('contributor-selected-person');
+		  var typeSelect = document.getElementById('contributor-type-select');
+		  var newTypeInput = document.getElementById('contributor-new-type');
+		  var addTypeBtn = document.getElementById('contributor-add-type-trigger');
+		  var addTypeError = document.getElementById('contributor-add-type-error');
+		  var confirmBtn = document.getElementById('contributor-confirm-trigger');
+		  var cancelBtn = document.getElementById('contributor-cancel-trigger');
+
+		  var personOptions = [];
+		  try {
+		    personOptions = JSON.parse(document.getElementById('contributor-person-options').textContent);
+		  } catch (e) {}
+		  var typeOptions = [];
+		  try {
+		    typeOptions = JSON.parse(document.getElementById('contributor-type-options').textContent);
+		  } catch (e) {}
+
+		  var selectedPerson = null;
+
+		  function renderTypeOptions() {
+		    var current = typeSelect.value;
+		    typeSelect.innerHTML = '<option value="">Select a type…</option>';
+		    typeOptions.forEach(function (type) {
+		      var option = document.createElement('option');
+		      option.value = type;
+		      option.textContent = type;
+		      typeSelect.appendChild(option);
+		    });
+		    typeSelect.value = current;
+		  }
+		  renderTypeOptions();
+
+		  function credits() {
+		    return Array.prototype.map.call(chipList.querySelectorAll('.chip'), function (chip) {
+		      return { personId: chip.dataset.personId, contributionType: chip.dataset.contributionType };
+		    });
+		  }
+
+		  function autosave() {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ credits: credits() }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function addChip(personId, personName, contributionType) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.personId = personId;
+		    chip.dataset.personName = personName;
+		    chip.dataset.contributionType = contributionType;
+		    chip.textContent = personName + ' — ' + contributionType;
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove ' + personName;
+		    removeBtn.textContent = '×';
+		    removeBtn.addEventListener('click', function () {
+		      chip.remove();
+		      autosave();
+		    });
+		    chip.appendChild(removeBtn);
+		    chipList.appendChild(chip);
+		  }
+
+		  chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
+		    btn.addEventListener('click', function () {
+		      btn.closest('.chip').remove();
+		      autosave();
+		    });
+		  });
+
+		  function updateConfirmEnabled() {
+		    confirmBtn.disabled = !selectedPerson || !typeSelect.value;
+		  }
+
+		  function resetDialog() {
+		    selectedPerson = null;
+		    selectedPersonLabel.hidden = true;
+		    selectedPersonLabel.textContent = '';
+		    personFilter.value = '';
+		    personResults.hidden = true;
+		    typeSelect.value = '';
+		    if (newTypeInput) newTypeInput.value = '';
+		    if (addTypeError) addTypeError.hidden = true;
+		    updateConfirmEnabled();
+		  }
+
+		  function openDialog() {
+		    resetDialog();
+		    dialog.hidden = false;
+		  }
+
+		  function closeDialog() {
+		    dialog.hidden = true;
+		  }
+
+		  openBtn.addEventListener('click', openDialog);
+		  cancelBtn.addEventListener('click', closeDialog);
+
+		  function renderPersonResults(query) {
+		    personResults.innerHTML = '';
+		    if (!query) {
+		      personResults.hidden = true;
+		      return;
+		    }
+		    var needle = query.toLowerCase();
+		    var matches = personOptions.filter(function (option) {
+		      return option.name.toLowerCase().indexOf(needle) !== -1;
+		    }).slice(0, 8);
+
+		    if (matches.length === 0) {
+		      personResults.hidden = true;
+		      return;
+		    }
+		    matches.forEach(function (option) {
+		      var item = document.createElement('li');
+		      item.textContent = option.name;
+		      item.addEventListener('click', function () {
+		        selectedPerson = option;
+		        selectedPersonLabel.textContent = 'Selected: ' + option.name;
+		        selectedPersonLabel.hidden = false;
+		        personFilter.value = '';
+		        personResults.hidden = true;
+		        updateConfirmEnabled();
+		      });
+		      personResults.appendChild(item);
+		    });
+		    personResults.hidden = false;
+		  }
+
+		  personFilter.addEventListener('input', function () { renderPersonResults(personFilter.value.trim()); });
+		  personFilter.addEventListener('blur', function () {
+		    setTimeout(function () { personResults.hidden = true; }, 150);
+		  });
+
+		  typeSelect.addEventListener('change', updateConfirmEnabled);
+
+		  if (addTypeBtn) {
+		    addTypeBtn.addEventListener('click', function () {
+		      var value = newTypeInput.value.trim();
+		      if (!value) return;
+		      addTypeError.hidden = true;
+		      fetch(vocabularyURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify({ value: value }),
+		        credentials: 'include'
+		      })
+		        .then(function (resp) {
+		          if (!resp.ok) throw new Error('Failed to add contribution type');
+		          return resp.json();
+		        })
+		        .then(function (data) {
+		          typeOptions = data.values || typeOptions;
+		          renderTypeOptions();
+		          typeSelect.value = value;
+		          newTypeInput.value = '';
+		          updateConfirmEnabled();
+		        })
+		        .catch(function () {
+		          addTypeError.textContent = 'Unable to add that contribution type. Try again.';
+		          addTypeError.hidden = false;
+		        });
+		    });
+		  }
+
+		  confirmBtn.addEventListener('click', function () {
+		    if (!selectedPerson || !typeSelect.value) return;
+		    addChip(selectedPerson.id, selectedPerson.name, typeSelect.value);
+		    autosave();
+		    closeDialog();
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Free-form property editing (task 9.2): pick an existing property name (select-only for
+		  // a submitter; editor/admin additionally gets an "add a new name" affordance, same
+		  // vocabulary-endpoint pattern as the contributor dialog's contribution type) plus a free
+		  // text value. Confirming sends the *full* resulting property list to the session, same
+		  // full-replace semantics as the other pickers.
+		  var field = document.getElementById('properties-field');
+		  if (!field) return;
+
+		  var sessionURL = field.dataset.sessionUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var nameSelect = document.getElementById('property-name-select');
+		  var valueInput = document.getElementById('property-value-input');
+		  var addBtn = document.getElementById('property-add-trigger');
+		  var newNameInput = document.getElementById('property-new-name');
+		  var addNameBtn = document.getElementById('property-add-name-trigger');
+		  var addNameError = document.getElementById('property-add-name-error');
+
+		  var nameOptions = [];
+		  try {
+		    nameOptions = JSON.parse(document.getElementById('property-name-options').textContent);
+		  } catch (e) {}
+
+		  function renderNameOptions() {
+		    var current = nameSelect.value;
+		    nameSelect.innerHTML = '<option value="">Select a property…</option>';
+		    nameOptions.forEach(function (name) {
+		      var option = document.createElement('option');
+		      option.value = name;
+		      option.textContent = name;
+		      nameSelect.appendChild(option);
+		    });
+		    nameSelect.value = current;
+		  }
+		  renderNameOptions();
+
+		  function properties() {
+		    return Array.prototype.map.call(chipList.querySelectorAll('.chip'), function (chip) {
+		      return { name: chip.dataset.name, value: chip.dataset.value };
+		    });
+		  }
+
+		  function autosave() {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ properties: properties() }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function addChip(name, value) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.name = name;
+		    chip.dataset.value = value;
+		    chip.textContent = name + ': ' + value;
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove ' + name;
+		    removeBtn.textContent = '×';
+		    removeBtn.addEventListener('click', function () {
+		      chip.remove();
+		      autosave();
+		    });
+		    chip.appendChild(removeBtn);
+		    chipList.appendChild(chip);
+		  }
+
+		  chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
+		    btn.addEventListener('click', function () {
+		      btn.closest('.chip').remove();
+		      autosave();
+		    });
+		  });
+
+		  function updateAddEnabled() {
+		    addBtn.disabled = !nameSelect.value || !valueInput.value.trim();
+		  }
+		  nameSelect.addEventListener('change', updateAddEnabled);
+		  valueInput.addEventListener('input', updateAddEnabled);
+
+		  addBtn.addEventListener('click', function () {
+		    if (!nameSelect.value || !valueInput.value.trim()) return;
+		    addChip(nameSelect.value, valueInput.value.trim());
+		    autosave();
+		    nameSelect.value = '';
+		    valueInput.value = '';
+		    updateAddEnabled();
+		  });
+
+		  if (addNameBtn) {
+		    addNameBtn.addEventListener('click', function () {
+		      var value = newNameInput.value.trim();
+		      if (!value) return;
+		      addNameError.hidden = true;
+		      fetch(vocabularyURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify({ value: value }),
+		        credentials: 'include'
+		      })
+		        .then(function (resp) {
+		          if (!resp.ok) throw new Error('Failed to add property name');
+		          return resp.json();
+		        })
+		        .then(function (data) {
+		          nameOptions = data.values || nameOptions;
+		          renderNameOptions();
+		          nameSelect.value = value;
+		          newNameInput.value = '';
+		          updateAddEnabled();
+		        })
+		        .catch(function () {
+		          addNameError.textContent = 'Unable to add that property name. Try again.';
+		          addNameError.hidden = false;
+		        });
+		    });
+		  }
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Format selector (task 10.1) - the entire control is only rendered server-side for
+		  // editor/admin sessions (see edit.leaf's #if(volume.canSetFormat)), so this script has
+		  // nothing to do at all for a submitter session.
+		  var field = document.getElementById('format-field');
+		  if (!field) return;
+
+		  var sessionURL = field.dataset.sessionUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var selectedFormat = field.dataset.selectedFormat;
+		  var select = document.getElementById('format-select');
+		  var newValueInput = document.getElementById('format-new-value');
+		  var addValueBtn = document.getElementById('format-add-value-trigger');
+		  var addValueError = document.getElementById('format-add-value-error');
+
+		  var formatOptions = [];
+		  try {
+		    formatOptions = JSON.parse(document.getElementById('format-options').textContent);
+		  } catch (e) {}
+
+		  function renderFormatOptions() {
+		    var current = select.value;
+		    select.innerHTML = '<option value="">No format set</option>';
+		    formatOptions.forEach(function (format) {
+		      var option = document.createElement('option');
+		      option.value = format;
+		      option.textContent = format;
+		      select.appendChild(option);
+		    });
+		    select.value = current;
+		  }
+		  renderFormatOptions();
+		  select.value = selectedFormat;
+
+		  select.addEventListener('change', function () {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ format: select.value }),
+		      credentials: 'include'
+		    });
+		  });
+
+		  addValueBtn.addEventListener('click', function () {
+		    var value = newValueInput.value.trim();
+		    if (!value) return;
+		    addValueError.hidden = true;
+		    fetch(vocabularyURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ value: value }),
+		      credentials: 'include'
+		    })
+		      .then(function (resp) {
+		        if (!resp.ok) throw new Error('Failed to add format');
+		        return resp.json();
+		      })
+		      .then(function (data) {
+		        formatOptions = data.values || formatOptions;
+		        renderFormatOptions();
+		        select.value = value;
+		        newValueInput.value = '';
+		        select.dispatchEvent(new Event('change'));
+		      })
+		      .catch(function () {
+		        addValueError.textContent = 'Unable to add that format. Try again.';
+		        addValueError.hidden = false;
+		      });
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Sample-image staging (task 11.2/11.3) - each new file uploads immediately to
+		  // assets-web as `sample-staged/<userSub>-<n>`, same staged-then-promoted pattern as the
+		  // cover upload above. Capped at 5 staged samples client-side; catalog-api enforces the
+		  // same cap server-side at finalize (task 4.4), so a crafted request past this UI can't
+		  // exceed it either.
+		  var MAX_SAMPLES = 5;
+		  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+		  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+		  var field = document.getElementById('samples-field');
+		  if (!field) return;
+
+		  var assetsURL = field.dataset.assetsUrl;
+		  var userSub = field.dataset.userSub;
+		  var sessionURL = field.dataset.sessionUrl;
+		  var list = document.getElementById('staged-sample-list');
+		  var input = document.getElementById('sample-upload-input');
+		  var uploadTrigger = document.getElementById('sample-upload-trigger');
+		  var errorEl = document.getElementById('sample-upload-error');
+
+		  var nextIndex = list.querySelectorAll('.chip').length;
+
+		  function showError(message) {
+		    errorEl.textContent = message;
+		    errorEl.hidden = false;
+		  }
+
+		  function clearError() {
+		    errorEl.hidden = true;
+		    errorEl.textContent = '';
+		  }
+
+		  function stagedIds() {
+		    return Array.prototype.map.call(
+		      list.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+		  }
+
+		  function autosave() {
+		    fetch(sessionURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ sampleAssetIds: stagedIds() }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function updateUploadEnabled() {
+		    var atCap = stagedIds().length >= MAX_SAMPLES;
+		    uploadTrigger.setAttribute('aria-disabled', atCap ? 'true' : 'false');
+		    input.disabled = atCap;
+		  }
+		  updateUploadEnabled();
+
+		  function addChip(id, path) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.id = id;
+		    var thumb = document.createElement('img');
+		    thumb.className = 'chip-thumbnail';
+		    thumb.src = assetsURL + '/' + path;
+		    thumb.alt = 'Staged sample';
+		    chip.appendChild(thumb);
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove this sample';
+		    removeBtn.textContent = '×';
+		    removeBtn.addEventListener('click', function () {
+		      chip.remove();
+		      autosave();
+		      updateUploadEnabled();
+		    });
+		    chip.appendChild(removeBtn);
+		    list.appendChild(chip);
+		  }
+
+		  list.querySelectorAll('.chip-remove').forEach(function (btn) {
+		    btn.addEventListener('click', function () {
+		      btn.closest('.chip').remove();
+		      autosave();
+		      updateUploadEnabled();
+		    });
+		  });
+
+		  input.addEventListener('change', function () {
+		    var file = input.files[0];
+		    if (!file) return;
+		    clearError();
+
+		    if (stagedIds().length >= MAX_SAMPLES) {
+		      showError('A volume may have at most ' + MAX_SAMPLES + ' samples.');
+		      input.value = '';
+		      return;
+		    }
+		    if (ALLOWED_CONTENT_TYPES.indexOf(file.type) === -1) {
+		      showError('Samples must be PNG, JPEG, or WEBP images.');
+		      input.value = '';
+		      return;
+		    }
+		    if (file.size > MAX_UPLOAD_BYTES) {
+		      showError('Samples must be 5 MB or smaller.');
+		      input.value = '';
+		      return;
+		    }
+
+		    var id = userSub + '-' + nextIndex;
+		    var path = 'asset/sample-staged/' + id;
+		    var formData = new FormData();
+		    formData.append('file', file);
+
+		    fetch(assetsURL + '/' + path, { method: 'POST', body: formData, credentials: 'include' })
+		      .then(function (resp) {
+		        if (!resp.ok) throw new Error('Sample upload failed');
+		        nextIndex += 1;
+		        addChip(id, path);
+		        autosave();
+		        updateUploadEnabled();
+		        input.value = '';
+		      })
+		      .catch(function () {
+		        showError('Sample upload failed. Try again.');
+		        input.value = '';
+		      });
+		  });
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Best-effort reclaim of a staged cover before discarding - assets-web only accepts
+		  // browser-originated requests (its auth comes from the ingress, not this app's own
+		  // server-to-server calls), so this has to run client-side. The periodic reclaim job
+		  // (assets-web) is the durable backstop if this never fires (JS disabled, tab closed
+		  // mid-request, etc.) - see durable-volume-editing task 2.4 in sweetrpg/platform.
+		  var form = document.getElementById('discard-form');
+		  if (!form) return;
+
+		  form.addEventListener('submit', function () {
+		    var url = form.dataset.assetsUrl + '/' + form.dataset.stagedCoverPath;
+		    fetch(url, { method: 'DELETE', credentials: 'include', keepalive: true }).catch(function () {});
+		  });
+		})();
+		</script>
+
+		#if(canUploadCover):
+			<script>
+			(function () {
+			  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+			  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+			  var container = document.querySelector('.cover-upload');
+			  if (!container) return;
+
+			  var input = document.getElementById('cover-upload-input');
+			  var errorEl = container.querySelector('.cover-upload-error');
+			  var coverImg = document.getElementById('cover-preview-img');
+			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.stagedCoverPath;
+			  var sessionCoverURL = container.dataset.sessionCoverUrl;
+
+			  function showError(message) {
+			    errorEl.textContent = message;
+			    errorEl.hidden = false;
+			  }
+
+			  function clearError() {
+			    errorEl.hidden = true;
+			    errorEl.textContent = '';
+			  }
+
+			  // Unlike the old client-side-only preview, selecting a file uploads it to
+			  // assets-web immediately (as a *staged* copy, cover-staged/<userSub> - not the
+			  // volume's live cover) and records the staging in the edit session. Finalize (or a
+			  // reviewer's accept) promotes it to live; discarding or letting the session expire
+			  // reclaims it. See durable-volume-editing's volume-cover-staging spec.
+			  input.addEventListener('change', function () {
+			    var file = input.files[0];
+			    if (!file) return;
+			    clearError();
+
+			    if (ALLOWED_CONTENT_TYPES.indexOf(file.type) === -1) {
+			      showError('Cover must be a PNG, JPEG, or WEBP image.');
+			      input.value = '';
+			      return;
+			    }
+			    if (file.size > MAX_UPLOAD_BYTES) {
+			      showError('Cover must be 5 MB or smaller.');
+			      input.value = '';
+			      return;
+			    }
+
+			    var formData = new FormData();
+			    formData.append('file', file);
+
+			    fetch(uploadURL, { method: 'POST', body: formData, credentials: 'include' })
+			      .then(function (resp) {
+			        if (!resp.ok) throw new Error('Cover upload failed');
+			        return fetch(sessionCoverURL, {
+			          method: 'POST',
+			          headers: { 'Content-Type': 'application/json' },
+			          body: JSON.stringify({ assetId: container.dataset.stagedCoverPath.split('/').pop() }),
+			          credentials: 'include'
+			        });
+			      })
+			      .then(function (resp) {
+			        if (!resp.ok) throw new Error('Failed to record staged cover');
+			        if (coverImg) {
+			          coverImg.style.display = '';
+			          coverImg.src = uploadURL + '?t=' + Date.now();
+			        }
+			      })
+			      .catch(function () {
+			        showError('Cover upload failed. Try again.');
+			        input.value = '';
+			      });
+			  });
+			})();
+			</script>
+		#endif
+	#endexport
+#endextend

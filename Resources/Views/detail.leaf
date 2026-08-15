@@ -2,8 +2,19 @@
 	#export("body"):
 		<a class="back-link" href="#(meta.basePath)/browse">&larr; Back</a>
 
+		#if(justProposed):
+			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+		#endif
+
+		#if(hasConflicts):
+			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+		#endif
+
 		<div class="detail-layout">
-			<div class="card-cover detail-cover">Cover pending</div>
+			<div class="card-cover detail-cover">
+				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<span class="card-cover-fallback">Cover pending</span>
+			</div>
 
 			<div>
 				<h1>#(volume.title)</h1>
@@ -12,6 +23,11 @@
 						<span class="tag tag-accent">#(tag)</span>
 					#endfor
 				</div>
+
+				#if(canEdit):
+					<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/edit">Edit</a>
+				#endif
+				<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/versions">Version History</a>
 
 				#if(volume.hasDescription):
 					<p class="detail-description">#(volume.description)</p>
@@ -23,8 +39,48 @@
 					<p class="detail-notes"><strong>Notes:</strong> #(volume.notes)</p>
 				#endif
 
-				#if(volume.hasMeta):
-					<p class="detail-meta">#(volume.metaLine)</p>
+				#if(volume.hasSystemNames):
+					<div class="detail-block">
+						<span class="section-label">System</span>
+						<div class="tag-cloud">
+							#for(name in volume.systemNames):
+								<span class="tag tag-neutral">#(name)</span>
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(volume.hasPublisherNames):
+					<div class="detail-block">
+						<span class="section-label">Publisher</span>
+						<div class="tag-cloud">
+							#for(ref in volume.publisherRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)</a>
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(volume.hasStudioNames):
+					<div class="detail-block">
+						<span class="section-label">Studio</span>
+						<div class="tag-cloud">
+							#for(ref in volume.studioRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)</a>
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(volume.hasLicenseNames):
+					<div class="detail-block">
+						<span class="section-label">License</span>
+						<div class="tag-cloud">
+							#for(ref in volume.licenseRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)</a>
+							#endfor
+						</div>
+					</div>
 				#endif
 
 				#if(volume.hasCredits):
@@ -33,6 +89,90 @@
 						#for(credit in volume.credits):
 							<p><strong>#(credit.role)</strong> &mdash; #(credit.person)</p>
 						#endfor
+					</div>
+				#endif
+
+				#if(volume.hasProperties):
+					<div class="detail-block">
+						<span class="section-label">Properties</span>
+						<table class="table">
+							<tbody>
+								#for(property in volume.properties):
+									<tr>
+										<td>#(property.name)</td>
+										<td>#(property.value)</td>
+									</tr>
+								#endfor
+							</tbody>
+						</table>
+					</div>
+				#endif
+
+				#if(volume.hasSamples):
+					<div class="detail-block">
+						<span class="section-label">Sample Pages</span>
+						<div class="sample-thumbnails" id="sample-thumbnails">
+							#for(path in volume.samplePaths):
+								<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
+							#endfor
+						</div>
+					</div>
+				#endif
+
+				#if(review):
+					<div class="detail-block">
+						<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+
+						#if(review.hasMultiplePending):
+							<form class="proposal-picker" method="get" action="#(meta.basePath)/volumes/#(volume.id)">
+								<label class="form-label" for="proposal">Viewing proposal from</label>
+								<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
+									#for(option in review.options):
+										<option value="#(option.id)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
+									#endfor
+								</select>
+							</form>
+						#else:
+							<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+						#endif
+
+						<form class="proposal-diff" method="post" action="#(meta.basePath)/volumes/#(volume.id)/proposed-changes/#(review.selectedID)/accept">
+							<input type="hidden" name="mode" value="subset">
+							<table class="table">
+								<thead>
+									<tr>
+										<th></th>
+										<th>Field</th>
+										<th>Live value</th>
+										<th>Proposed value</th>
+									</tr>
+								</thead>
+								<tbody>
+									#for(field in review.fields):
+										<tr>
+											<td><input type="checkbox" name="fields" value="#(field.key)"></td>
+											<td>#(field.label)</td>
+											<td>#(field.oldValue)</td>
+											<td>#(field.newValue)</td>
+										</tr>
+									#endfor
+								</tbody>
+							</table>
+							<div class="form-actions table-actions">
+								<button type="submit" class="btn btn-ghost">Accept Selected</button>
+							</div>
+						</form>
+
+						<div class="table-actions">
+							<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/proposed-changes/#(review.selectedID)/accept">
+								<input type="hidden" name="mode" value="all">
+								<button type="submit" class="btn btn-primary">Accept All</button>
+							</form>
+							<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/proposed-changes/#(review.selectedID)/reject">
+								<input class="input" type="text" name="note" placeholder="Optional note">
+								<button type="submit" class="btn btn-ghost">Reject</button>
+							</form>
+						</div>
 					</div>
 				#endif
 
@@ -59,5 +199,41 @@
 				</div>
 			</div>
 		</div>
+
+		#if(volume.hasSamples):
+			<div class="sample-viewer" id="sample-viewer" hidden>
+				<button type="button" class="sample-viewer-close" id="sample-viewer-close" aria-label="Close">&times;</button>
+				<img class="sample-viewer-img" id="sample-viewer-img" src="" alt="Sample page, enlarged">
+			</div>
+
+			<script>
+			(function () {
+			  // Click-to-enlarge sample viewer (task 11.1) - a plain overlay, not a full lightbox
+			  // library: this page has no client-side framework, and a handful of thumbnails don't
+			  // need more than click-to-open/click-to-close.
+			  var thumbnails = document.getElementById('sample-thumbnails');
+			  var viewer = document.getElementById('sample-viewer');
+			  var viewerImg = document.getElementById('sample-viewer-img');
+			  var closeBtn = document.getElementById('sample-viewer-close');
+			  if (!thumbnails || !viewer) return;
+
+			  thumbnails.querySelectorAll('.sample-thumbnail').forEach(function (thumb) {
+			    thumb.addEventListener('click', function () {
+			      viewerImg.src = thumb.src;
+			      viewer.hidden = false;
+			    });
+			  });
+
+			  function close() {
+			    viewer.hidden = true;
+			    viewerImg.src = '';
+			  }
+			  closeBtn.addEventListener('click', close);
+			  viewer.addEventListener('click', function (e) {
+			    if (e.target === viewer) close();
+			  });
+			})();
+			</script>
+		#endif
 	#endexport
 #endextend

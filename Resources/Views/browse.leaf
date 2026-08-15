@@ -18,7 +18,10 @@
 		<div class="card-grid">
 			#for(volume in volumes):
 				<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
-					<div class="card-cover">Cover pending</div>
+					<div class="card-cover">
+						<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+						<span class="card-cover-fallback">Cover pending</span>
+					</div>
 					<div class="card-body">
 						<div class="card-title">#(volume.title)</div>
 						<div class="card-meta">

@@ -1,6 +1,6 @@
 # This is a multi-stage Dockerfile and requires >= Docker 17.05
 # https://docs.docker.com/engine/userguide/eng-image/multistage-build/
-FROM swift:6.0-jammy AS builder
+FROM swift:6.3-jammy AS builder
 
 WORKDIR /build
 
@@ -12,7 +12,7 @@ RUN swift package resolve
 COPY . .
 RUN swift build -c release --static-swift-stdlib
 
-FROM swift:6.0-jammy-slim
+FROM swift:6.3-jammy-slim
 
 ARG USERNAME=sweetrpg
 ARG BUILD_NUMBER=unset
@@ -27,7 +27,6 @@ WORKDIR /app
 
 RUN mkdir -p /app/bin /app/config
 COPY --from=builder /build/.build/release/App /app/bin/
-COPY --from=builder /build/Public /app/Public
 COPY --from=builder /build/Resources /app/Resources
 
 RUN echo "{\"number\":\"${BUILD_NUMBER}\",\"job\":\"${BUILD_JOB}\",\"sha\":\"${BUILD_SHA}\",\"date\":\"${BUILD_DATE}\",\"version\":\"${BUILD_VERSION}\"}" > /app/config/build-info.json

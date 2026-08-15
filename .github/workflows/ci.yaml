@@ -10,4 +10,6 @@ permissions:
 jobs:
   ci:
     uses: sweetrpg/github-actions/.github/workflows/swift-ci.yaml@master
+    with:
+      swift-version: "6.2"
     secrets: inherit

@@ -4,14 +4,37 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Catalogue</title>
-	<link rel="icon" type="image/png" href="#(meta.sharedAssetsURL)/static/favicon.png">
-	<link rel="stylesheet" href="#(meta.sharedAssetsURL)/static/main.css">
+	<link rel="icon" type="image/png" href="#(meta.sharedURL)/static/img/favicon.png">
+	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/main.css">
+	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/avatar-menu.css">
+	<link rel="stylesheet" href="#(meta.basePath)/css/theme.css">
+	<script>
+	/* Applied synchronously, before first paint, so the page never flashes the wrong theme.
+	   Reads the same localStorage key main-web's theme toggle writes - this app has no toggle
+	   of its own, it only ever respects whatever the visitor already chose there. */
+	(function () {
+	  var stored = null;
+	  try { stored = localStorage.getItem('sweetrpg_theme_v1'); } catch (e) {}
+	  var theme = stored || 'system';
+	  var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+	  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+	})();
+	</script>
 </head>
 <body>
+	#if(count(meta.banners) > 0):
+	<div class="banner-region">
+		#for(banner in meta.banners):
+		<div class="banner banner-#(banner.severity)" role="status">#(banner.message)</div>
+		#endfor
+	</div>
+	#endif
 	#extend("partials/header")
 	<main class="page">
 		#import("body")
 	</main>
 	#extend("partials/footer")
+	<script src="#(meta.sharedURL)/static/js/avatar-menu.js" defer></script>
+	<script src="#(meta.sharedURL)/static/js/theme.js" defer></script>
 </body>
 </html>

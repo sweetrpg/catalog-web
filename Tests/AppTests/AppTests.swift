@@ -1,3 +1,7 @@
+import AdminAPIClient
+import CatalogAPIClient
+import Foundation
+import Redis
 import Testing
 import VaporTesting
 
@@ -5,11 +9,1575 @@ import VaporTesting
 
 @Suite("App")
 struct AppTests {
-  @Test("status ping responds ok")
+  @Test("status ping responds ok and reports the build version")
   func statusPing() async throws {
     try await withApp(configure: configure) { app in
       try await app.testing().test(.GET, "status/ping") { res in
         #expect(res.status == .ok)
+        #expect(res.body.string.contains(#""version":"dev""#))
+      }
+    }
+  }
+
+  // These two exercise AdminClient directly against a minimal app (no full `configure(_:)` -
+  // that bootstraps the global Swift Metrics backend, which can only happen once per process,
+  // and Swift Testing runs tests concurrently by default) - just enough app setup for
+  // `req.adminClient` to work: a route and, where needed, an overridden `backendConfig`.
+
+  @Test("AdminClient returns no banners when ADMIN_API_URL is unset")
+  func adminClientDisabledByDefault() async throws {
+    try await withApp { app in
+      app.get("test-banners") { req async -> [LeafBanner] in
+        await req.adminClient.fetchBanners(scopes: ["platform"]).map(LeafBanner.init)
+      }
+      try await app.testing().test(.GET, "test-banners") { res in
+        #expect(res.status == .ok)
+        let banners = try res.content.decode([LeafBanner].self)
+        #expect(banners.isEmpty)
+      }
+    }
+  }
+
+  @Test("AdminClient fails open when admin-api is unreachable")
+  func adminClientFailsOpenOnUnreachableHost() async throws {
+    try await withApp { app in
+      app.backendConfig = BackendConfig(
+        catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
+        shelfAPIURL: "unused", adminAPIURL: "http://127.0.0.1:1")
+      app.get("test-banners") { req async -> [LeafBanner] in
+        await req.adminClient.fetchBanners(scopes: ["platform"]).map(LeafBanner.init)
+      }
+      try await app.testing().test(.GET, "test-banners") { res in
+        #expect(res.status == .ok)
+        let banners = try res.content.decode([LeafBanner].self)
+        #expect(banners.isEmpty)
+      }
+    }
+  }
+
+  // Mirrors the two above: no full `configure(_:)`, just enough for `req.currentUser` to work.
+
+  @Test("currentUser reads nil when the shared session Redis isn't configured")
+  func currentUserDisabledByDefault() async throws {
+    try await withApp { app in
+      app.get("test-current-user") { req async -> String in
+        (await req.currentUser)?.name ?? "nobody"
+      }
+      try await app.testing().test(.GET, "test-current-user") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string == "nobody")
+      }
+    }
+  }
+
+  @Test("currentUser fails open when the shared session Redis is unreachable")
+  func currentUserFailsOpenOnUnreachableHost() async throws {
+    try await withApp { app in
+      app.redis(.sharedSession).configuration = try RedisConfiguration(
+        hostname: "127.0.0.1", port: 1)
+      app.sharedSessionRedisConfigured = true
+      app.get("test-current-user") { req async -> String in
+        (await req.currentUser)?.name ?? "nobody"
+      }
+      try await app.testing().test(
+        .GET, "test-current-user",
+        beforeRequest: { req in
+          req.headers.add(name: .cookie, value: "\(sharedSessionCookieName)=some-session-id")
+        }
+      ) { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string == "nobody")
+      }
+    }
+  }
+
+  @Test("SessionUser decodes auth-web's RFC 3339 expiry, not a raw Double")
+  func sessionUserDecodesRFC3339Expiry() throws {
+    // Exactly the shape auth-web's SessionUserAccess now writes (see auth-web's
+    // fix/session-expiry-iso8601) - docs/frontend-conventions.md's "Shared session schema"
+    // documents `expiry` as an RFC 3339 string, not the raw Double a plain JSONDecoder's
+    // .deferredToDate default would expect.
+    let json = """
+      {"sub":"auth0|abc","name":"Ada","email":"ada@example.com","roles":["admin"],\
+      "accessToken":"token","expiry":"2027-01-15T08:00:00Z"}
+      """
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let user = try decoder.decode(SessionUser.self, from: Data(json.utf8))
+    #expect(user.name == "Ada")
+    #expect(user.expiry.timeIntervalSince1970 == 1_800_000_000)
+  }
+
+  // Renders a real Leaf template (not just a Swift-side compile check, since Leaf resolves
+  // `#(meta.loginURL)` dynamically at render time) to confirm the header partial's login/logout
+  // links interpolate correctly.
+
+  @Test("header renders the log-in link when logged out")
+  func headerRendersLogInLink() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [], user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"href="/auth/login?return_to=/test-home""#))
+        #expect(!res.body.string.contains("Log Out"))
+        // The avatar menu is always present (mystery-man icon + a Log in item), not hidden
+        // when logged out - see feat/avatar-menu-always-present-and-theme.
+        #expect(res.body.string.contains("avatar-menu-trigger"))
+        #expect(res.body.string.contains("mystery-man.svg"))
+      }
+    }
+  }
+
+  @Test("header renders the avatar menu without Admin for a non-admin session")
+  func headerRendersAvatarMenuWithoutAdminForNonAdmin() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
+                expiry: Date().addingTimeInterval(3600))),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("avatar-menu-trigger"))
+        #expect(res.body.string.contains(#"href="/users""#))
+        #expect(!res.body.string.contains(#"href="/admin""#))
+        #expect(res.body.string.contains("avatar-menu-item-danger"))
+        #expect(res.body.string.contains(#"action="/auth/logout?return_to=/test-home""#))
+      }
+    }
+  }
+
+  @Test("header renders a Gravatar image with an onerror fallback when the session has an email")
+  func headerRendersGravatarImageWhenEmailPresent() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
+                accessToken: "test-token", expiry: Date().addingTimeInterval(3600))),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("avatar-menu-avatar"))
+        #expect(res.body.string.contains("https://www.gravatar.com/avatar/"))
+        #expect(res.body.string.contains("d=404"))
+        #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
+        #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
+        #expect(res.body.string.contains("avatar-menu-fallback"))
+      }
+    }
+  }
+
+  @Test("header renders only the fallback letter when the session has no email")
+  func headerRendersOnlyFallbackWithoutEmail() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
+                expiry: Date().addingTimeInterval(3600))),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("avatar-menu-avatar"))
+        #expect(res.body.string.contains("avatar-menu-fallback"))
+      }
+    }
+  }
+
+  @Test("header renders the Admin link for an admin session")
+  func headerRendersAdminLinkForAdminSession() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [],
+            user: LeafUser(
+              SessionUser(
+                sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token",
+                expiry: Date().addingTimeInterval(3600))),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"href="/admin""#))
+        #expect(res.body.string.contains(#"href="/users""#))
+      }
+    }
+  }
+
+  @Test("home page renders a volume card's cover image with an onerror fallback")
+  func homeRendersVolumeCoverWithFallback() async throws {
+    let volume = VolumeViewModel(
+      id: "64c7cf96a3fc8ee7407f9b76", title: "A Glorious Death", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 1, trending: [LeafVolumeCard(volume)], tagCloud: [], user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76.svg"))
+        #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
+        #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
+        #expect(res.body.string.contains("card-cover-fallback"))
+        #expect(res.body.string.contains("Cover pending"))
+      }
+    }
+  }
+
+  @Test("detail page shows a properties table when the volume has properties")
+  func detailPageShowsPropertiesTable() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Page count"))
+        #expect(res.body.string.contains("320"))
+      }
+    }
+  }
+
+  @Test("detail page hides the properties table when the volume has no properties")
+  func detailPageHidesPropertiesTableWithoutProperties() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains(">Properties<"))
+      }
+    }
+  }
+
+  @Test("detail page shows a sample thumbnail row and viewer when the volume has samples")
+  func detailPageShowsSampleThumbnails() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.sampleAssetIds = ["1-0", "1-1"]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("asset/sample/1-0"))
+        #expect(res.body.string.contains("asset/sample/1-1"))
+        #expect(res.body.string.contains("sample-viewer"))
+      }
+    }
+  }
+
+  @Test("detail page hides the sample thumbnail row and viewer when the volume has no samples")
+  func detailPageHidesSampleThumbnailsWithoutSamples() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("sample-thumbnails"))
+        #expect(!res.body.string.contains("sample-viewer"))
+      }
+    }
+  }
+
+  @Test("detail page shows only the metadata sections a volume has names for")
+  func detailPageShowsOnlyPopulatedMetadataSections() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: ["Shadow of the Demon Lord"],
+      publisherNames: ["Schwalb Entertainment"],
+      studioNames: [], licenseNames: ["OGL"])
+    volume.publisherRefs = [EntityRef(id: "pub-1", name: "Schwalb Entertainment")]
+    volume.licenseRefs = [EntityRef(id: "lic-1", name: "OGL")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
+        )
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Shadow of the Demon Lord"))
+        #expect(res.body.string.contains("Schwalb Entertainment"))
+        #expect(res.body.string.contains("OGL"))
+        #expect(!res.body.string.contains(">Studio<"))
+        #expect(!res.body.string.contains(">Edit<"))
+      }
+    }
+  }
+
+  // MARK: - catalog-volume-cover-upload
+
+  @Test("edit page shows the cover-upload control for an editor/admin session")
+  func editShowsCoverUploadControlWhenCanUploadCover() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: true, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("cover-upload-input"))
+      }
+    }
+  }
+
+  @Test("edit page hides the cover-upload control for a submitter session")
+  func editHidesCoverUploadControlWithoutRole() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("cover-upload-input"))
+      }
+    }
+  }
+
+  // MARK: - volume-change-review-ui
+
+  private func makeProposal(
+    id: String = "prop-1", submittedBy: String = "auth0|submitter",
+    diff: [String: FieldChange] = ["title": FieldChange(old: "Old", new: "New", status: "pending")]
+  ) -> ProposedChangeSummary {
+    ProposedChangeSummary(
+      id: id, recordType: "volume", recordId: "1", diff: diff, status: "pending",
+      submittedBy: submittedBy, submittedAt: Date(timeIntervalSince1970: 0), reviewedBy: nil,
+      reviewedAt: nil, reviewNote: nil)
+  }
+
+  @Test("detail page shows the Edit action for a submitter/editor/admin session")
+  func detailShowsEditActionWhenCanEdit() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: true,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(">Edit<"))
+        #expect(res.body.string.contains("/volumes/1/edit"))
+      }
+    }
+  }
+
+  @Test("detail page hides the review section from a submitter with no review rights")
+  func detailHidesReviewSectionWithoutReviewRights() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            // canEdit: true (submitter can propose), but review stays nil - only
+            // CatalogController decides to populate it, gated on canReview, not canEdit.
+            volume: LeafVolumeDetail(volume), canEdit: true,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("Pending Changes"))
+      }
+    }
+  }
+
+  @Test("detail page shows a pending-change indicator and diff for an editor")
+  func detailShowsPendingChangeReviewForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let proposal = makeProposal()
+    let review = LeafProposalReview(volumeID: "1", pending: [proposal], selected: proposal)
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: review,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Pending Changes (1)"))
+        #expect(res.body.string.contains("Old"))
+        #expect(res.body.string.contains("New"))
+        #expect(res.body.string.contains("Accept All"))
+        #expect(res.body.string.contains("Accept Selected"))
+        #expect(res.body.string.contains("Reject"))
+        // Single pending proposal: no picker <select>, just the plain submitted-by line.
+        #expect(!res.body.string.contains("<select"))
+      }
+    }
+  }
+
+  @Test("detail page shows a proposal picker when more than one proposal is pending")
+  func detailShowsProposalPickerForMultiplePending() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let first = makeProposal(id: "prop-1", submittedBy: "auth0|alice")
+    let second = makeProposal(id: "prop-2", submittedBy: "auth0|bob")
+    let review = LeafProposalReview(volumeID: "1", pending: [first, second], selected: first)
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: review,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Pending Changes (2)"))
+        #expect(res.body.string.contains("<select"))
+        #expect(res.body.string.contains("auth0|alice"))
+        #expect(res.body.string.contains("auth0|bob"))
+      }
+    }
+  }
+
+  @Test("detail page surfaces conflicting fields after a partial accept")
+  func detailShowsConflictBanner() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("weren't applied"))
+        #expect(res.body.string.contains("title"))
+      }
+    }
+  }
+
+  @Test("detail page hides the conflict banner when there are no conflicts")
+  func detailHidesConflictBannerWhenEmpty() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: LeafVolumeDetail(volume), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("weren't applied"))
+      }
+    }
+  }
+
+  @Test("edit form pre-fills the volume's current title/description/notes")
+  func editFormPrefillsFields() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "A dark fantasy setting.", notes: "Draft notes",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"value="Rusthaven""#))
+        #expect(res.body.string.contains("A dark fantasy setting."))
+        #expect(res.body.string.contains("Draft notes"))
+        #expect(res.body.string.contains(#"action="/volumes/1/edit""#))
+      }
+    }
+  }
+
+  @Test("edit form renders inline edit affordances for title and description")
+  func editFormRendersInlineEditControls() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "A dark fantasy setting.", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("icons/edit.svg"))
+        #expect(res.body.string.contains("icons/accept.svg"))
+        #expect(res.body.string.contains("icons/cancel.svg"))
+        #expect(res.body.string.contains(#"data-field="title" data-field-type="line""#))
+        #expect(res.body.string.contains(#"data-field="description" data-field-type="block""#))
+        #expect(res.body.string.contains(#"data-field="notes" data-field-type="block""#))
+      }
+    }
+  }
+
+  // MARK: - MaintenanceModeMiddleware
+
+  /// `AdminAPIClient.AdminClient` makes real `URLSession` calls - there's no request-level
+  /// stubbing point - so exercising "admin-api reports an active maintenance-mode record"
+  /// needs an actual bound HTTP server standing in for admin-api, not a mock. A fixed port
+  /// keeps this simple; these tests run serially against it (Swift Testing still runs
+  /// `@Suite` tests in one struct concurrently by default, but nothing else in this file binds
+  /// this port).
+  @discardableResult
+  private func withFakeAdminAPI<T>(
+    port: Int,
+    maintenanceModesJSON: String,
+    _ test: () async throws -> T
+  ) async throws -> T {
+    // Not `.testing` - that preset sanitizes `ProcessInfo.processInfo.arguments`, which under
+    // `swift test` includes flags like `--test-bundle-path` that Vapor's own sanitizer doesn't
+    // recognize and `startup()`'s command parser then rejects. A real bound listener (unlike
+    // the app-under-test, which never calls `startup()` and instead uses `.testing()`'s
+    // in-memory transport) needs `startup()` to actually run the serve command, so the
+    // environment's arguments must be the app's own, not the test runner's.
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = port
+    fake.get("maintenance-modes", "active") { _ -> Response in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: maintenanceModesJSON))
+    }
+    do {
+      try await fake.startup()
+    } catch {
+      try? await fake.asyncShutdown()
+      throw error
+    }
+
+    let result: T
+    do {
+      result = try await test()
+    } catch {
+      try? await fake.asyncShutdown()
+      throw error
+    }
+    try await fake.asyncShutdown()
+    return result
+  }
+
+  @discardableResult
+  private func withMaintenanceModeApp<T>(
+    adminAPIURL: String?,
+    _ test: (Application) async throws -> T
+  ) async throws -> T {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.backendConfig = BackendConfig(
+        catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
+        shelfAPIURL: "unused", adminAPIURL: adminAPIURL)
+      app.middleware.use(MaintenanceModeMiddleware())
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, trending: [], tagCloud: [], user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      return try await test(app)
+    }
+  }
+
+  @Test("renders the maintenance page when an active maintenance-mode record exists")
+  func maintenancePageRendersWhenActive() async throws {
+    let port = 18761
+    try await withFakeAdminAPI(
+      port: port,
+      maintenanceModesJSON: """
+        [{
+          "scope_type": "platform",
+          "scope_value": "",
+          "label": "Scheduled downtime",
+          "description": "Upgrading the database.",
+          "starts_at": "2026-08-01T00:00:00Z",
+          "ends_at": "2026-08-01T04:00:00Z"
+        }]
+        """
+    ) {
+      try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:\(port)") { app in
+        try await app.testing().test(.GET, "test-home") { res in
+          #expect(res.status == .serviceUnavailable)
+          #expect(res.body.string.contains("Scheduled downtime"))
+          #expect(res.body.string.contains("Upgrading the database."))
+          #expect(!res.body.string.contains("Vol. count"))
+        }
+      }
+    }
+  }
+
+  @Test("renders the normal page when no maintenance-mode record is active")
+  func normalPageRendersWhenNoMaintenance() async throws {
+    let port = 18762
+    try await withFakeAdminAPI(port: port, maintenanceModesJSON: "[]") {
+      try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:\(port)") { app in
+        try await app.testing().test(.GET, "test-home") { res in
+          #expect(res.status == .ok)
+          #expect(res.body.string.contains("Vol. count"))
+        }
+      }
+    }
+  }
+
+  @Test("renders the normal page when admin-api is unreachable")
+  func normalPageRendersWhenAdminAPIUnreachable() async throws {
+    try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:1") { app in
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Vol. count"))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing
+
+  /// Mirrors the seeding `CatalogController.loadOrStartSession` does for a brand-new session -
+  /// used by the Leaf-rendering tests above, which exercise `edit.leaf` directly rather than
+  /// going through the real controller/routing (matching this file's existing convention for
+  /// this page).
+  private func testEditSession(for volume: VolumeViewModel) -> EditSession {
+    EditSession(
+      recordId: volume.id,
+      fields: [
+        "title": .string(volume.title), "description": .string(volume.description),
+        "notes": .string(volume.notes),
+      ],
+      stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: Date(), updatedAt: Date())
+  }
+
+  // The three tests below deliberately avoid a live Redis connection - this repo's CI (the
+  // shared `swift-ci.yaml` reusable workflow) has no Redis service container, and every
+  // existing Redis-touching test in this file (`currentUser...`) already works around that by
+  // testing only the disabled/unreachable path rather than a real round trip. `EditSession`'s
+  // wire format is exercised here as a pure `Codable` round trip instead - the part that
+  // actually needed verifying (the `iso8601` date strategy producing something Go's
+  // `time.Time` can parse, not the Redis transport itself, which `EditSessionAccess.swift`'s
+  // own use of the standard `RedisClient` API doesn't need app-level re-testing).
+
+  @Test("EditSession round-trips through JSON with ISO8601 dates")
+  func editSessionJSONRoundTrips() throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+
+    let original = EditSession(
+      recordId: "vol-1",
+      fields: ["title": .string("Staged Title"), "description": .string("Staged description")],
+      stagedCoverAssetId: "cover-abc", sampleAssetIds: ["s1", "s2"],
+      createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+      updatedAt: Date(timeIntervalSince1970: 1_700_000_100))
+
+    let data = try encoder.encode(original)
+    let decoded = try decoder.decode(EditSession.self, from: data)
+
+    #expect(decoded.recordId == original.recordId)
+    #expect(decoded.fields == original.fields)
+    #expect(decoded.stagedCoverAssetId == original.stagedCoverAssetId)
+    #expect(decoded.sampleAssetIds == original.sampleAssetIds)
+    #expect(decoded.createdAt == original.createdAt)
+  }
+
+  @Test("EditSession JSON encodes dates as RFC3339 strings, not epoch numbers")
+  func editSessionJSONEncodesRFC3339Dates() throws {
+    // catalog-api's `editsession.Session` decodes `createdAt`/`updatedAt` into Go's
+    // `time.Time`, which expects an RFC3339 string - the default `JSONEncoder` (no explicit
+    // `dateEncodingStrategy`) would instead emit a bare epoch-seconds number, which Go's
+    // `time.Time` JSON unmarshaling rejects outright. This confirms the actual wire shape
+    // `EditSessionAccess.swift` produces, not just that some string round-trips.
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let session = EditSession(
+      recordId: "vol-1", fields: [:], stagedCoverAssetId: nil, sampleAssetIds: nil,
+      createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+      updatedAt: Date(timeIntervalSince1970: 1_700_000_000))
+
+    let data = try encoder.encode(session)
+    let json = try #require(String(data: data, encoding: .utf8))
+
+    #expect(json.contains("2023-11-14T22:13:20Z"))
+  }
+
+  @Test("edit-session Redis key is namespaced by both user and record type")
+  func editSessionKeyFormat() {
+    // Mirrors catalog-api's editsession.Key exactly - the two sides must agree on this format
+    // or neither can ever see the other's writes/reads.
+    func key(userID: String, recordType: String) -> String {
+      "edit-session:\(userID):\(recordType)"
+    }
+    #expect(key(userID: "user-1", recordType: "volume") == "edit-session:user-1:volume")
+    #expect(
+      key(userID: "user-1", recordType: "volume") != key(userID: "user-1", recordType: "publisher")
+    )
+    #expect(
+      key(userID: "user-1", recordType: "volume") != key(userID: "user-2", recordType: "volume"))
+  }
+
+  @Test("edit page shows the session's staged field values, not the volume's live ones")
+  func editPageShowsSessionValuesOverLiveValues() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Live Title", description: "Live description", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let session = EditSession(
+      recordId: "1",
+      fields: ["title": .string("Session Title"), "description": .string("Live description")],
+      stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: Date(), updatedAt: Date())
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(volume: volume, session: session, userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"value="Session Title""#))
+        #expect(!res.body.string.contains(#"value="Live Title""#))
+      }
+    }
+  }
+
+  @Test("edit page publisher/studio pickers show existing options and no create-new affordance")
+  func editPagePublisherStudioPickersRenderOptionsAndNoCreatePath() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: ["Existing Co"], publisherIds: ["pub-1"],
+      studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              publisherOptions: [("pub-1", "Existing Co"), ("pub-2", "Other Publisher")],
+              studioOptions: [("studio-1", "Some Studio")]),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // The full candidate list is embedded for client-side filtering...
+        #expect(res.body.string.contains("Other Publisher"))
+        #expect(res.body.string.contains("Some Studio"))
+        // ...but there's no way to submit a name that isn't one of those existing options -
+        // the picker's filter input has no associated create/submit action of its own, only
+        // the JS-driven autosave to /edit/session/associations.
+        #expect(!res.body.string.contains("Create publisher"))
+        #expect(!res.body.string.contains("Create studio"))
+        #expect(!res.body.string.contains("Add new publisher"))
+        #expect(!res.body.string.contains("Add new studio"))
+      }
+    }
+  }
+
+  @Test("edit page shows a selected publisher chip for an already-linked publisher")
+  func editPageShowsSelectedPublisherChip() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: ["Existing Co"], publisherIds: ["pub-1"],
+      studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              publisherOptions: [("pub-1", "Existing Co")], studioOptions: []),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-id="pub-1""#))
+        #expect(res.body.string.contains("Existing Co"))
+      }
+    }
+  }
+
+  @Test("edit page prefers a session's pending publisher selection over the volume's live ones")
+  func editPageShowsSessionPublisherSelectionOverLiveOnes() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: ["Live Publisher"], publisherIds: ["pub-1"],
+      studioNames: [], licenseNames: [])
+    var session = testEditSession(for: volume)
+    session.fields["publisherIds"] = .stringArray(["pub-2"])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester",
+              publisherOptions: [("pub-1", "Live Publisher"), ("pub-2", "Session Publisher")],
+              studioOptions: []),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-id="pub-2""#))
+        #expect(res.body.string.contains("Session Publisher"))
+        #expect(!res.body.string.contains(#"data-id="pub-1""#))
+      }
+    }
+  }
+
+  @Test("edit page shows an inline error banner after a failed finalize")
+  func editPageShowsSubmitError() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false,
+            submitError: "You have 25 pending submissions, at your cap of 25.", user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("You have 25 pending submissions"))
+      }
+    }
+  }
+
+  @Test("edit-session-conflict page names both volumes and links to continue editing the other one")
+  func editSessionConflictPageRenders() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-conflict") { req async throws -> View in
+        try await req.view.render(
+          "edit-session-conflict",
+          EditSessionConflictContext(
+            volumeID: "2", volumeTitle: "New Volume", otherVolumeID: "1",
+            otherVolumeTitle: "In-Progress Volume", otherStagedCoverPath: "", user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-conflict") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("In-Progress Volume"))
+        #expect(res.body.string.contains(#"href="/volumes/1/edit""#))
+        #expect(res.body.string.contains("New Volume"))
+      }
+    }
+  }
+
+  @Test("edit-session-conflict page omits the staged-cover reclaim script when there is none")
+  func editSessionConflictPageOmitsReclaimScriptWithoutStagedCover() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-conflict") { req async throws -> View in
+        try await req.view.render(
+          "edit-session-conflict",
+          EditSessionConflictContext(
+            volumeID: "2", volumeTitle: "New Volume", otherVolumeID: "1",
+            otherVolumeTitle: "In-Progress Volume", otherStagedCoverPath: "", user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-conflict") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("discard-other-form"))
+        #expect(!res.body.string.contains("keepalive: true"))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing task 8 (contributor linking)
+
+  @Test("edit page contributor dialog completes a credit from person + contribution type options")
+  func editPageContributorDialogRendersPersonAndTypeOptions() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              personOptions: [("person-1", "Gary Gygax")],
+              contributionTypeOptions: ["Author", "Illustrator"], canAddContributionType: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("add-contributor-trigger"))
+        #expect(res.body.string.contains("Gary Gygax"))
+        #expect(res.body.string.contains("Author"))
+        #expect(res.body.string.contains("Illustrator"))
+        #expect(res.body.string.contains("/volumes/1/edit/session/credits"))
+      }
+    }
+  }
+
+  @Test("edit page shows the add-new-contribution-type affordance for an editor/admin session")
+  func editPageShowsAddContributionTypeForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              contributionTypeOptions: ["Author"], canAddContributionType: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("contributor-new-type"))
+        #expect(res.body.string.contains("Add type"))
+        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/contribution-type"))
+      }
+    }
+  }
+
+  @Test("edit page hides the add-new-contribution-type affordance for a submitter session")
+  func editPageHidesAddContributionTypeForSubmitter() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              contributionTypeOptions: ["Author"], canAddContributionType: false),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // The JS still references `contributor-new-type` by id (harmlessly - `getElementById`
+        // returns nil and every use is guarded), so this checks for the actual markup element,
+        // not the bare id string which also appears in the always-present script block.
+        #expect(!res.body.string.contains(#"id="contributor-new-type""#))
+        #expect(!res.body.string.contains(">Add type<"))
+      }
+    }
+  }
+
+  @Test("edit page falls back to a volume's live credits when the session has none staged")
+  func editPageShowsLiveCreditsWithoutSessionOverride() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.credits = [(personId: "person-1", role: "Author", person: "Gary Gygax")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-person-id="person-1""#))
+        #expect(res.body.string.contains("Gary Gygax"))
+        #expect(res.body.string.contains("Author"))
+      }
+    }
+  }
+
+  @Test("edit page contributor dialog has no path to create a new person")
+  func editPageContributorDialogHasNoCreatePersonPath() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              personOptions: [("person-1", "Gary Gygax")], canAddContributionType: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("Create person"))
+        #expect(!res.body.string.contains("Add new person"))
+        #expect(!res.body.string.contains("Add person"))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing task 9 (properties table)
+
+  @Test("edit page shows a selected property chip and the name/value picker")
+  func editPageShowsPropertyPicker() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              propertyNameOptions: ["Page count", "Weight"], canAddPropertyName: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-name="Page count""#))
+        #expect(res.body.string.contains("320"))
+        #expect(res.body.string.contains("Weight"))
+        #expect(res.body.string.contains("/volumes/1/edit/session/properties"))
+      }
+    }
+  }
+
+  @Test("edit page shows the add-new-property-name affordance for an editor/admin session")
+  func editPageShowsAddPropertyNameForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              propertyNameOptions: ["Page count"], canAddPropertyName: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("property-new-name"))
+        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/property-name"))
+      }
+    }
+  }
+
+  @Test("edit page hides the add-new-property-name affordance for a submitter session")
+  func editPageHidesAddPropertyNameForSubmitter() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              propertyNameOptions: ["Page count"], canAddPropertyName: false),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // The JS still references `property-new-name` by id (harmlessly - `getElementById`
+        // returns nil and every use is guarded), so this checks for the actual markup element,
+        // not the bare id string which also appears in the always-present script block.
+        #expect(!res.body.string.contains(#"id="property-new-name""#))
+        #expect(!res.body.string.contains(">Add name<"))
+      }
+    }
+  }
+
+  @Test("edit page falls back to a volume's live properties when the session has none staged")
+  func editPageShowsLivePropertiesWithoutSessionOverride() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-name="Page count""#))
+        #expect(res.body.string.contains("320"))
+      }
+    }
+  }
+
+  @Test("edit page prefers a session's pending property selection over the volume's live ones")
+  func editPageShowsSessionPropertySelectionOverLiveOnes() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.properties = [(name: "Page count", value: "320")]
+    var session = testEditSession(for: volume)
+    session.fields["properties"] = .objectArray([["name": "Weight", "value": "1.2kg"]])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-name="Weight""#))
+        #expect(res.body.string.contains("1.2kg"))
+        #expect(!res.body.string.contains(#"data-name="Page count""#))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing task 10 (format selector)
+
+  @Test("edit page shows the format selector, pre-filled, for an editor/admin session")
+  func editPageShowsFormatSelectorForEditor() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.format = "Hardcover"
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              formatOptions: ["Hardcover", "Paperback"], canSetFormat: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-selected-format="Hardcover""#))
+        #expect(res.body.string.contains("Paperback"))
+        #expect(res.body.string.contains("format-new-value"))
+        #expect(res.body.string.contains("/volumes/1/edit/session/format"))
+        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/format"))
+      }
+    }
+  }
+
+  @Test("edit page hides the format selector entirely for a submitter session")
+  func editPageHidesFormatSelectorForSubmitter() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.format = "Hardcover"
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        // Not just the add-new affordance - the entire selector, including the live format
+        // value itself, is absent for a submitter session (per volume-format-selector's spec).
+        #expect(!res.body.string.contains(#"id="format-field""#))
+        #expect(!res.body.string.contains(">Format<"))
+        #expect(!res.body.string.contains("Hardcover"))
+      }
+    }
+  }
+
+  @Test("edit page prefers a session's pending format selection over the volume's live one")
+  func editPageShowsSessionFormatSelectionOverLiveOne() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.format = "Hardcover"
+    var session = testEditSession(for: volume)
+    session.fields["format"] = .string("Paperback")
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester",
+              formatOptions: ["Hardcover", "Paperback"], canSetFormat: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-selected-format="Paperback""#))
+      }
+    }
+  }
+
+  // MARK: - durable-volume-editing task 11 (sample pages)
+
+  @Test("edit page shows the volume's live samples read-only alongside the upload control")
+  func editPageShowsLiveSamplesReadOnly() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.sampleAssetIds = ["1-0"]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("asset/sample/1-0"))
+        #expect(res.body.string.contains("replaces this whole set"))
+        #expect(res.body.string.contains("sample-upload-input"))
+        #expect(res.body.string.contains(#"accept="image/png,image/jpeg,image/webp""#))
+      }
+    }
+  }
+
+  @Test("edit page shows staged sample chips from the session, up to the 5-sample cap")
+  func editPageShowsStagedSampleChipsAtCap() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    var session = testEditSession(for: volume)
+    session.sampleAssetIds = [
+      "auth0-tester-0", "auth0-tester-1", "auth0-tester-2", "auth0-tester-3", "auth0-tester-4",
+    ]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        for n in 0..<5 {
+          #expect(res.body.string.contains(#"data-id="auth0-tester-\#(n)""#))
+        }
+        // The client-side cap is enforced by JS reading this constant, not by omitting markup -
+        // this asserts the cap value actually reaches the page's script.
+        #expect(res.body.string.contains("MAX_SAMPLES = 5"))
+      }
+    }
+  }
+
+  @Test(
+    "edit page shows no sample section content when the volume has neither live nor staged samples")
+  func editPageHidesSamplesWhenNoneExist() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "edit",
+          EditContext(
+            volume: LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("replaces this whole set"))
+        #expect(!res.body.string.contains("sample-thumbnail\""))
+      }
+    }
+  }
+
+  private func testVersion(
+    version: Int, state: String, submittedBy: String = "auth0|submitter",
+    reviewedBy: String? = nil, reviewNote: String? = nil
+  ) -> VolumeVersionAttributes {
+    VolumeVersionAttributes(
+      id: "ver-\(version)", recordId: "1", version: version, title: "Rusthaven",
+      description: "", notes: "", format: "", coverAssetId: "", sampleAssetIds: [], state: state,
+      baseVersion: version > 1 ? version - 1 : nil, submittedBy: submittedBy,
+      submittedAt: Date(timeIntervalSince1970: 0), reviewedBy: reviewedBy, reviewedAt: nil,
+      reviewNote: reviewNote, resultingVersion: nil)
+  }
+
+  @Test("version-history page lists every version with its state")
+  func versionHistoryListsVersions() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-versions") { req async throws -> View in
+        try await req.view.render(
+          "version-history",
+          VersionHistoryContext(
+            volumeID: "1", volumeTitle: "Rusthaven",
+            versions: [
+              LeafVersionSummary(testVersion(version: 2, state: "live")),
+              LeafVersionSummary(testVersion(version: 1, state: "archived")),
+            ],
+            canRollback: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-versions") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("/volumes/1/versions/2"))
+        #expect(res.body.string.contains("/volumes/1/versions/1"))
+        #expect(res.body.string.contains("live"))
+        #expect(res.body.string.contains("archived"))
+      }
+    }
+  }
+
+  @Test("version-history page hides the restore action without rollback rights")
+  func versionHistoryHidesRestoreWithoutRollbackRights() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-versions") { req async throws -> View in
+        try await req.view.render(
+          "version-history",
+          VersionHistoryContext(
+            volumeID: "1", volumeTitle: "Rusthaven",
+            versions: [LeafVersionSummary(testVersion(version: 1, state: "archived"))],
+            canRollback: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-versions") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains("Restore"))
+      }
+    }
+  }
+
+  @Test("version-history page shows the restore action for a non-live version with rollback rights")
+  func versionHistoryShowsRestoreForNonLiveVersionWithRollbackRights() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-versions") { req async throws -> View in
+        try await req.view.render(
+          "version-history",
+          VersionHistoryContext(
+            volumeID: "1", volumeTitle: "Rusthaven",
+            versions: [
+              LeafVersionSummary(testVersion(version: 2, state: "live")),
+              LeafVersionSummary(testVersion(version: 1, state: "archived")),
+            ],
+            canRollback: true, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-versions") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("/volumes/1/versions/1/restore"))
+        #expect(!res.body.string.contains("/volumes/1/versions/2/restore"))
+      }
+    }
+  }
+
+  @Test("version-detail page shows the submission and review audit trail")
+  func versionDetailShowsAuditTrail() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-version-detail") { req async throws -> View in
+        try await req.view.render(
+          "version-detail",
+          VersionDetailContext(
+            volumeID: "1",
+            version: LeafVersionDetail(
+              testVersion(
+                version: 2, state: "rejected", reviewedBy: "auth0|editor",
+                reviewNote: "not needed")),
+            canRollback: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-version-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("auth0|submitter"))
+        #expect(res.body.string.contains("auth0|editor"))
+        #expect(res.body.string.contains("not needed"))
       }
     }
   }

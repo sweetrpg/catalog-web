@@ -15,7 +15,7 @@ extension Request {
   /// rather than a constant. Falls back to "/" (this app's own root) if unset, matching the old
   /// behavior rather than producing a dead link in an environment that hasn't set it yet.
   var rootURL: String {
-    Environment.get("SWEETRPG_ROOT_URL") ?? "/"
+    Environment.get("ROOT_URL") ?? "/"
   }
 
   /// Base URL for shared frontend static assets (logo, favicon, stylesheet), served from
@@ -23,14 +23,7 @@ extension Request {
   /// sweetrpg/platform. Differs per environment (e.g. https://dev.sweetrpg.com/assets in dev).
   /// Falls back to a local assets-web instance's own address, so a developer running catalog-web
   /// alone still sees a rendered logo/stylesheet rather than a broken reference.
-  var sharedAssetsURL: String {
-    Environment.get("SHARED_ASSETS_URL") ?? "http://localhost:8081"
-  }
-
-  /// Redirects to a path on this app itself (e.g. "/login"), prefixed with `basePath`. Use
-  /// this instead of `redirect(to:)` for any in-app redirect target - `redirect(to:)` is still
-  /// correct as-is for external URLs (e.g. Auth0's own domain), which must not be prefixed.
-  func redirectLocal(to path: String) -> Response {
-    redirect(to: basePath + path)
+  var sharedURL: String {
+    Environment.get("SHARED_URL") ?? "http://localhost:8081"
   }
 }

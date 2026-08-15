@@ -1,4 +1,202 @@
 
+## 0.17.0 - 2026-08-14
+
+### Added
+- Route generic error status codes to shared-web
+
+
+### Fixed
+- Decode the shared session's expiry as RFC 3339
+
+
+
+## 0.16.0 - 2026-08-14
+
+### Added
+- Add volume version-history and single-version views
+
+
+
+## 0.15.0 - 2026-08-13
+
+### Added
+- Fluid inline editing for title/description/notes/cover
+- Session-backed volume editing (durable-volume-editing)
+- Publisher/studio linking on the volume edit page
+- Contributor linking on the volume edit page
+- Properties table on the volume detail and edit pages
+- Format selector on the volume edit page
+- Sample pages on the volume detail and edit pages
+
+
+### Fixed
+- Drop live-Redis round-trip tests, CI has no Redis service
+
+
+
+## 0.14.0 - 2026-08-12
+
+### Added
+- Add browse/detail/edit pages for publishers, studios, persons, licenses
+
+
+
+## 0.13.0 - 2026-08-12
+
+### Added
+- Report build version on /status/ping
+
+
+
+## 0.12.1 - 2026-08-12
+
+### Fixed
+- Stop conflicts banner from showing with no conflicts
+- Pass return_to on logout link
+
+
+
+## 0.12.0 - 2026-08-12
+
+### Added
+- Add cover-upload control to the volume detail page
+
+
+### Fixed
+- Fail open when fetching pending proposed changes
+
+
+
+## 0.11.0 - 2026-08-11
+
+### Added
+- Add cover-upload control to the volume detail page
+
+
+
+## 0.10.0 - 2026-08-11
+
+### Added
+- Honor shared session expiry field
+
+
+
+## 0.9.0 - 2026-08-11
+
+### Added
+- Add edit action and proposed-change review UI
+
+
+### Fixed
+- Match avatar badge accent color to main-web
+
+
+
+## 0.8.1 - 2026-08-09
+
+### Fixed
+- Update shared static asset paths for assets-web's css/img/js reorg
+
+
+
+## 0.8.0 - 2026-08-08
+
+### Added
+- Always show avatar menu with theme selector in catalog-web
+- Color Log Out with the danger/critical color
+- Render volume covers and structured detail metadata
+
+
+### Fixed
+- Hide the fallback letter once the Gravatar image loads
+- Hide the fallback text once a cover image loads
+
+
+
+## 0.7.0 - 2026-08-08
+
+### Added
+- Render a Gravatar image in the avatar circle
+
+
+
+## 0.6.0 - 2026-08-05
+
+### Added
+- Swap nav logo for theme-aware SVGs
+
+
+### Fixed
+- Respect the shared dark theme
+- Bump builder image to swift:6.2-jammy
+
+
+
+## 0.5.0 - 2026-08-04
+
+### Added
+- Adopt admin-api-client.swift for maintenance mode
+- Replace plain-text user identity with the shared avatar menu
+
+
+### Changed
+- Adopt catalog-api-client.swift SDK, drop in-tree JSON:API client
+
+
+### Fixed
+- Await the EventLoopFuture from encodeResponse correctly
+- Authenticate to the shared session Redis
+
+
+
+## 0.4.3 - 2026-08-01
+
+
+## 0.4.2 - 2026-08-01
+
+### Fixed
+- Drop dead COPY of removed Public/ directory (#33)
+
+
+
+## 0.4.1 - 2026-08-01
+
+### Fixed
+- Point shared session Redis at the correct host/DB (#31)
+
+
+
+## 0.4.0 - 2026-08-01
+
+### Added
+- Add AdminClient for banner message integration (#25)
+- Add overlays/local for the shared Tailscale front door (#26)
+- Add build hash display in footer (#28)
+- Migrate to auth-web's shared session
+
+
+### Documentation
+- Update Branding assets section for shared static assets (#14)
+- Add full badge row to README (CI, coverage, and the rest) (#23)
+- Fix coverage badge URL to point at GitHub Pages (#24)
+
+
+### Fixed
+- Application name
+- Remove HPA and PDB from dev overlay
+- Remove ExternalDNS annotations from dev Ingress (#20)
+
+
+
+## Unreleased
+
+### Changed
+- Migrated to the platform's shared suite-wide login: removed this app's own Auth0
+  Authorization Code flow (`AuthController`, `Auth0Config`, `ResilientRedisSessionDriver`, the
+  `/login` page) and its unverified local ID-token decode. `auth-web` is now the sole login
+  owner; this app only reads the shared session it establishes (read-only Redis connection,
+  fails open on any error).
+
 ## 0.3.0 - 2026-07-26
 
 ### Added

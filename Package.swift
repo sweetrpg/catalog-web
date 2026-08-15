@@ -11,8 +11,13 @@ let package = Package(
         .package(url: "https://github.com/vapor/vapor.git", from: "4.99.0"),
         // 🍃 An expressive, performant, and extensible templating language.
         .package(url: "https://github.com/vapor/leaf.git", from: "4.3.0"),
-        // 🔴 Redis-backed session/response caching.
+        // 🔴 Redis-backed response caching, and a read-only connection to auth-web's shared
+        // session store.
         .package(url: "https://github.com/vapor/redis.git", from: "4.10.0"),
+        // 🔒 MD5 hashing for Gravatar URLs (avatar-menu) - already resolved transitively via
+        // Vapor, declared explicitly here since SwiftPM requires a target's own dependencies to
+        // be listed, not just present in the resolved graph.
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.1"),
         // 📊 Prometheus metrics.
         .package(url: "https://github.com/swift-server/swift-prometheus.git", from: "2.0.0"),
         // 🩻 Distributed tracing API + OTLP exporter, matching the Go services' OTLP/HTTP
@@ -20,6 +25,23 @@ let package = Package(
         // section).
         .package(url: "https://github.com/apple/swift-distributed-tracing.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-otel/swift-otel.git", from: "0.8.0"),
+        // 🛠️ Shared admin-api client (banners, maintenance-mode) - replaces this app's own
+        // hand-rolled AdminClient, see sweetrpg/platform#15.
+        .package(url: "https://github.com/sweetrpg/admin-api-client.swift.git", from: "0.0.1"),
+        // 📚 Shared catalog-api client (JSON:API fetch/decoding) - replaces this app's own
+        // hand-rolled CatalogAPIClient, see sweetrpg/platform's api-client-sdks change.
+        // TEMPORARY: pinned to develop (sweetrpg/catalog-api-client.swift#5 merged there,
+        // bringing the publisher/studio/person/license attribute models and generic PATCH
+        // methods this app depends on) since that repo's "Bump version" workflow_dispatch isn't
+        // registered (confirmed via `gh api .../actions/workflows` - a pre-existing repo issue,
+        // not something this change caused) and it has no other release automation. Switch back
+        // to a `from:` version pin once a real tag exists past 0.0.1.
+        // TEMPORARY (catalog-entity-versioning): pinned to this branch instead of develop until
+        // sweetrpg/catalog-api-client.swift#11 merges - brings fetchVolumeVersions/
+        // fetchVolumeVersion/setCurrentVolumeVersion this app's version-history UI depends on.
+        .package(
+            url: "https://github.com/sweetrpg/catalog-api-client.swift.git",
+            branch: "39-catalog-entity-versioning"),
     ],
     targets: [
         .executableTarget(
@@ -28,10 +50,13 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Leaf", package: "leaf"),
                 .product(name: "Redis", package: "redis"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "Prometheus", package: "swift-prometheus"),
                 .product(name: "Tracing", package: "swift-distributed-tracing"),
                 .product(name: "OTel", package: "swift-otel"),
                 .product(name: "OTLPGRPC", package: "swift-otel"),
+                .product(name: "AdminAPIClient", package: "admin-api-client.swift"),
+                .product(name: "CatalogAPIClient", package: "catalog-api-client.swift"),
             ],
             // Resources/ and the top-level Public/ are shipped as plain directories next to the
             // built binary (see Dockerfile), not via SwiftPM resource bundling - Vapor's default
@@ -51,6 +76,7 @@ let package = Package(
             dependencies: [
                 .target(name: "App"),
                 .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "Redis", package: "redis"),
             ]
         ),
     ]

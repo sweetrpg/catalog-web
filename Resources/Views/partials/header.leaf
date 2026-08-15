@@ -1,6 +1,9 @@
 <nav class="nav">
 	<div class="nav-brand">
-		<a href="#(meta.rootURL)"><img src="#(meta.sharedAssetsURL)/static/logo.png" alt="SweetRPG" class="nav-logo"></a>
+		<a href="#(meta.rootURL)">
+			<img src="#(meta.sharedURL)/static/img/sweetrpg-logo-black.svg" alt="SweetRPG" class="nav-logo nav-logo-light">
+			<img src="#(meta.sharedURL)/static/img/sweetrpg-logo-white.svg" alt="SweetRPG" class="nav-logo nav-logo-dark">
+		</a>
 		<a href="#(meta.basePath)/">Catalogue</a>
 	</div>
 	<a href="#(meta.basePath)/">Front Page</a>
@@ -10,10 +13,43 @@
 	<form class="nav-search" action="#(meta.basePath)/browse" method="get">
 		<input class="input" type="text" name="q" placeholder="Search titles...">
 	</form>
-	#if(user):
-		<span class="nav-user">#(user.name)</span>
-		<form action="#(meta.basePath)/auth/logout" method="post"><button type="submit" class="btn btn-ghost">Log Out</button></form>
-	#else:
-		<a class="btn btn-ghost" href="#(meta.basePath)/login">Log In</a>
-	#endif
+	<div class="avatar-menu">
+		<button type="button" class="avatar-menu-trigger">
+			#if(user):
+				#if(user.avatarGravatarURL):
+				<img class="avatar-menu-avatar" src="#(user.avatarGravatarURL)" alt="" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				#endif
+				<span class="avatar-menu-fallback">#(user.avatarInitial)</span>
+			#else:
+				<img class="avatar-menu-avatar" src="#(meta.sharedURL)/static/img/mystery-man.svg" alt="">
+			#endif
+		</button>
+		<div class="avatar-menu-panel" hidden>
+			#if(user):
+				<div class="avatar-menu-identity">
+					<span class="avatar-menu-name">#(user.name)</span>
+					#if(user.email):
+					<span class="avatar-menu-email">#(user.email)</span>
+					#endif
+				</div>
+				<hr class="avatar-menu-divider">
+				<a class="avatar-menu-item" href="#(meta.userSettingsURL)">User Settings</a>
+				#if(user.isAdmin):
+				<a class="avatar-menu-item" href="#(meta.adminURL)">Administration</a>
+				#endif
+				<hr class="avatar-menu-divider">
+				<form action="#(meta.logoutURL)" method="post" class="avatar-menu-item-form">
+					<button type="submit" class="avatar-menu-item avatar-menu-item-danger">Log out</button>
+				</form>
+			#else:
+				<a class="avatar-menu-item" href="#(meta.loginURL)">Log in</a>
+			#endif
+			<hr class="avatar-menu-divider">
+			<div id="avatar-menu-theme-row" class="avatar-menu-theme-row" role="group" aria-label="Theme">
+				<button type="button" class="avatar-menu-theme-option" data-theme-choice="light" aria-label="Light"></button>
+				<button type="button" class="avatar-menu-theme-option" data-theme-choice="dark" aria-label="Dark"></button>
+				<button type="button" class="avatar-menu-theme-option" data-theme-choice="system" aria-label="System"></button>
+			</div>
+		</div>
+	</div>
 </nav>

@@ -28,6 +28,35 @@ exists only for the (currently unused) case of this app exposing its own API to 
   confirmed yet. Stubbed in `StubAPIClients.swift` - each returns `nil`/empty rather than
   calling a real endpoint. Replace method bodies as each backend's contract is settled; call
   sites (Controllers) already expect the eventual shape.
+- **admin-api** (banner messages, `sweetrpg/admin-api`): `AdminClient.swift`, named to match
+  main-web's own `AdminClient` per the `add-banner-messages` OpenSpec change
+  (`sweetrpg/platform`). Disabled by default - `baseURL` is `nil` unless `ADMIN_API_URL` is
+  set. Fetched as part of `PageMeta.make(req)` (not each controller individually) for
+  `platform`, `service:catalog`, and the current page's scope; a 90s Redis-backed cache (via
+  `CacheService`, falls through to no caching if Redis isn't configured) and a 2s
+  `ClientRequest.timeout` bound the call. Fails open on any error - see `AdminClient.swift`.
+  Rendered in `base.leaf`, styled by severity; banner text is plain (no markup), so
+  `meta.basePath` prefixing doesn't apply to banner content itself the way it does to this
+  app's own generated links.
+
+### Login and the shared session
+
+This app has no login flow of its own. `auth-web` is the platform's sole owner of the Auth0
+Authorization Code exchange (see `sweetrpg/platform`'s `add-user-api-authn-authz` OpenSpec
+change) - `AuthController.swift`/`Auth0Config.swift`/`ResilientRedisSessionDriver.swift` and this
+app's own `/login` page used to exist here and were removed as part of that migration. Every
+"log in"/"log out" link (`meta.loginURL`/`meta.logoutURL`, `PageMeta.make`) points at `auth-web`
+directly instead.
+
+`Request.currentUser` (`SessionUserAccess.swift`) reads the shared `sweetrpg_session` cookie
+`auth-web` writes, via a **separate** Redis connection (`RedisID.sharedSession`, `auth-web`'s own
+dedicated instance in `sweetrpg-auth`) from this app's own cache Redis
+(`sweetrpg-catalog`). It deliberately does not go through Vapor's `Session`/`SessionsMiddleware`
+- touching `req.session` on every request would create and write back a brand-new session for
+every anonymous visitor, which is exactly the write this read-only consumer must never make.
+Fails open (`nil`) on every error path: disabled, unreachable Redis, missing cookie, missing key,
+malformed JSON - same fail-open contract `ResilientRedisSessionDriver` gave every Vapor frontend
+before this app's own copy of it was removed.
 
 ### Known upstream issue
 
@@ -49,9 +78,10 @@ action, static asset URL, and redirect this app generates in HTML has to add the
 the *next* browser request won't round-trip through the ingress correctly.
 
 - `Request.basePath` (`AppPaths.swift`) holds this prefix, from `INGRESS_BASE_PATH`.
-- `Request.redirectLocal(to:)` - use for any in-app redirect. `redirect(to:)` is still correct
-  as-is for genuinely external URLs (Auth0's domain, etc.) - those must NOT be prefixed.
 - Every Leaf template's internal `href`/`action`/`src` uses `#(meta.basePath)` - see `PageMeta`.
+  The one exception is `meta.loginURL`/`meta.logoutURL`: `auth-web` sits at `/auth` on the same
+  host *root*, not under this app's own `basePath`, so those two are deliberately NOT prefixed
+  with `#(meta.basePath)` - see `PageMeta.make`.
 - **When adding a new page or partial**: pass `PageMeta(req)` into its context, and prefix every
   internal URL in its template with `#(meta.basePath)`. Missing this is an easy, silent bug -
   it works perfectly in local dev (empty `basePath`) and only breaks once deployed behind the
@@ -60,10 +90,10 @@ the *next* browser request won't round-trip through the ingress correctly.
 ### Branding assets
 
 Logo, favicon, and stylesheet (a green d20 die in a candy wrapper - "Sweet" + "RPG", the org's
-actual current brand mark) are served from `assets-web`'s shared static route, not this repo's
+actual current brand mark) are served from `shared-web`'s shared static route, not this repo's
 own `Public/` - see `docs/frontend-conventions.md` in `sweetrpg/platform` for the convention and
-`AppPaths.swift`'s `sharedAssetsURL` for how this app references them (`SHARED_ASSETS_URL` env
-var, falling back to a local `assets-web` instance's address in local dev). `base.leaf`/
+`AppPaths.swift`'s `sharedURL` for how this app references them (`SHARED_URL` env
+var, falling back to a local `shared-web` instance's address in local dev). `base.leaf`/
 `header.leaf` build their `href`/`src` from it. This app used to keep its own copies in
 `Public/` before every frontend needing the logo would otherwise drift out of sync with the
 others; don't reintroduce a local copy. `sweetrpg.com` itself is a defunct ~2015 placeholder
@@ -115,8 +145,8 @@ swift test
 swift format lint --recursive --strict Sources Tests
 ```
 
-`swift run` serves on `:8080`. Without `REDIS_HOST` set, falls back to in-memory sessions and no
-response caching. Without backend URL overrides, API calls default to in-cluster DNS names that
-won't resolve outside the cluster - set `CATALOG_API_URL` (see `BackendConfig.swift`) to a
-reachable endpoint, e.g. `https://api.catalog.dev.sweetrpg.com/0`, for local development against
-real data.
+`swift run` serves on `:8080`. Without `REDIS_HOST` set, no response caching. Without
+`SHARED_SESSION_REDIS_HOST` set, every visitor reads as logged-out. Without backend URL
+overrides, API calls default to in-cluster DNS names that won't resolve outside the cluster - set
+`CATALOG_API_URL` (see `BackendConfig.swift`) to a reachable endpoint, e.g.
+`https://api.catalog.dev.sweetrpg.com/0`, for local development against real data.

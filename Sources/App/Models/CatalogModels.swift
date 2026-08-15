@@ -1,60 +1,12 @@
+import CatalogAPIClient
 import Foundation
 
-struct TagAttributes: Codable, Sendable {
-  let name: String?
-  let value: String?
-
-  var displayName: String { name ?? value ?? "" }
-}
-
-struct VolumeAttributes: Codable, Sendable {
-  let title: String?
-  let description: String?
-  let notes: String?
-  let tags: [TagAttributes]?
-}
-
-struct NamedAttributes: Codable, Sendable {
-  let name: String?
-  let title: String?
-
-  var displayName: String { name ?? title ?? "Untitled" }
-}
-
-struct PersonAttributes: Codable, Sendable {
-  let name: String?
-  let fullName: String?
-  let firstName: String?
-  let lastName: String?
-
-  var displayName: String {
-    if let name { return name }
-    if let fullName { return fullName }
-    return [firstName, lastName].compactMap { $0 }.joined(separator: " ").isEmpty
-      ? "Unknown" : [firstName, lastName].compactMap { $0 }.joined(separator: " ")
-  }
-}
-
-struct ContributionAttributes: Codable, Sendable {
-  let role: String?
-  let credit: String?
-  let title: String?
-}
-
-struct ReviewAttributes: Codable, Sendable {
-  let authorName: String?
-  let author: String?
-  let name: String?
-  let rating: Double?
-  let score: Double?
-  let body: String?
-  let text: String?
-  let review: String?
-  let content: String?
-
-  var displayAuthor: String { authorName ?? author ?? name ?? "A reader" }
-  var displayRating: Double { rating ?? score ?? 0 }
-  var displayText: String { body ?? text ?? review ?? content ?? "" }
+/// An id+name pair for a related record - carries enough to both display a name and link to
+/// that record's own detail page (`catalog-entity-detail`'s "volume links to its associated
+/// entities" requirement), unlike a plain `[String]` of names.
+struct EntityRef {
+  let id: String
+  let name: String
 }
 
 /// Flattened, view-ready representation of a Volume plus whatever related names/credits/reviews
@@ -68,17 +20,120 @@ struct VolumeViewModel {
   let tags: [String]
   let systemNames: [String]
   let publisherNames: [String]
+  var publisherIds: [String] = []
   let studioNames: [String]
+  var studioIds: [String] = []
   let licenseNames: [String]
-  var credits: [(role: String, person: String)] = []
+  var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
+  var properties: [(name: String, value: String)] = []
+  /// Empty when unset. Editor/admin-only to set (see `volume-format-selector`'s spec) - always
+  /// readable here regardless of viewer role, since catalog-api's `GET /volumes` doesn't gate
+  /// this field the way `GET /vocabularies/format` gates the *candidate list*.
+  var format: String = ""
+  /// The volume's live sample-image ids (e.g. `["vol-1-0", "vol-1-1"]`) - empty until a session
+  /// with staged samples has been finalized at least once (see `volume-sample-pages`'s spec).
+  var sampleAssetIds: [String] = []
+  var publisherRefs: [EntityRef] = []
+  var studioRefs: [EntityRef] = []
+  var licenseRefs: [EntityRef] = []
 
   var tagChips: [String] { Array(tags.prefix(3)) }
-  var metaLine: String {
-    var parts: [String] = []
-    parts.append(contentsOf: systemNames.map { "System: \($0)" })
-    parts.append(contentsOf: publisherNames.map { "Publisher: \($0)" })
-    parts.append(contentsOf: studioNames.map { "Studio: \($0)" })
-    return parts.joined(separator: " \u{b7} ")
+  /// Relative path (join with `meta.assetsURL`) to this volume's cover image on
+  /// assets-web's dedicated `cover` asset kind (see the `expand-volume-detail-page` OpenSpec
+  /// change). Most volumes have no file stored yet, so templates render this optimistically and
+  /// let `onerror` reveal the existing "Cover pending" fallback on a 404 (or a 400, while
+  /// assets-web's `cover` kind hasn't deployed yet - `onerror` fires on any non-2xx image
+  /// response, so the fallback still degrades correctly either way).
+  var coverAssetPath: String { "asset/cover/\(id).svg" }
+  /// Relative paths to this volume's live sample images, same `asset/<kind>/<id>` shape as
+  /// `coverAssetPath`.
+  var samplePaths: [String] { sampleAssetIds.map { "asset/sample/\($0)" } }
+}
+
+/// A volume's id+title, as much as an entity detail page's associated-volumes list needs -
+/// distinct from `VolumeViewModel`, which carries a full volume's own detail-page data.
+struct VolumeSummary {
+  let id: String
+  let title: String
+}
+
+struct PublisherViewModel {
+  let id: String
+  let name: String
+  let address: String
+  let website: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: PublisherAttributes) {
+    self.id = id
+    self.name = attributes.name ?? "Untitled"
+    self.address = attributes.address ?? ""
+    self.website = attributes.website ?? ""
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
+}
+
+struct StudioViewModel {
+  let id: String
+  let name: String
+  let website: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: StudioAttributes) {
+    self.id = id
+    self.name = attributes.name ?? "Untitled"
+    self.website = attributes.website ?? ""
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
+}
+
+struct PersonViewModel {
+  let id: String
+  let name: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: PersonAttributes) {
+    self.id = id
+    self.name = attributes.displayName
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+  }
+}
+
+struct LicenseViewModel {
+  let id: String
+  let title: String
+  let shortTitle: String
+  let version: String
+  let deed: String
+  let legalCode: String
+  let website: String
+  let status: String
+  let availability: String
+  let notes: String
+  let tags: [String]
+  var volumes: [VolumeSummary] = []
+
+  init(id: String, attributes: LicenseAttributes) {
+    self.id = id
+    self.title = attributes.title ?? "Untitled"
+    self.shortTitle = attributes.shortTitle ?? ""
+    self.version = attributes.version ?? ""
+    self.deed = attributes.deed ?? ""
+    self.legalCode = attributes.legalCode ?? ""
+    self.website = attributes.website ?? ""
+    self.status = attributes.status ?? ""
+    self.availability = attributes.availability ?? ""
+    self.notes = attributes.notes ?? ""
+    self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
   }
 }

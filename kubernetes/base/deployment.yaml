@@ -27,6 +27,8 @@ spec:
                 component: web
                 version: v1
                 release: prometheus
+            annotations:
+                reloader.stakater.com/auto: "true"
         spec:
             serviceAccountName: web
             enableServiceLinks: false
@@ -42,16 +44,16 @@ spec:
                       - configMapRef:
                             name: web-env
                       - secretRef:
-                            name: web-auth0
-                      - secretRef:
                             name: web-cache
+                      - secretRef:
+                            name: web-shared-session
                   ports:
                       - containerPort: 8080
                         name: http
                   resources:
                       requests:
                           cpu: "20m"
-                          memory: "55m"
+                          memory: "55Mi"
                       limits:
                           cpu: "1.0"
                           memory: "512Mi"

@@ -1,0 +1,38 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; Back</a>
+
+		<div class="empty-state">
+			<h1>You're already editing something else</h1>
+			<p>You have an in-flight edit session for <strong>#(otherVolumeTitle)</strong>. Finish or
+			discard it before starting a new edit on <strong>#(volumeTitle)</strong>.</p>
+
+			<div class="form-actions">
+				<a class="btn btn-primary" href="#(meta.basePath)/volumes/#(otherVolumeID)/edit">Continue editing "#(otherVolumeTitle)"</a>
+
+				<form id="discard-other-form" action="#(meta.basePath)/volumes/#(volumeID)/edit/session/discard" method="post" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="#(otherStagedCoverPath)">
+					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volumeID)/edit">
+					<button type="submit" class="btn btn-ghost">Discard it and edit "#(volumeTitle)" instead</button>
+				</form>
+			</div>
+		</div>
+
+		#if(hasOtherStagedCover):
+			<script>
+			(function () {
+			  // Best-effort reclaim of the other volume's staged cover before discarding its
+			  // session in favor of starting a new one here - same rationale as edit.leaf's own
+			  // discard handler (assets-web only accepts browser-originated requests, not this
+			  // app's server-to-server calls). The periodic reclaim job is still the durable
+			  // backstop if this never fires.
+			  var form = document.getElementById('discard-other-form');
+			  if (!form) return;
+			  form.addEventListener('submit', function () {
+			    var url = form.dataset.assetsUrl + '/' + form.dataset.stagedCoverPath;
+			    fetch(url, { method: 'DELETE', credentials: 'include', keepalive: true }).catch(function () {});
+			  });
+			})();
+			</script>
+		#endif
+	#endexport
+#endextend
