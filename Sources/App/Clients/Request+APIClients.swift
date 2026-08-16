@@ -1,3 +1,5 @@
+import AdminAPIClient
+import CatalogAPIClient
 import Vapor
 
 // These three clients are placeholders. Endpoint shapes for game-systems-api, profiles-api,
@@ -41,4 +43,8 @@ extension Request {
   var gameSystemsAPI: GameSystemsAPIClient { GameSystemsAPIClient(request: self) }
   var profilesAPI: ProfilesAPIClient { ProfilesAPIClient(request: self) }
   var shelfAPI: ShelfAPIClient { ShelfAPIClient(request: self) }
+  var adminAPI: AdminClient { AdminClient(baseURL: Environment.get("ADMIN_API_URL")!) }
+  var catalogAPI: CatalogAPIClient {
+    CatalogAPIClient(baseURL: Environment.get("CATALOG_API_URL")!)
+  }
 }
