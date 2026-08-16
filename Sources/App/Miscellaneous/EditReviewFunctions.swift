@@ -75,7 +75,7 @@ func buildReview(
   req: Request, path: String, recordID: String, fieldSpecs: [EntityFieldSpec],
   sessionUser: SessionUser?
 ) async -> LeafEntityProposalReview? {
-  try await withSpan("review-build") { _ in
+  await withSpan("review-build") { _ in
     let roles = sessionUser?.roles ?? []
     guard canReview(roles), let token = sessionUser?.accessToken else { return nil }
     do {
