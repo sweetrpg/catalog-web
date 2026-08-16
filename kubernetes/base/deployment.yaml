@@ -47,6 +47,8 @@ spec:
                             name: web-cache
                       - secretRef:
                             name: web-shared-session
+                      - secretRef:
+                            name: web-edit-session
                   ports:
                       - containerPort: 8080
                         name: http
