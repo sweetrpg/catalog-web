@@ -1,5 +1,6 @@
 import CatalogAPIClient
 import Foundation
+import Tracing
 import Vapor
 
 /// Thin wrapper around the `catalog-api-client.swift` SDK: assembles this app's decorated
@@ -18,109 +19,124 @@ struct CatalogAPIClientService {
   }
 
   func fetchVolumes() async throws -> [VolumeViewModel] {
-    async let volumesDoc = getCached("catalog:volumes") { try await sdk.fetchVolumes() }
-    async let systems = fetchNameMap(path: "/systems")
-    async let publishers = fetchNameMap(path: "/publishers")
-    async let studios = fetchNameMap(path: "/studios")
-    async let licenses = fetchNameMap(path: "/licenses")
+    try await withSpan("sdk-fetch-volumes") { _ in
+      async let volumesDoc = getCached("catalog:volumes") { try await sdk.fetchVolumes() }
+      async let systems = fetchNameMap(path: "/systems")
+      async let publishers = fetchNameMap(path: "/publishers")
+      async let studios = fetchNameMap(path: "/studios")
+      async let licenses = fetchNameMap(path: "/licenses")
 
-    let (doc, systemNames, publisherNames, studioNames, licenseNames) =
-      try await (volumesDoc, systems, publishers, studios, licenses)
+      let (doc, systemNames, publisherNames, studioNames, licenseNames) =
+        try await (volumesDoc, systems, publishers, studios, licenses)
 
-    return doc.data.map { resource in
-      let rel = resource.relationships ?? [:]
-      func ids(_ key: String) -> [String] {
-        rel[key]?.data?.ids ?? []
-      }
-      func names(_ key: String, from map: [String: String]) -> [String] {
-        ids(key).compactMap { map[$0] }
-      }
-      func refs(_ key: String, from map: [String: String]) -> [EntityRef] {
-        (rel[key]?.data?.ids ?? []).compactMap { id in
-          map[id].map { EntityRef(id: id, name: $0) }
+      return doc.data.map { resource in
+        let rel = resource.relationships ?? [:]
+        func ids(_ key: String) -> [String] {
+          rel[key]?.data?.ids ?? []
         }
-      }
-      return VolumeViewModel(
-        id: resource.id,
-        title: resource.attributes.title ?? "Untitled",
-        description: resource.attributes.description ?? "",
-        notes: resource.attributes.notes ?? "",
-        tags: (resource.attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
-        systemNames: names("system", from: systemNames),
-        publisherNames: names("publisher", from: publisherNames),
-        publisherIds: ids("publisher"),
-        studioNames: names("studio", from: studioNames),
-        studioIds: ids("studio"),
-        licenseNames: names("license", from: licenseNames),
-        properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
-        format: resource.attributes.format ?? "",
-        sampleAssetIds: resource.attributes.sampleAssetIds ?? [],
-        publisherRefs: refs("publisher", from: publisherNames),
-        studioRefs: refs("studio", from: studioNames),
-        licenseRefs: refs("license", from: licenseNames)
-      )
-    }.sorted { $0.title < $1.title }
+        func names(_ key: String, from map: [String: String]) -> [String] {
+          ids(key).compactMap { map[$0] }
+        }
+        func refs(_ key: String, from map: [String: String]) -> [EntityRef] {
+          (rel[key]?.data?.ids ?? []).compactMap { id in
+            map[id].map { EntityRef(id: id, name: $0) }
+          }
+        }
+        return VolumeViewModel(
+          id: resource.id,
+          title: resource.attributes.title ?? "Untitled",
+          description: resource.attributes.description ?? "",
+          notes: resource.attributes.notes ?? "",
+          tags: (resource.attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
+          systemNames: names("system", from: systemNames),
+          publisherNames: names("publisher", from: publisherNames),
+          publisherIds: ids("publisher"),
+          studioNames: names("studio", from: studioNames),
+          studioIds: ids("studio"),
+          licenseNames: names("license", from: licenseNames),
+          properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
+          format: resource.attributes.format ?? "",
+          sampleAssetIds: resource.attributes.sampleAssetIds ?? [],
+          publisherRefs: refs("publisher", from: publisherNames),
+          studioRefs: refs("studio", from: studioNames),
+          licenseRefs: refs("license", from: licenseNames)
+        )
+      }.sorted { $0.title < $1.title }
+    }
   }
 
   /// Every publisher, sorted by name - the full candidate list the edit page's publisher picker
   /// filters client-side (see design.md's decision: no search endpoint, just filtering the
   /// existing full-collection fetch).
   func fetchPublisherOptions() async throws -> [(id: String, name: String)] {
-    let doc = try await getCached("catalog:/publishers") {
-      try await sdk.fetchNamed(path: "/publishers")
+    try await withSpan("sdk-fetch-publisher-options") { _ in
+      let doc = try await getCached("catalog:/publishers") {
+        try await sdk.fetchNamed(path: "/publishers")
+      }
+
+      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
     }
-    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
   }
 
   /// Every studio, sorted by name - same rationale as `fetchPublisherOptions`.
   func fetchStudioOptions() async throws -> [(id: String, name: String)] {
-    let doc = try await getCached("catalog:/studios") { try await sdk.fetchNamed(path: "/studios") }
-    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+    try await withSpan("sdk-fetch-studio-options") { _ in
+      let doc = try await getCached("catalog:/studios") {
+        try await sdk.fetchNamed(path: "/studios")
+      }
+      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+    }
   }
 
   func fetchVolume(id: String, allVolumes: [VolumeViewModel]) async -> VolumeViewModel? {
-    // Reuses the already-fetched, already-decorated volume list rather than making a
-    // second round trip for a single resource - fine at this data size (dozens to low
-    // hundreds of volumes); revisit if the catalog grows large enough that fetching every
-    // volume up front to find one stops being cheap.
-    // TODO: dear robot, this is dumb and not forward-looking; a single entity retrieval should
-    // never be an expensive operation
-    allVolumes.first { $0.id == id }
+    withSpan("sdk-fetch-volume") { _ in
+      // Reuses the already-fetched, already-decorated volume list rather than making a
+      // second round trip for a single resource - fine at this data size (dozens to low
+      // hundreds of volumes); revisit if the catalog grows large enough that fetching every
+      // volume up front to find one stops being cheap.
+      // TODO: dear robot, this is dumb and not forward-looking; a single entity retrieval should
+      // never be an expensive operation
+      allVolumes.first { $0.id == id }
+    }
   }
 
   func fetchCredits(volumeID: String) async throws -> [(
     personId: String, role: String, person: String
   )] {
-    async let contributionsDoc = getCached("catalog:contributions") {
-      try await sdk.fetchContributions()
-    }
-    async let personNames = fetchPersonNameMap()
+    try await withSpan("sdk-fetch-credits") { _ in
+      async let contributionsDoc = getCached("catalog:contributions") {
+        try await sdk.fetchContributions()
+      }
+      async let personNames = fetchPersonNameMap()
 
-    let (doc, persons) = try await (contributionsDoc, personNames)
-    return doc.data.compactMap { resource -> (personId: String, role: String, person: String)? in
-      guard let volID = resource.relationships?["volume"]?.data?.ids.first,
-        volID == volumeID
-      else { return nil }
-      guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
-      let role =
-        resource.attributes.role ?? resource.attributes.credit ?? resource.attributes.title
-        ?? "Contributor"
-      return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
+      let (doc, persons) = try await (contributionsDoc, personNames)
+      return doc.data.compactMap { resource -> (personId: String, role: String, person: String)? in
+        guard let volID = resource.relationships?["volume"]?.data?.ids.first,
+          volID == volumeID
+        else { return nil }
+        guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
+        let role =
+          resource.attributes.role ?? resource.attributes.credit ?? resource.attributes.title
+          ?? "Contributor"
+        return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
+      }
     }
   }
 
   func fetchReviews(volumeID: String) async throws -> [(author: String, rating: Int, text: String)]
   {
-    let doc = try await getCached("catalog:reviews") { try await sdk.fetchReviews() }
-    return doc.data.compactMap { resource in
-      guard let volID = resource.relationships?["volume"]?.data?.ids.first,
-        volID == volumeID
-      else { return nil }
-      return (
-        author: resource.attributes.displayAuthor,
-        rating: Int(resource.attributes.displayRating.rounded()),
-        text: resource.attributes.displayText
-      )
+    try await withSpan("sdk-fetch-reviews") { _ in
+      let doc = try await getCached("catalog:reviews") { try await sdk.fetchReviews() }
+      return doc.data.compactMap { resource in
+        guard let volID = resource.relationships?["volume"]?.data?.ids.first,
+          volID == volumeID
+        else { return nil }
+        return (
+          author: resource.attributes.displayAuthor,
+          rating: Int(resource.attributes.displayRating.rounded()),
+          text: resource.attributes.displayText
+        )
+      }
     }
   }
 
@@ -130,48 +146,62 @@ struct CatalogAPIClientService {
   func patchVolume(
     id: String, token: String, title: String?, description: String?, notes: String?
   ) async throws -> VolumePatchResult {
-    try await sdk.patchVolume(
-      id: id, token: token, title: title, description: description, notes: notes)
+    try await withSpan("sdk-patch-volume") { _ in
+      try await sdk.patchVolume(
+        id: id, token: token, title: title, description: description, notes: notes)
+    }
   }
 
   /// Finalizes the caller's in-flight durable edit session for a volume - see
   /// `CatalogController.submitEdit`.
   func finalizeSession(id: String, token: String) async throws -> VolumePatchResult {
-    try await sdk.finalizeSession(id: id, token: token)
+    try await withSpan("sdk-finalize-session") { _ in
+      try await sdk.finalizeSession(id: id, token: token)
+    }
   }
 
   func listProposedChanges(volumeID: String, token: String) async throws
     -> [ProposedChangeSummary]
   {
-    try await sdk.listProposedChanges(volumeID: volumeID, token: token)
+    try await withSpan("sdk-list-proposed-changes") { _ in
+      try await sdk.listProposedChanges(volumeID: volumeID, token: token)
+    }
   }
 
   func acceptProposedChange(
     volumeID: String, proposalID: String, token: String, fields: [String]?
   ) async throws -> ReviewProposalResult {
-    try await sdk.acceptProposedChange(
-      volumeID: volumeID, proposalID: proposalID, token: token, fields: fields)
+    try await withSpan("sdk-accept-proposed-change") { _ in
+      try await sdk.acceptProposedChange(
+        volumeID: volumeID, proposalID: proposalID, token: token, fields: fields)
+    }
   }
 
   func rejectProposedChange(
     volumeID: String, proposalID: String, token: String, note: String?
   ) async throws -> ReviewProposalResult {
-    try await sdk.rejectProposedChange(
-      volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+    try await withSpan("sdk-reject-proposed-change") { _ in
+      try await sdk.rejectProposedChange(
+        volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+    }
   }
 
   /// Lists a volume's version history, newest first.
   func fetchVolumeVersions(volumeID: String, token: String) async throws
     -> [VolumeVersionAttributes]
   {
-    try await sdk.fetchVolumeVersions(id: volumeID, token: token)
+    try await withSpan("sdk-fetch-volume-versions") { _ in
+      try await sdk.fetchVolumeVersions(id: volumeID, token: token)
+    }
   }
 
   /// Fetches one version's full field snapshot, regardless of whether it's current.
   func fetchVolumeVersion(volumeID: String, version: Int, token: String) async throws
     -> VolumeVersionAttributes
   {
-    try await sdk.fetchVolumeVersion(id: volumeID, version: version, token: token)
+    try await withSpan("sdk-fetch-volume-version") { _ in
+      try await sdk.fetchVolumeVersion(id: volumeID, version: version, token: token)
+    }
   }
 
   /// Rolls a volume back (or forward) to an arbitrary existing version - admin only, enforced by
@@ -179,89 +209,121 @@ struct CatalogAPIClientService {
   func setCurrentVolumeVersion(volumeID: String, version: Int, token: String) async throws
     -> VolumeVersionAttributes
   {
-    try await sdk.setCurrentVolumeVersion(id: volumeID, version: version, token: token)
+    try await withSpan("sdk-set-current-volume-version") { _ in
+      try await sdk.setCurrentVolumeVersion(id: volumeID, version: version, token: token)
+    }
   }
 
   /// Every person, sorted by name - the contributor dialog's person picker candidate list
   /// (task 8.1), same client-side-filtering rationale as `fetchPublisherOptions`.
   func fetchPersonOptions() async throws -> [(id: String, name: String)] {
-    let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
-    return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+    try await withSpan("sdk-fetch-persons") { _ in
+      let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
+      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+    }
   }
 
   /// Lists a shared vocabulary's values (contribution-type/property-name/format).
   func fetchVocabulary(type: String, token: String) async throws -> [String] {
-    try await sdk.fetchVocabulary(type: type, token: token).values
+    try await withSpan("sdk-fetch-vocabulary") { _ in
+      try await sdk.fetchVocabulary(type: type, token: token).values
+    }
   }
 
   /// Adds a new value to a shared vocabulary - editor/admin only, enforced by catalog-api.
   /// Returns the vocabulary's full value list after the add.
   func addVocabularyValue(type: String, value: String, token: String) async throws -> [String] {
-    try await sdk.addVocabularyValue(type: type, value: value, token: token).values
+    try await withSpan("sdk-add-vocabulary-value") { _ in
+      try await sdk.addVocabularyValue(type: type, value: value, token: token).values
+    }
   }
 
   func fetchPublishers() async throws -> [PublisherViewModel] {
-    let doc = try await getCached("catalog:publishers") { try await sdk.fetchPublishers() }
-    return doc.data.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) }
-      .sorted { $0.name < $1.name }
+    try await withSpan("sdk-fetch-publishers") { _ in
+      let doc = try await getCached("catalog:publishers") { try await sdk.fetchPublishers() }
+      return doc.data.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) }
+        .sorted { $0.name < $1.name }
+    }
   }
 
   func fetchPublisher(id: String) async throws -> PublisherViewModel? {
-    let doc = try await sdk.fetchPublisher(id: id)
-    return PublisherViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    try await withSpan("sdk-fetch-publisher") { _ in
+      let doc = try await sdk.fetchPublisher(id: id)
+      return PublisherViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    }
   }
 
   func fetchPublisherVolumes(id: String) async throws -> [VolumeSummary] {
-    let doc = try await sdk.fetchPublisherVolumes(id: id)
-    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    try await withSpan("sdk-fetch-publisher-volumes") { _ in
+      let doc = try await sdk.fetchPublisherVolumes(id: id)
+      return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    }
   }
 
   func fetchStudios() async throws -> [StudioViewModel] {
-    let doc = try await getCached("catalog:studios") { try await sdk.fetchStudios() }
-    return doc.data.map { StudioViewModel(id: $0.id, attributes: $0.attributes) }
-      .sorted { $0.name < $1.name }
+    try await withSpan("sdk-fetch-studios") { _ in
+      let doc = try await getCached("catalog:studios") { try await sdk.fetchStudios() }
+      return doc.data.map { StudioViewModel(id: $0.id, attributes: $0.attributes) }
+        .sorted { $0.name < $1.name }
+    }
   }
 
   func fetchStudio(id: String) async throws -> StudioViewModel? {
-    let doc = try await sdk.fetchStudio(id: id)
-    return StudioViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    try await withSpan("sdk-fetch-studio") { _ in
+      let doc = try await sdk.fetchStudio(id: id)
+      return StudioViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    }
   }
 
   func fetchStudioVolumes(id: String) async throws -> [VolumeSummary] {
-    let doc = try await sdk.fetchStudioVolumes(id: id)
-    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    try await withSpan("sdk-fetch-studio-volumes") { _ in
+      let doc = try await sdk.fetchStudioVolumes(id: id)
+      return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    }
   }
 
   func fetchPersonsCatalog() async throws -> [PersonViewModel] {
-    let doc = try await getCached("catalog:persons-list") { try await sdk.fetchPersons() }
-    return doc.data.map { PersonViewModel(id: $0.id, attributes: $0.attributes) }
-      .sorted { $0.name < $1.name }
+    try await withSpan("sdk-fetch-persons-catalog") { _ in
+      let doc = try await getCached("catalog:persons-list") { try await sdk.fetchPersons() }
+      return doc.data.map { PersonViewModel(id: $0.id, attributes: $0.attributes) }
+        .sorted { $0.name < $1.name }
+    }
   }
 
   func fetchPerson(id: String) async throws -> PersonViewModel? {
-    let doc = try await sdk.fetchPerson(id: id)
-    return PersonViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    try await withSpan("sdk-fetch-person") { _ in
+      let doc = try await sdk.fetchPerson(id: id)
+      return PersonViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    }
   }
 
   func fetchPersonVolumes(id: String) async throws -> [VolumeSummary] {
-    let doc = try await sdk.fetchPersonVolumes(id: id)
-    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    try await withSpan("sdk-fetch-person-volumes") { _ in
+      let doc = try await sdk.fetchPersonVolumes(id: id)
+      return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    }
   }
 
   func fetchLicenses() async throws -> [LicenseViewModel] {
-    let doc = try await getCached("catalog:licenses-list") { try await sdk.fetchLicenses() }
-    return doc.data.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) }
-      .sorted { $0.title < $1.title }
+    try await withSpan("sdk-fetch-licenses") { _ in
+      let doc = try await getCached("catalog:licenses-list") { try await sdk.fetchLicenses() }
+      return doc.data.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) }
+        .sorted { $0.title < $1.title }
+    }
   }
 
   func fetchLicense(id: String) async throws -> LicenseViewModel? {
-    let doc = try await sdk.fetchLicense(id: id)
-    return LicenseViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    try await withSpan("sdk-fetch-license") { _ in
+      let doc = try await sdk.fetchLicense(id: id)
+      return LicenseViewModel(id: doc.data.id, attributes: doc.data.attributes)
+    }
   }
 
   func fetchLicenseVolumes(id: String) async throws -> [VolumeSummary] {
-    let doc = try await sdk.fetchLicenseVolumes(id: id)
-    return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    try await withSpan("sdk-fetch-license-volumes") { _ in
+      let doc = try await sdk.fetchLicenseVolumes(id: id)
+      return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
+    }
   }
 
   /// Outcome of a generic entity PATCH - the applied document's contents aren't used by any
@@ -292,37 +354,49 @@ struct CatalogAPIClientService {
   func listProposedChanges(path: String, id: String, token: String) async throws
     -> [ProposedChangeSummary]
   {
-    try await sdk.listProposedChanges(path: path, id: id, token: token)
+    try await withSpan("sdk-list-proposed-changes") { _ in
+      try await sdk.listProposedChanges(path: path, id: id, token: token)
+    }
   }
 
   func acceptProposedChange(
     path: String, id: String, proposalID: String, token: String, fields: [String]?
   ) async throws -> ReviewProposalResult {
-    try await sdk.acceptProposedChange(
-      path: path, id: id, proposalID: proposalID, token: token, fields: fields)
+    try await withSpan("sdk-accept-proposed-change") { _ in
+      try await sdk.acceptProposedChange(
+        path: path, id: id, proposalID: proposalID, token: token, fields: fields)
+    }
   }
 
   func rejectProposedChange(
     path: String, id: String, proposalID: String, token: String, note: String?
   ) async throws -> ReviewProposalResult {
-    try await sdk.rejectProposedChange(
-      path: path, id: id, proposalID: proposalID, token: token, note: note)
+    try await withSpan("sdk-reject-proposed-change") { _ in
+      try await sdk.rejectProposedChange(
+        path: path, id: id, proposalID: proposalID, token: token, note: note)
+    }
   }
 
   private func fetchNameMap(path: String) async throws -> [String: String] {
-    let doc = try await getCached("catalog:\(path)") { try await sdk.fetchNamed(path: path) }
-    return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
+    try await withSpan("sdk-fetch-named") { _ in
+      let doc = try await getCached("catalog:\(path)") { try await sdk.fetchNamed(path: path) }
+      return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
+    }
   }
 
   private func fetchPersonNameMap() async throws -> [String: String] {
-    let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
-    return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
+    try await withSpan("sdk-fetch-persons") { _ in
+      let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
+      return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
+    }
   }
 
   private func getCached<T: Codable & Sendable>(
     _ cacheKey: String, fetch: @Sendable () async throws -> T
   ) async throws -> T {
-    try await cache.getOrSet(cacheKey, ttlSeconds: 60, fetch: fetch)
+    try await withSpan("sdk-cache-get-or-set") { _ in
+      try await cache.getOrSet(cacheKey, ttlSeconds: 60, fetch: fetch)
+    }
   }
 }
 
