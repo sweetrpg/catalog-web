@@ -5,6 +5,28 @@
 - Update Swift version in release workflow
 
 
+## 0.20.0 - 2026-08-16
+
+### Added
+- Add spans to volume controller endpoints
+- Add distributed tracing spans to catalog controllers
+- Add tracing everywhere
+- More tracing
+- Add tracing to SDK
+- Add tracing to middlewares
+
+
+### Changed
+- Move AppPaths to Miscellaneous directory
+- Reorder imports to follow convention
+
+
+### Fixed
+- Remove unnecessary try
+- Try to make the build work, update Swift version
+- Put the candle back
+
+
 
 ## 0.19.0 - 2026-08-15
 
