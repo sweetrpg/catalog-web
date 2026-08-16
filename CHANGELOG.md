@@ -1,4 +1,11 @@
 
+## 0.20.1 - 2026-08-16
+
+### Fixed
+- Update Swift version in release workflow
+
+
+
 ## 0.19.0 - 2026-08-15
 
 ### Added
