@@ -1,6 +1,7 @@
 import Redis
 import Tracing
 import Vapor
+import Foundation
 
 /// Generic get-or-set cache over Vapor's Redis client. Falls through to calling `fetch` directly
 /// (no caching) if Redis isn't configured - see `configure.swift` - so caching is an optimization,

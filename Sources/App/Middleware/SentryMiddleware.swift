@@ -1,5 +1,6 @@
 import Tracing
 import Vapor
+import Foundation
 
 /// Reports any error the responder chain throws to Sentry, then rethrows unchanged - Vapor's
 /// own `ErrorMiddleware` (registered by default) still turns it into the actual HTTP response.

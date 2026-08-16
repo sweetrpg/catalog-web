@@ -1,5 +1,6 @@
 import Tracing
 import Vapor
+import Foundation
 
 /// Renders a maintenance page instead of the requested route whenever admin-api reports an
 /// active maintenance-mode record for this app's scopes (`platform` or `service:catalog`) - see

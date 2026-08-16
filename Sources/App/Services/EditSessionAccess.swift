@@ -139,10 +139,12 @@ struct EditSessionStore {
         key(userID: userID, recordType: recordType), to: json
       ).get()
     }
+  }
 
-    /// Deletes the caller's in-flight session for `recordType` - a missing session is not an
-    /// error (discarding an already-expired/finalized session is a normal, successful outcome).
-    func delete(userID: String, recordType: String) async {
+  /// Deletes the caller's in-flight session for `recordType` - a missing session is not an
+  /// error (discarding an already-expired/finalized session is a normal, successful outcome).
+  func delete(userID: String, recordType: String) async {
+    await withSpan("delete-session") { _ in
       guard request.application.editSessionRedisConfigured else { return }
       _ = try? await request.redis(.editSession).delete(
         key(userID: userID, recordType: recordType)
