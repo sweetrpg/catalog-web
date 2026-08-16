@@ -8,7 +8,7 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
 				#if(canUploadCover):
 					<div class="cover-upload" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover">

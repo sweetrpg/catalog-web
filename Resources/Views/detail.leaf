@@ -12,7 +12,7 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
 			</div>
 
