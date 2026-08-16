@@ -32,63 +32,63 @@ struct SentryReporter: Sendable {
   }
 
   func report(_ error: Error, on client: Client) {
-     withSpan("sentry-report") { _ in
-    let eventID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-    let timestamp = ISO8601DateFormatter().string(from: Date())
+    withSpan("sentry-report") { _ in
+      let eventID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+      let timestamp = ISO8601DateFormatter().string(from: Date())
 
-    var event: [String: Any] = [
-      "event_id": eventID,
-      "timestamp": timestamp,
-      "platform": "other",
-      "environment": environment,
-      "level": "error",
-      "exception": [
-        "values": [
-          [
-            "type": String(describing: type(of: error)),
-            "value": String(describing: error),
+      var event: [String: Any] = [
+        "event_id": eventID,
+        "timestamp": timestamp,
+        "platform": "other",
+        "environment": environment,
+        "level": "error",
+        "exception": [
+          "values": [
+            [
+              "type": String(describing: type(of: error)),
+              "value": String(describing: error),
+            ]
           ]
-        ]
-      ],
-    ]
-    if let release { event["release"] = release }
+        ],
+      ]
+      if let release { event["release"] = release }
 
-    guard let eventData = try? JSONSerialization.data(withJSONObject: event),
-      let header = try? JSONSerialization.data(withJSONObject: [
-        "event_id": eventID, "sent_at": timestamp,
-      ]),
-      let itemHeader = try? JSONSerialization.data(withJSONObject: [
-        "type": "event", "length": eventData.count,
-      ])
-    else { return }
+      guard let eventData = try? JSONSerialization.data(withJSONObject: event),
+        let header = try? JSONSerialization.data(withJSONObject: [
+          "event_id": eventID, "sent_at": timestamp,
+        ]),
+        let itemHeader = try? JSONSerialization.data(withJSONObject: [
+          "type": "event", "length": eventData.count,
+        ])
+      else { return }
 
-    var envelope = Data()
-    envelope.append(header)
-    envelope.append(contentsOf: [0x0A])
-    envelope.append(itemHeader)
-    envelope.append(contentsOf: [0x0A])
-    envelope.append(eventData)
+      var envelope = Data()
+      envelope.append(header)
+      envelope.append(contentsOf: [0x0A])
+      envelope.append(itemHeader)
+      envelope.append(contentsOf: [0x0A])
+      envelope.append(eventData)
 
-    let authHeader =
-      "Sentry sentry_version=7, sentry_client=catalog-web/1.0, sentry_key=\(publicKey)"
+      let authHeader =
+        "Sentry sentry_version=7, sentry_client=catalog-web/1.0, sentry_key=\(publicKey)"
 
-    // Fire-and-forget: error reporting must never become the reason a request hangs or
-    // fails. Logged, not propagated, if Sentry itself is unreachable.
-    Task {
-      do {
-        _ = try await client.post(
-          URI(string: "https://\(host)/api/\(projectID)/envelope/"),
-          headers: ["X-Sentry-Auth": authHeader, "Content-Type": "application/x-sentry-envelope"]
-        ) { req in
-          req.body = .init(data: envelope)
+      // Fire-and-forget: error reporting must never become the reason a request hangs or
+      // fails. Logged, not propagated, if Sentry itself is unreachable.
+      Task {
+        do {
+          _ = try await client.post(
+            URI(string: "https://\(host)/api/\(projectID)/envelope/"),
+            headers: ["X-Sentry-Auth": authHeader, "Content-Type": "application/x-sentry-envelope"]
+          ) { req in
+            req.body = .init(data: envelope)
+          }
+        } catch {
+          // Deliberately not using the app logger's error level here - a Sentry delivery
+          // failure reported at `error` could recursively trigger this same reporting
+          // path if it's ever wired to also report logged errors.
         }
-      } catch {
-        // Deliberately not using the app logger's error level here - a Sentry delivery
-        // failure reported at `error` could recursively trigger this same reporting
-        // path if it's ever wired to also report logged errors.
       }
     }
-  }
   }
 }
 
