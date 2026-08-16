@@ -1,6 +1,6 @@
+import Foundation
 import Tracing
 import Vapor
-import Foundation
 
 /// Process-wide token bucket rate limiter, mirroring catalog-api's `golang.org/x/time/rate`
 /// middleware (docs/service-conventions.md's Rate limiting section): one shared bucket across
