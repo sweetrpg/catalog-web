@@ -1,4 +1,11 @@
 
+## 0.21.0 - 2026-08-16
+
+### Added
+- Add volume title as alt text for cover images and remove svg extension from cover asset path
+
+
+
 ## 0.20.1 - 2026-08-16
 
 ### Fixed
