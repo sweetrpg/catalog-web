@@ -37,7 +37,7 @@ struct VolumeViewModel {
   /// let `onerror` reveal the existing "Cover pending" fallback on a 404 (or a 400, while
   /// assets-web's `cover` kind hasn't deployed yet - `onerror` fires on any non-2xx image
   /// response, so the fallback still degrades correctly either way).
-  var coverAssetPath: String { "asset/cover/\(id).svg" }
+  var coverAssetPath: String { "asset/cover/\(id)" }
   /// Relative paths to this volume's live sample images, same `asset/<kind>/<id>` shape as
   /// `coverAssetPath`.
   var samplePaths: [String] { sampleAssetIds.map { "asset/sample/\($0)" } }
