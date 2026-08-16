@@ -7,17 +7,6 @@ import Vapor
 // contract is settled - the call sites (Controllers) already expect this shape, so filling
 // these in shouldn't require touching the views.
 
-struct GameSystemsAPIClient {
-  let request: Request
-
-  /// Richer game-system detail than catalog-api's own shallow `/systems` list.
-  /// - Returns: `nil` until this is wired up - callers should render a placeholder, not treat
-  ///   `nil` as an error.
-  func fetchSystemDetail(id: String) async throws -> String? {
-    nil
-  }
-}
-
 struct ProfilesAPIClient {
   let request: Request
 
@@ -27,18 +16,6 @@ struct ProfilesAPIClient {
   }
 }
 
-struct ShelfAPIClient {
-  let request: Request
-
-  /// Per-user shelf entries (want/playing/played/owned + rating + review). Backed by
-  /// library-api today, pending its rename to shelf-api.
-  func fetchShelf(userID: String) async throws -> [String: String] {
-    [:]
-  }
-}
-
 extension Request {
-  var gameSystemsAPI: GameSystemsAPIClient { GameSystemsAPIClient(request: self) }
   var profilesAPI: ProfilesAPIClient { ProfilesAPIClient(request: self) }
-  var shelfAPI: ShelfAPIClient { ShelfAPIClient(request: self) }
 }

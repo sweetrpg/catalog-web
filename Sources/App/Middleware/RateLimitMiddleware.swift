@@ -1,3 +1,5 @@
+import Foundation
+import Tracing
 import Vapor
 
 /// Process-wide token bucket rate limiter, mirroring catalog-api's `golang.org/x/time/rate`
@@ -16,14 +18,16 @@ actor TokenBucket {
   }
 
   func tryConsume() -> Bool {
-    let now = Date()
-    let elapsed = now.timeIntervalSince(lastRefill)
-    tokens = min(capacity, tokens + elapsed)
-    lastRefill = now
+    withSpan("token-bucket-try-consume") { _ in
+      let now = Date()
+      let elapsed = now.timeIntervalSince(lastRefill)
+      tokens = min(capacity, tokens + elapsed)
+      lastRefill = now
 
-    guard tokens >= 1 else { return false }
-    tokens -= 1
-    return true
+      guard tokens >= 1 else { return false }
+      tokens -= 1
+      return true
+    }
   }
 }
 
@@ -35,12 +39,14 @@ struct RateLimitMiddleware: AsyncMiddleware {
   }
 
   func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
-    guard await bucket.tryConsume() else {
-      request.logger.warning("Rate limit exceeded for \(request.method) \(request.url.path)")
-      let response = Response(status: .tooManyRequests)
-      try response.content.encode(["error": "rate_limited", "message": "Limit exceeded"])
-      return response
+    try await withSpan("middleware-rate-limit-response") { _ in
+      guard await bucket.tryConsume() else {
+        request.logger.warning("Rate limit exceeded for \(request.method) \(request.url.path)")
+        let response = Response(status: .tooManyRequests)
+        try response.content.encode(["error": "rate_limited", "message": "Limit exceeded"])
+        return response
+      }
+      return try await next.respond(to: request)
     }
-    return try await next.respond(to: request)
   }
 }

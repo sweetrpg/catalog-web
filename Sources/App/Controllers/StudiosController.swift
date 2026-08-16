@@ -1,5 +1,6 @@
 import CatalogAPIClient
 import Foundation
+import Tracing
 import Vapor
 
 let studioFields: [EntityFieldSpec] = [
@@ -37,59 +38,66 @@ struct StudiosController: RouteCollection {
 
   @Sendable
   func browseStudios(req: Request) async throws -> View {
-    let query = try req.query.decode(BrowseQuery.self)
-    let studios = try await req.catalogAPI.fetchStudios()
-    let filtered = filterByName(studios, query: query.q) { $0.name }
+    try await withSpan("studios-browse") { _ in
+      let query = try req.query.decode(BrowseQuery.self)
+      let studios = try await req.catalogAPI.fetchStudios()
+      let filtered = filterByName(studios, query: query.q) { $0.name }
 
-    return try await req.view.render(
-      "studios/browse",
-      EntityBrowseContext(
-        query: query.q ?? "",
-        items: filtered.map { LeafStudioCard($0) },
-        noResults: filtered.isEmpty,
-        user: (await req.currentUser).map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "studios/browse",
+        EntityBrowseContext(
+          query: query.q ?? "",
+          items: filtered.map { LeafStudioCard($0) },
+          noResults: filtered.isEmpty,
+          user: (await req.currentUser).map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func detailStudio(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard var studio = try await req.catalogAPI.fetchStudio(id: id) else {
-      throw Abort(.notFound)
-    }
-    studio.volumes = try await req.catalogAPI.fetchStudioVolumes(id: id)
-    let sessionUser = await req.currentUser
-    let review = await buildReview(
-      req: req, path: "/studios", recordID: id, fieldSpecs: studioFields,
-      sessionUser: sessionUser)
+    try await withSpan("studios-detail") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard var studio = try await req.catalogAPI.fetchStudio(id: id) else {
+        throw Abort(.notFound)
+      }
+      studio.volumes = try await req.catalogAPI.fetchStudioVolumes(id: id)
+      let sessionUser = await req.currentUser
+      let review = await buildReview(
+        req: req, path: "/studios", recordID: id, fieldSpecs: studioFields,
+        sessionUser: sessionUser)
 
-    return try await req.view.render(
-      "studios/detail",
-      EntityDetailContext(
-        studio: LeafStudioDetail(studio),
-        canEdit: canEdit(sessionUser?.roles ?? []),
-        justProposed: req.query[String.self, at: "proposed"] == "1",
-        review: review,
-        conflicts: (req.query[String.self, at: "conflicts"] ?? "")
-          .split(separator: ",").map(String.init),
-        user: sessionUser.map(LeafUser.init),
-        meta: await PageMeta.make(req)
-      ))
+      return try await req.view.render(
+        "studios/detail",
+        EntityDetailContext(
+          studio: LeafStudioDetail(studio),
+          canEdit: canEdit(sessionUser?.roles ?? []),
+          justProposed: req.query[String.self, at: "proposed"] == "1",
+          review: review,
+          conflicts: (req.query[String.self, at: "conflicts"] ?? "")
+            .split(separator: ",").map(String.init),
+          user: sessionUser.map(LeafUser.init),
+          meta: await PageMeta.make(req)
+        ))
+    }
   }
 
   @Sendable
   func editStudioForm(req: Request) async throws -> View {
-    guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
-    guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-    guard let studio = try await req.catalogAPI.fetchStudio(id: id) else {
-      throw Abort(.notFound)
+    try await withSpan("studios-edit-form") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      guard let studio = try await req.catalogAPI.fetchStudio(id: id) else {
+        throw Abort(.notFound)
+      }
+
+      return try await req.view.render(
+        "studios/edit",
+        makeEditContext(
+          id: id, basePath: "/studios", fields: studioFields,
+          values: fieldValues(studio), user: user, meta: await PageMeta.make(req)))
     }
-    return try await req.view.render(
-      "studios/edit",
-      makeEditContext(
-        id: id, basePath: "/studios", fields: studioFields,
-        values: fieldValues(studio), user: user, meta: await PageMeta.make(req)))
   }
 
   @Sendable
