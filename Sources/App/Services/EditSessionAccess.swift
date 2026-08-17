@@ -108,6 +108,8 @@ struct EditSessionStore {
   /// Fetches the caller's in-flight session for `recordType`, or `nil` if none exists or Redis
   /// isn't configured (fails open, same contract as `SessionUserAccess`'s read).
   func get(userID: String, recordType: String) async -> EditSession? {
+    request.logger.info("EditSessionAccess.get: userID=\(userID) recordType=\(recordType)")
+
     await withSpan("edit-session-get") { _ in
       guard request.application.editSessionRedisConfigured else { return nil }
 
@@ -119,6 +121,8 @@ struct EditSessionStore {
         let session = try? Self.decoder.decode(EditSession.self, from: data)
       else { return nil }
 
+      request.logger.info(
+        "EditSessionAccess.get: userID=\(userID) recordType=\(recordType) found: \(session)")
       return session
     }
   }
@@ -127,6 +131,8 @@ struct EditSessionStore {
   /// Redis isn't configured or the write fails - unlike reads, a session write is a user-visible
   /// action ("start editing") that must not silently no-op.
   func set(userID: String, recordType: String, session: EditSession) async throws {
+    request.logger.info("EditSessionAccess.set: userID=\(userID) recordType=\(recordType)")
+
     try await withSpan("edit-session-set") { _ in
       guard request.application.editSessionRedisConfigured else {
         throw Abort(.serviceUnavailable, reason: "Edit sessions are not configured")
@@ -144,6 +150,8 @@ struct EditSessionStore {
   /// Deletes the caller's in-flight session for `recordType` - a missing session is not an
   /// error (discarding an already-expired/finalized session is a normal, successful outcome).
   func delete(userID: String, recordType: String) async {
+    request.logger.info("EditSessionAccess.delete: userID=\(userID) recordType=\(recordType)")
+
     await withSpan("delete-session") { _ in
       guard request.application.editSessionRedisConfigured else { return }
       _ = try? await request.redis(.editSession).delete(
