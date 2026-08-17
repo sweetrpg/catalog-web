@@ -1,4 +1,15 @@
 
+## 0.22.0 - 2026-08-17
+
+### Added
+- Add logging to EditSessionStore operations
+
+
+### Changed
+- Move log inside span for better tracing
+
+
+
 ## 0.21.0 - 2026-08-16
 
 ### Added
