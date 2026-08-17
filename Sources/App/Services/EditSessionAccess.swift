@@ -108,9 +108,9 @@ struct EditSessionStore {
   /// Fetches the caller's in-flight session for `recordType`, or `nil` if none exists or Redis
   /// isn't configured (fails open, same contract as `SessionUserAccess`'s read).
   func get(userID: String, recordType: String) async -> EditSession? {
-    request.logger.info("EditSessionAccess.get: userID=\(userID) recordType=\(recordType)")
-
     await withSpan("edit-session-get") { _ in
+      request.logger.info("EditSessionAccess.get: userID=\(userID) recordType=\(recordType)")
+
       guard request.application.editSessionRedisConfigured else { return nil }
 
       guard
