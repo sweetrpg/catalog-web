@@ -1,4 +1,11 @@
 
+## 0.24.0 - 2026-08-18
+
+### Added
+- Redesign license detail page layout
+
+
+
 ## 0.23.1 - 2026-08-18
 
 ### Fixed
