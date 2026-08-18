@@ -1,0 +1,6 @@
+{
+  "catalog.volume_count": {
+    "one": "%{count} volume",
+    "other": "%{count} volumes"
+  }
+}

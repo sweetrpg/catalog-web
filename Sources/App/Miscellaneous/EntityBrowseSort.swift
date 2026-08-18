@@ -1,3 +1,4 @@
+import LingoVapor
 import Vapor
 
 /// Sort order for the publisher/studio/person/license browse pages' name/title dropdown, next to
@@ -20,4 +21,12 @@ func sortByName<T>(_ items: [T], order: BrowseSortOrder, name: (T) -> String) ->
     name($0).localizedCaseInsensitiveCompare(name($1)) == .orderedAscending
   }
   return order == .asc ? sorted : sorted.reversed()
+}
+
+/// Pluralized "N volume(s)" label for a browse card, shared across every entity type that shows
+/// a per-item volume count (licenses, publishers, ...).
+func volumeCountLabel(_ count: Int, req: Request) async throws -> String {
+  let lingo = try req.application.lingoVapor.lingo()
+  return lingo.localize(
+    "catalog.volume_count", locale: req.locale, interpolations: ["count": count])
 }

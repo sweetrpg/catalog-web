@@ -113,15 +113,21 @@ struct VolumesController: RouteCollection {
       }
       let sessionUser = await req.currentUser
       let roles = sessionUser?.roles ?? []
-      // Fails open the same way the review section does (detail(_:)) - a version-skewed or
-      // unavailable catalog-api deployment shows an empty history rather than 500ing the page.
+      // GET /volumes/:id/versions has no role/auth requirement server-side (unlike accept/
+      // reject/retract, which do) - gating this fetch on having a session access token meant an
+      // anonymous or session-expired visitor saw an empty table indistinguishable from a volume
+      // that genuinely has no history. Doesn't 500 the whole page on a fetch failure (a
+      // version-skewed or unavailable catalog-api deployment shouldn't take down the rest of the
+      // page) - but unlike a silent fail-open, `fetchFailed` reaches the template so a failure
+      // renders as a visible error, not an indistinguishable-from-empty table.
       var versions: [VolumeVersionAttributes] = []
-      if let token = sessionUser?.accessToken {
-        do {
-          versions = try await req.catalogAPI.fetchVolumeVersions(volumeID: volumeID, token: token)
-        } catch {
-          req.logger.warning("failed to fetch versions for volume \(volumeID): \(error)")
-        }
+      var fetchFailed = false
+      do {
+        versions = try await req.catalogAPI.fetchVolumeVersions(
+          volumeID: volumeID, token: sessionUser?.accessToken ?? "")
+      } catch {
+        req.logger.warning("failed to fetch versions for volume \(volumeID): \(error)")
+        fetchFailed = true
       }
 
       return try await req.view.render(
@@ -130,6 +136,7 @@ struct VolumesController: RouteCollection {
           volumeID: volumeID,
           volumeTitle: volume.title,
           versions: versions.map(LeafVersionSummary.init),
+          fetchFailed: fetchFailed,
           canRollback: canRollback(roles),
           user: sessionUser.map(LeafUser.init),
           meta: await PageMeta.make(req)

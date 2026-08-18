@@ -6,10 +6,18 @@ import Vapor
 struct LeafLicenseCard: Content {
   let id: String
   let title: String
+  // Pre-localized ("3 volumes"/"1 volume" in en) rather than a raw count + template-side
+  // string-hacking - see licenses.browse.volume_count in Resources/Localizations/en.json.
+  let volumeCountLabel: String
+  // "Not active" reads as "not Accepted" - Draft/Deprecated/Retired/unset all get the badge,
+  // only Accepted doesn't. See licenseStatusOptions in LicensesController.swift.
+  let isNotAccepted: Bool
 
-  init(_ license: LicenseViewModel) {
+  init(_ license: LicenseViewModel, volumeCountLabel: String) {
     self.id = license.id
     self.title = license.title
+    self.volumeCountLabel = volumeCountLabel
+    self.isNotAccepted = license.status != "Accepted"
   }
 }
 

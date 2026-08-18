@@ -58,9 +58,32 @@ struct VersionHistoryContext: Content {
   let volumeID: String
   let volumeTitle: String
   let versions: [LeafVersionSummary]
+  // Leaf's #if(versions) is true for a non-nil array regardless of emptiness, so the
+  // "no history" branch was dead code for an empty (but non-nil) versions array - explicit flag
+  // instead, matching the volume.hasDescription/.hasStagedCover convention used elsewhere.
+  // Stored, not computed - Content's synthesized Encodable conformance only encodes stored
+  // properties, so a computed one silently never reaches the Leaf template.
+  let hasVersions: Bool
+  // Distinguishes "the fetch failed" from "this volume genuinely has no version history" - both
+  // used to render as the same empty table, giving no signal that something went wrong.
+  let fetchFailed: Bool
   let canRollback: Bool
   let user: LeafUser?
   let meta: PageMeta
+
+  init(
+    volumeID: String, volumeTitle: String, versions: [LeafVersionSummary], fetchFailed: Bool,
+    canRollback: Bool, user: LeafUser?, meta: PageMeta
+  ) {
+    self.volumeID = volumeID
+    self.volumeTitle = volumeTitle
+    self.versions = versions
+    self.hasVersions = !versions.isEmpty
+    self.fetchFailed = fetchFailed
+    self.canRollback = canRollback
+    self.user = user
+    self.meta = meta
+  }
 }
 
 struct VersionDetailContext: Content {

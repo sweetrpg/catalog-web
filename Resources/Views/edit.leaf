@@ -9,21 +9,29 @@
 		  .tag-picker .input, .contributor-dialog .input, .contributor-dialog select {
 		    border: none;
 		    background: rgba(127, 127, 127, 0.08);
+		    border-radius: 0.75rem;
 		  }
 		  #edit-form .input:focus, #edit-form select:focus, #edit-form textarea:focus,
 		  .tag-picker .input:focus, .contributor-dialog .input:focus, .contributor-dialog select:focus {
 		    outline: 2px solid var(--accent, #6366f1);
 		    outline-offset: -2px;
 		  }
+		  #edit-form .btn, .contributor-dialog .btn {
+		    border-radius: 999px;
+		  }
+		  .contributor-dialog, .picker-results {
+		    border-radius: 0.75rem;
+		  }
 
 		  .cover-image-wrap {
 		    position: relative;
-		    display: inline-block;
+		    display: block;
 		    width: 100%;
+		    height: 100%;
 		  }
 		  .cover-overlay-controls {
 		    position: absolute;
-		    top: 0.5rem;
+		    bottom: 0.5rem;
 		    right: 0.5rem;
 		    display: flex;
 		    gap: 0.4rem;
@@ -39,6 +47,7 @@
 		    border: none;
 		    cursor: pointer;
 		  }
+		  .cover-overlay-controls .icon-btn[hidden] { display: none; }
 		  .cover-overlay-controls .icon-btn img {
 		    width: 1.1rem;
 		    height: 1.1rem;
@@ -88,6 +97,7 @@
 		    height: 1.1rem;
 		    line-height: 1;
 		    border-radius: 0 0 0 0.25rem;
+		    margin-left: 0;
 		  }
 		  #samples-field .sample-upload-label {
 		    display: block;
@@ -124,28 +134,89 @@
 		    margin-top: 0.4rem;
 		    position: relative;
 		  }
+		  /* `display: flex` above beats the UA [hidden]{display:none} default on a specificity
+		     tie, so the picker row (and the contributor dialog below) rendered even when their
+		     `hidden` attribute was set - this override is required, not decorative. */
+		  .tag-picker[hidden] {
+		    display: none;
+		  }
 		  .tag-picker .picker-filter {
 		    flex: 1;
 		  }
 		  .tag-picker-cancel {
 		    border: none;
-		    background: rgba(127, 127, 127, 0.15);
-		    border-radius: 999px;
+		    background: transparent;
+		    border-radius: 50%;
 		    width: 1.6rem;
 		    height: 1.6rem;
 		    line-height: 1;
 		    cursor: pointer;
 		  }
+		  .tag-picker-cancel:hover {
+		    background: rgba(127, 127, 127, 0.15);
+		  }
 		  #edit-form .chip {
 		    border: none;
 		  }
-		  .picker-results {
+		  .chip-remove {
+		    display: inline-flex;
+		    align-items: center;
+		    justify-content: center;
+		    border: none;
+		    background: transparent;
+		    border-radius: 50%;
+		    width: 1.1rem;
+		    height: 1.1rem;
+		    min-width: 1.1rem;
+		    padding: 0;
+		    margin-left: 0.35rem;
+		    line-height: 1;
+		    font-size: 0.9rem;
+		    cursor: pointer;
+		    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+		  }
+		  .chip-remove:hover {
+		    background: color-mix(in srgb, #7a1212 18%, transparent);
+		    color: #7a1212;
+		  }
+		  [data-theme="dark"] .chip-remove:hover {
+		    background: color-mix(in srgb, #f5a3a3 22%, transparent);
+		    color: #f5a3a3;
+		  }
+		  /* Search-result overlays (publisher/studio/format pickers and the contributor dialog's
+		     person search): positioned below the input via the `position: relative` anchor each
+		     already sets (.tag-picker above, .contributor-dialog-label below) instead of taking
+		     up their own flex/flow slot, which used to push surrounding content aside. */
+		  .tag-picker .picker-results,
+		  .contributor-dialog-label .picker-results {
+		    position: absolute;
+		    top: 100%;
+		    left: 0;
+		    right: 0;
+		    z-index: 10;
+		    margin: 0.25rem 0 0;
+		    max-height: 220px;
+		    overflow-y: auto;
+		    list-style: none;
+		    padding: 0.25rem;
+		    background: var(--color-surface);
 		    border: none;
 		    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		  }
+		  .picker-results li {
+		    padding: 0.4rem 0.6rem;
+		    border-radius: var(--radius-md);
+		    cursor: pointer;
+		  }
+		  .picker-results li:hover {
+		    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 		  }
 		  .picker-results li.picker-add-new {
 		    font-style: italic;
 		    opacity: 0.85;
+		  }
+		  .contributor-dialog-label {
+		    position: relative;
 		  }
 		  .contributor-dialog {
 		    display: flex;
@@ -155,6 +226,32 @@
 		    padding: 0.75rem;
 		    border-radius: 0.5rem;
 		    background: rgba(127, 127, 127, 0.06);
+		  }
+		  .contributor-dialog[hidden] {
+		    display: none;
+		  }
+		  .field-actions .icon-btn {
+		    width: 1.75rem;
+		    height: 1.75rem;
+		    padding: 0.35rem;
+		  }
+		  .field-actions .icon-btn img {
+		    width: 1rem;
+		    height: 1rem;
+		  }
+		  .field-cancel-trigger:hover {
+		    background: color-mix(in srgb, #7a1212 22%, transparent);
+		  }
+		  .cover-overlay-controls .cover-remove-trigger:hover {
+		    background: color-mix(in srgb, #7a1212 65%, rgba(0, 0, 0, 0.55));
+		  }
+		  .discard-changes-trigger {
+		    border-color: transparent;
+		  }
+		  .discard-changes-trigger:hover {
+		    background: color-mix(in srgb, #7a1212 15%, transparent);
+		    color: #7a1212;
+		    border-color: transparent;
 		  }
 		</style>
 
@@ -386,13 +483,13 @@
 
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
-						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Cancel</a>
+						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Back</a>
 					</div>
 				</form>
 
 				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.assetsURL)">
 					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volume.id)">
-					<button type="submit" class="btn btn-ghost">Discard changes</button>
+					<button type="submit" class="btn btn-ghost discard-changes-trigger">Discard changes</button>
 				</form>
 			</div>
 		</div>
@@ -473,6 +570,8 @@
 		    }
 
 		    editBtn.addEventListener('click', showEditing);
+		    acceptBtn.addEventListener('click', commit);
+		    cancelBtn.addEventListener('click', cancel);
 
 		    if (type === 'line') {
 		      input.addEventListener('keydown', function (e) {
@@ -481,10 +580,16 @@
 		          commit();
 		        }
 		      });
-		      input.addEventListener('blur', commit);
-		    } else {
-		      acceptBtn.addEventListener('click', commit);
-		      cancelBtn.addEventListener('click', cancel);
+		      input.addEventListener('blur', function () {
+		        // Deferred so a click on the accept/cancel button (which blurs the input first)
+		        // runs its own commit()/cancel() before this fires - same pattern the
+		        // publisher/studio picker's blur handler already uses below. Click-away is
+		        // treated as "changed my mind": auto-cancel, not auto-save.
+		        setTimeout(function () {
+		          if (input.hidden) return;
+		          cancel();
+		        }, 150);
+		      });
 		    }
 		  });
 		})();

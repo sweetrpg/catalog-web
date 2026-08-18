@@ -1,5 +1,5 @@
 {
-  "originHash" : "c5ad165017302ddcdf9f1b160454163a2ad893c6d49fc0e9dc58eb7250ff5ca1",
+  "originHash" : "bef6c71e802d6bda7f5d0880947a5a973d951bfc642c2efd6f05a3b1f07aab0b",
   "pins" : [
     {
       "identity" : "admin-api-client.swift",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sweetrpg/catalog-api-client.swift.git",
       "state" : {
-        "revision" : "0c7adb5841cf0430b1e7c1526972b9249d300c54",
-        "version" : "0.2.0"
+        "revision" : "b31aaa342ee4d372f61b8df4470bf693890ee80e",
+        "version" : "0.2.1"
       }
     },
     {
@@ -71,6 +71,24 @@
       "state" : {
         "revision" : "64cc0a5c8dcf4fbd03be73b944f6850c0b82e439",
         "version" : "1.14.3"
+      }
+    },
+    {
+      "identity" : "lingo",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/miroslavkovac/Lingo.git",
+      "state" : {
+        "revision" : "c6f6a80af46dff193b60bd07bc82be444ef9a7d2",
+        "version" : "4.0.0"
+      }
+    },
+    {
+      "identity" : "lingo-vapor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/vapor-community/Lingo-Vapor.git",
+      "state" : {
+        "revision" : "361b19214e9ae52d9c60457f014acf705a3bb959",
+        "version" : "4.4.0"
       }
     },
     {

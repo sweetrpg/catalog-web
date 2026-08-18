@@ -111,6 +111,14 @@ struct LeafEntityFieldInput: Content {
   let key: String
   let label: String
   let value: String
+  let isTextarea: Bool
+  let isSelect: Bool
+  let selectOptions: [LeafSelectOption]
+}
+
+struct LeafSelectOption: Content {
+  let value: String
+  let isSelected: Bool
 }
 
 struct LeafEntityFieldDiff: Content {
