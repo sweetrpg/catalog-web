@@ -90,10 +90,10 @@ the *next* browser request won't round-trip through the ingress correctly.
 ### Branding assets
 
 Logo, favicon, and stylesheet (a green d20 die in a candy wrapper - "Sweet" + "RPG", the org's
-actual current brand mark) are served from `assets-web`'s shared static route, not this repo's
+actual current brand mark) are served from `shared-web`'s shared static route, not this repo's
 own `Public/` - see `docs/frontend-conventions.md` in `sweetrpg/platform` for the convention and
-`AppPaths.swift`'s `sharedAssetsURL` for how this app references them (`SHARED_ASSETS_URL` env
-var, falling back to a local `assets-web` instance's address in local dev). `base.leaf`/
+`AppPaths.swift`'s `sharedURL` for how this app references them (`SHARED_URL` env
+var, falling back to a local `shared-web` instance's address in local dev). `base.leaf`/
 `header.leaf` build their `href`/`src` from it. This app used to keep its own copies in
 `Public/` before every frontend needing the logo would otherwise drift out of sync with the
 others; don't reintroduce a local copy. `sweetrpg.com` itself is a defunct ~2015 placeholder

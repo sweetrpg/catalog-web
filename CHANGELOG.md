@@ -1,4 +1,94 @@
 
+## 0.22.0 - 2026-08-17
+
+### Added
+- Add logging to EditSessionStore operations
+
+
+### Changed
+- Move log inside span for better tracing
+
+
+
+## 0.21.0 - 2026-08-16
+
+### Added
+- Add volume title as alt text for cover images and remove svg extension from cover asset path
+
+
+
+## 0.20.1 - 2026-08-16
+
+### Fixed
+- Update Swift version in release workflow
+
+
+## 0.20.0 - 2026-08-16
+
+### Added
+- Add spans to volume controller endpoints
+- Add distributed tracing spans to catalog controllers
+- Add tracing everywhere
+- More tracing
+- Add tracing to SDK
+- Add tracing to middlewares
+
+
+### Changed
+- Move AppPaths to Miscellaneous directory
+- Reorder imports to follow convention
+
+
+### Fixed
+- Remove unnecessary try
+- Try to make the build work, update Swift version
+- Put the candle back
+
+
+
+## 0.19.0 - 2026-08-15
+
+### Added
+- Add logging and mark volume fetch as TODO
+
+
+### Fixed
+- Use sharedURL for theme.css path
+
+
+
+## 0.18.0 - 2026-08-15
+
+### Added
+- Add assetsURL for catalog assets and update sharedURL comment
+- Add lastUpdated display to home page
+
+
+### Changed
+- Split shared assets URL into shared and assets URLs
+- Split CatalogEntitiesController into per-entity controllers and view models
+- More reorganization
+
+
+
+## 0.17.0 - 2026-08-14
+
+### Added
+- Route generic error status codes to shared-web
+
+
+### Fixed
+- Decode the shared session's expiry as RFC 3339
+
+
+
+## 0.16.0 - 2026-08-14
+
+### Added
+- Add volume version-history and single-version views
+
+
+
 ## 0.15.0 - 2026-08-13
 
 ### Added

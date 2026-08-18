@@ -6,10 +6,13 @@ namespace: sweetrpg-catalog
 resources:
   - ../../base
   - configmaps.yaml
-  - secrets.yaml
   - ingress.yaml
-  - middlewares.yaml
+  - middlewares/errors.yaml
+  - middlewares/strip.yaml
   - pod-monitor.yaml
+  - secrets/cache.yaml
+  - secrets/edit-session.yaml
+  - secrets/shared-session.yaml
 
 labels:
   - pairs:
