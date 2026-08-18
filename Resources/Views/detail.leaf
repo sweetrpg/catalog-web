@@ -12,7 +12,7 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 				<span class="card-cover-fallback">Cover pending</span>
 			</div>
 
@@ -113,7 +113,7 @@
 						<span class="section-label">Sample Pages</span>
 						<div class="sample-thumbnails" id="sample-thumbnails">
 							#for(path in volume.samplePaths):
-								<img class="sample-thumbnail" src="#(meta.sharedAssetsURL)/#(path)" alt="Sample page" loading="lazy">
+								<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
 							#endfor
 						</div>
 					</div>

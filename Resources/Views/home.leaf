@@ -11,7 +11,7 @@
 
 		<section class="stats-bar">
 			<span>Vol. count #(volumeCount)</span>
-			<span>Catalogued nightly</span>
+			<span>Last updated: #(lastUpdated)</span>
 		</section>
 
 		#if(count(trending) > 0):
@@ -21,7 +21,7 @@
 					#for(volume in trending):
 						<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
 							<div class="card-cover">
-								<img class="card-cover-img" src="#(meta.sharedAssetsURL)/#(volume.coverAssetPath)" alt="" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+								<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
 								<span class="card-cover-fallback">Cover pending</span>
 							</div>
 							<div class="card-body">

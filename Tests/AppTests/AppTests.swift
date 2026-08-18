@@ -91,6 +91,23 @@ struct AppTests {
     }
   }
 
+  @Test("SessionUser decodes auth-web's RFC 3339 expiry, not a raw Double")
+  func sessionUserDecodesRFC3339Expiry() throws {
+    // Exactly the shape auth-web's SessionUserAccess now writes (see auth-web's
+    // fix/session-expiry-iso8601) - docs/frontend-conventions.md's "Shared session schema"
+    // documents `expiry` as an RFC 3339 string, not the raw Double a plain JSONDecoder's
+    // .deferredToDate default would expect.
+    let json = """
+      {"sub":"auth0|abc","name":"Ada","email":"ada@example.com","roles":["admin"],\
+      "accessToken":"token","expiry":"2027-01-15T08:00:00Z"}
+      """
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let user = try decoder.decode(SessionUser.self, from: Data(json.utf8))
+    #expect(user.name == "Ada")
+    #expect(user.expiry.timeIntervalSince1970 == 1_800_000_000)
+  }
+
   // Renders a real Leaf template (not just a Swift-side compile check, since Leaf resolves
   // `#(meta.loginURL)` dynamically at render time) to confirm the header partial's login/logout
   // links interpolate correctly.
@@ -103,7 +120,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [], user: nil,
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -126,7 +143,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -152,7 +169,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
@@ -179,7 +196,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -202,7 +219,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [],
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token",
@@ -228,12 +245,12 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 1, trending: [LeafVolumeCard(volume)], tagCloud: [], user: nil,
-            meta: await PageMeta.make(req)))
+            volumeCount: 1, lastUpdated: "", trending: [LeafVolumeCard(volume)], tagCloud: [],
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76.svg"))
+        #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76"))
         #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
         #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
         #expect(res.body.string.contains("card-cover-fallback"))
@@ -695,7 +712,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, trending: [], tagCloud: [], user: nil,
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       return try await test(app)

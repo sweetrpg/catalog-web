@@ -1,3 +1,5 @@
+import Foundation
+import Tracing
 import Vapor
 
 /// Renders a maintenance page instead of the requested route whenever admin-api reports an
@@ -13,23 +15,25 @@ struct MaintenanceModeMiddleware: AsyncMiddleware {
   private static let excludedPaths: Set<String> = ["/status/ping", "/metrics"]
 
   func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
-    guard !Self.excludedPaths.contains(request.url.path) else {
-      return try await next.respond(to: request)
-    }
+    try await withSpan("middleware-maint-mode-respond") { _ in
+      guard !Self.excludedPaths.contains(request.url.path) else {
+        return try await next.respond(to: request)
+      }
 
-    let activeModes = await request.adminClient.fetchMaintenanceModes(
-      scopes: ["platform", "service:catalog"])
-    guard let active = activeModes.first else {
-      return try await next.respond(to: request)
-    }
+      let activeModes = await request.adminClient.fetchMaintenanceModes(
+        scopes: ["platform", "service:catalog"])
+      guard let active = activeModes.first else {
+        return try await next.respond(to: request)
+      }
 
-    let view = try await request.view.render(
-      "maintenance",
-      MaintenanceContext(mode: LeafMaintenanceMode(active), meta: await PageMeta.make(request))
-    )
-    let response = try await view.encodeResponse(for: request).get()
-    response.status = .serviceUnavailable
-    return response
+      let view = try await request.view.render(
+        "maintenance",
+        MaintenanceContext(mode: LeafMaintenanceMode(active), meta: await PageMeta.make(request))
+      )
+      let response = try await view.encodeResponse(for: request).get()
+      response.status = .serviceUnavailable
+      return response
+    }
   }
 }
 

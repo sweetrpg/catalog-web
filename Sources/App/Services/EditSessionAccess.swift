@@ -1,5 +1,6 @@
 import Foundation
 import Redis
+import Tracing
 import Vapor
 
 /// Names the Redis connection this app reads/writes the durable volume-edit session store on -
@@ -107,42 +108,56 @@ struct EditSessionStore {
   /// Fetches the caller's in-flight session for `recordType`, or `nil` if none exists or Redis
   /// isn't configured (fails open, same contract as `SessionUserAccess`'s read).
   func get(userID: String, recordType: String) async -> EditSession? {
-    guard request.application.editSessionRedisConfigured else { return nil }
+    await withSpan("edit-session-get") { _ in
+      request.logger.info("EditSessionAccess.get: userID=\(userID) recordType=\(recordType)")
 
-    guard
-      let raw = try? await request.redis(.editSession).get(
-        key(userID: userID, recordType: recordType), as: String.self
-      ).get(),
-      let data = raw.data(using: .utf8),
-      let session = try? Self.decoder.decode(EditSession.self, from: data)
-    else { return nil }
+      guard request.application.editSessionRedisConfigured else { return nil }
 
-    return session
+      guard
+        let raw = try? await request.redis(.editSession).get(
+          key(userID: userID, recordType: recordType), as: String.self
+        ).get(),
+        let data = raw.data(using: .utf8),
+        let session = try? Self.decoder.decode(EditSession.self, from: data)
+      else { return nil }
+
+      request.logger.info(
+        "EditSessionAccess.get: userID=\(userID) recordType=\(recordType) found: \(session)")
+      return session
+    }
   }
 
   /// Writes `session` for the caller's `recordType`, overwriting any existing one. Throws if
   /// Redis isn't configured or the write fails - unlike reads, a session write is a user-visible
   /// action ("start editing") that must not silently no-op.
   func set(userID: String, recordType: String, session: EditSession) async throws {
-    guard request.application.editSessionRedisConfigured else {
-      throw Abort(.serviceUnavailable, reason: "Edit sessions are not configured")
+    request.logger.info("EditSessionAccess.set: userID=\(userID) recordType=\(recordType)")
+
+    try await withSpan("edit-session-set") { _ in
+      guard request.application.editSessionRedisConfigured else {
+        throw Abort(.serviceUnavailable, reason: "Edit sessions are not configured")
+      }
+      let data = try Self.encoder.encode(session)
+      guard let json = String(data: data, encoding: .utf8) else {
+        throw Abort(.internalServerError, reason: "Failed to encode edit session")
+      }
+      _ = try await request.redis(.editSession).set(
+        key(userID: userID, recordType: recordType), to: json
+      ).get()
     }
-    let data = try Self.encoder.encode(session)
-    guard let json = String(data: data, encoding: .utf8) else {
-      throw Abort(.internalServerError, reason: "Failed to encode edit session")
-    }
-    _ = try await request.redis(.editSession).set(
-      key(userID: userID, recordType: recordType), to: json
-    ).get()
   }
 
   /// Deletes the caller's in-flight session for `recordType` - a missing session is not an
   /// error (discarding an already-expired/finalized session is a normal, successful outcome).
   func delete(userID: String, recordType: String) async {
-    guard request.application.editSessionRedisConfigured else { return }
-    _ = try? await request.redis(.editSession).delete(
-      key(userID: userID, recordType: recordType)
-    ).get()
+    request.logger.info("EditSessionAccess.delete: userID=\(userID) recordType=\(recordType)")
+
+    await withSpan("delete-session") { _ in
+      guard request.application.editSessionRedisConfigured else { return }
+      _ = try? await request.redis(.editSession).delete(
+        key(userID: userID, recordType: recordType)
+      ).get()
+    }
   }
 }
 

@@ -15,15 +15,20 @@ extension Request {
   /// rather than a constant. Falls back to "/" (this app's own root) if unset, matching the old
   /// behavior rather than producing a dead link in an environment that hasn't set it yet.
   var rootURL: String {
-    Environment.get("SWEETRPG_ROOT_URL") ?? "/"
+    Environment.get("ROOT_URL") ?? "/"
   }
 
   /// Base URL for shared frontend static assets (logo, favicon, stylesheet), served from
-  /// assets-web rather than this app's own Public/ - see docs/frontend-conventions.md in
-  /// sweetrpg/platform. Differs per environment (e.g. https://dev.sweetrpg.com/assets in dev).
+  /// shared-web rather than this app's own Public/ - see docs/frontend-conventions.md in
+  /// sweetrpg/platform. Differs per environment (e.g. https://dev.sweetrpg.com/shared in dev).
   /// Falls back to a local assets-web instance's own address, so a developer running catalog-web
   /// alone still sees a rendered logo/stylesheet rather than a broken reference.
-  var sharedAssetsURL: String {
-    Environment.get("SHARED_ASSETS_URL") ?? "http://localhost:8081"
+  var sharedURL: String {
+    Environment.get("SHARED_URL") ?? "http://localhost:8081"
+  }
+
+  /// Base URL for catalog assets (book covers, samples, etc.)
+  var assetsURL: String {
+    Environment.get("ASSETS_URL") ?? "http://localhost:8081"
   }
 }
