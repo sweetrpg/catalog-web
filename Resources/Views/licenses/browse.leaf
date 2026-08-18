@@ -5,6 +5,10 @@
 			<h2>Licenses</h2>
 			<form class="nav-search" action="#(meta.basePath)/licenses" method="get">
 				<input class="input" type="search" name="q" placeholder="Search licenses" value="#(query)">
+				<select class="input" name="order" onchange="this.form.submit()">
+					<option value="asc" #if(orderIsAsc): selected #endif>Title (A-Z)</option>
+					<option value="desc" #if(orderIsDesc): selected #endif>Title (Z-A)</option>
+				</select>
 			</form>
 		</section>
 

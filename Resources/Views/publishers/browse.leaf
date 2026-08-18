@@ -5,6 +5,10 @@
 			<h2>Publishers</h2>
 			<form class="nav-search" action="#(meta.basePath)/publishers" method="get">
 				<input class="input" type="search" name="q" placeholder="Search publishers" value="#(query)">
+				<select class="input" name="order" onchange="this.form.submit()">
+					<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
+					<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
+				</select>
 			</form>
 		</section>
 
