@@ -21,6 +21,7 @@
 				<a class="card" href="#(meta.basePath)/publishers/#(item.id)">
 					<div class="card-body">
 						<div class="card-title">#(item.name)</div>
+						<span class="card-meta">#(item.volumeCountLabel)</span>
 					</div>
 				</a>
 			#endfor

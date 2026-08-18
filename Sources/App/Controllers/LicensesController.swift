@@ -77,11 +77,22 @@ struct LicensesController: RouteCollection {
       let filtered = filterByName(licenses, query: query.q) { $0.title }
       let sorted = sortByName(filtered, order: order) { $0.title }
 
+      // Licenses are a small, fixed-ish collection (same "no dedicated search endpoint needed"
+      // assumption filterByName already relies on) - a per-card volume-count fetch is fine here,
+      // it wouldn't be for a larger or more dynamic list.
+      var cards: [LeafLicenseCard] = []
+      for license in sorted {
+        let volumeCount =
+          (try? await req.catalogAPI.fetchLicenseVolumes(id: license.id))?.count ?? 0
+        let label = try await volumeCountLabel(volumeCount, req: req)
+        cards.append(LeafLicenseCard(license, volumeCountLabel: label))
+      }
+
       return try await req.view.render(
         "licenses/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: sorted.map { LeafLicenseCard($0) },
+          items: cards,
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
