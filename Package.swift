@@ -30,14 +30,12 @@ let package = Package(
         .package(url: "https://github.com/sweetrpg/admin-api-client.swift.git", from: "0.0.1"),
         // 📚 Shared catalog-api client (JSON:API fetch/decoding) - replaces this app's own
         // hand-rolled CatalogAPIClient, see sweetrpg/platform's api-client-sdks change.
-        // v0.1.0 brings the generic entity version endpoints (fetchEntityVersions/
-        // acceptEntityVersion/rejectEntityVersion/setCurrentEntityVersion) this app's
-        // catalog-entity-versioning review-UI rewire depends on - `from: "0.1.0"`, not
-        // "0.0.9", since SemVer's pre-1.0 rules treat a 0.x minor bump as a major bump
-        // (0.0.9 would never resolve past 0.0.x).
+        // v0.2.0 adds `LicenseAttributes.properties` the license detail page reads - pre-1.0
+        // SemVer rules treat a 0.x minor bump as a major bump, so `from: "0.1.0"` would never
+        // resolve past 0.1.x; bump the floor whenever a 0.x minor is required.
         .package(
             url: "https://github.com/sweetrpg/catalog-api-client.swift.git",
-            from: "0.1.0"),
+            from: "0.2.0"),
     ],
     targets: [
         .executableTarget(

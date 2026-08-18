@@ -33,6 +33,9 @@ struct LeafLicenseDetail: Content {
   let notes: String
   let hasNotes: Bool
   let tags: [String]
+  let hasTags: Bool
+  let properties: [LeafProperty]
+  let hasProperties: Bool
   let volumes: [LeafVolumeSummary]
   let hasVolumes: Bool
 
@@ -56,6 +59,9 @@ struct LeafLicenseDetail: Content {
     self.notes = license.notes
     self.hasNotes = !license.notes.isEmpty
     self.tags = license.tags
+    self.hasTags = !license.tags.isEmpty
+    self.properties = license.properties.map(LeafProperty.init)
+    self.hasProperties = !license.properties.isEmpty
     self.volumes = license.volumes.map(LeafVolumeSummary.init)
     self.hasVolumes = !license.volumes.isEmpty
   }
