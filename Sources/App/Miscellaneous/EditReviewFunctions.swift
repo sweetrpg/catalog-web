@@ -66,29 +66,34 @@ func sanitizedAssetUserID(_ sub: String) -> String {
   sub.replacingOccurrences(of: "|", with: "-")
 }
 
-/// Fetches pending proposed changes for (path, recordID) when the session can review them -
-/// mirrors CatalogController.detail's inline proposal-fetch block, factored out since all
-/// four entity types share it. Fails open (nil) on any fetch error, matching that same
-/// fail-open contract, since a review-fetch failure must degrade to "no pending changes
-/// shown" rather than breaking the whole detail page for every editor/admin viewer.
-func buildReview(
+/// Fetches pending (state: submitted) versions for (path, recordID) when the session can
+/// review them - the version-model counterpart of the old proposed_changes-based
+/// `buildReview`, generic over the entity type's own Version attributes since each type's
+/// substantive fields differ. Fails open (nil) on any fetch error, matching
+/// `VolumesController.detail`'s fail-open contract for the same review section on volumes - a
+/// review-fetch failure must degrade to "no pending changes shown" rather than breaking the
+/// whole detail page for every editor/admin viewer.
+func buildReview<T: EntityVersionAttributes>(
   req: Request, path: String, recordID: String, fieldSpecs: [EntityFieldSpec],
-  sessionUser: SessionUser?
-) async -> LeafEntityProposalReview? {
+  currentValues: [String: String], sessionUser: SessionUser?,
+  versionFieldValues: (T) -> [String: String]
+) async -> LeafEntityVersionReview? {
   await withSpan("review-build") { _ in
     let roles = sessionUser?.roles ?? []
     guard canReview(roles), let token = sessionUser?.accessToken else { return nil }
     do {
-      let pending = try await req.catalogAPI.listProposedChanges(
+      let allVersions: [T] = try await req.catalogAPI.fetchEntityVersions(
         path: path, id: recordID, token: token)
+      let pending = allVersions.filter { $0.state == "submitted" }
       guard !pending.isEmpty else { return nil }
-      let selectedID = req.query[String.self, at: "proposal"]
-      let selected = pending.first { $0.id == selectedID } ?? pending[0]
-      return LeafEntityProposalReview(
-        recordID: recordID, pending: pending, selected: selected, fieldSpecs: fieldSpecs)
+      let selectedVersion = req.query[Int.self, at: "proposal"]
+      let selected = pending.first { $0.version == selectedVersion } ?? pending[0]
+      return LeafEntityVersionReview(
+        recordID: recordID, currentValues: currentValues, pending: pending, selected: selected,
+        fieldSpecs: fieldSpecs, versionFieldValues: versionFieldValues)
     } catch {
       req.logger.warning(
-        "failed to fetch proposed changes for \(path)/\(recordID): \(error)")
+        "failed to fetch pending versions for \(path)/\(recordID): \(error)")
       return nil
     }
   }
@@ -139,9 +144,10 @@ struct AcceptInput: Content {
   let fields: [String]?
 }
 
-func acceptProposal(req: Request, path: String) async throws -> Response {
-  try await withSpan("accept-proposal") { _ in
-    guard let id = req.parameters.get("id"), let proposalID = req.parameters.get("proposalID")
+func acceptVersionReview(req: Request, path: String) async throws -> Response {
+  try await withSpan("accept-version-review") { _ in
+    guard let id = req.parameters.get("id"), let versionParam = req.parameters.get("version"),
+      let version = Int(versionParam)
     else {
       throw Abort(.badRequest)
     }
@@ -149,8 +155,8 @@ func acceptProposal(req: Request, path: String) async throws -> Response {
     let input = try req.content.decode(AcceptInput.self)
     let fields: [String]? = input.mode == "all" ? nil : (input.fields ?? [])
 
-    let result = try await req.catalogAPI.acceptProposedChange(
-      path: path, id: id, proposalID: proposalID, token: user.accessToken, fields: fields)
+    let result = try await req.catalogAPI.acceptEntityVersion(
+      path: path, id: id, version: version, token: user.accessToken, fields: fields)
 
     var redirectPath = "\(req.basePath)\(path)/\(id)"
     if let conflicts = result.conflicts, !conflicts.isEmpty {
@@ -164,17 +170,18 @@ struct RejectInput: Content {
   let note: String?
 }
 
-func rejectProposal(req: Request, path: String) async throws -> Response {
-  try await withSpan("reject-proposal") { _ in
-    guard let id = req.parameters.get("id"), let proposalID = req.parameters.get("proposalID")
+func rejectVersionReview(req: Request, path: String) async throws -> Response {
+  try await withSpan("reject-version-review") { _ in
+    guard let id = req.parameters.get("id"), let versionParam = req.parameters.get("version"),
+      let version = Int(versionParam)
     else {
       throw Abort(.badRequest)
     }
     guard let user = await req.currentUser, canReview(user.roles) else { throw Abort(.forbidden) }
     let input = try req.content.decode(RejectInput.self)
 
-    _ = try await req.catalogAPI.rejectProposedChange(
-      path: path, id: id, proposalID: proposalID, token: user.accessToken, note: input.note)
+    _ = try await req.catalogAPI.rejectEntityVersion(
+      path: path, id: id, version: version, token: user.accessToken, note: input.note)
 
     return req.redirect(to: "\(req.basePath)\(path)/\(id)")
   }

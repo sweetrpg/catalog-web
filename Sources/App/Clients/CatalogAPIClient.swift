@@ -160,29 +160,24 @@ struct CatalogAPIClientService {
     }
   }
 
-  func listProposedChanges(volumeID: String, token: String) async throws
-    -> [ProposedChangeSummary]
-  {
-    try await withSpan("sdk-list-proposed-changes") { _ in
-      try await sdk.listProposedChanges(volumeID: volumeID, token: token)
+  /// Accepts a submitted volume version in full (`fields: nil`) or in part. Editor/admin only,
+  /// enforced by catalog-api.
+  func acceptVolumeVersion(
+    volumeID: String, version: Int, token: String, fields: [String]?
+  ) async throws -> ReviewVersionResult {
+    try await withSpan("sdk-accept-volume-version") { _ in
+      try await sdk.acceptVolumeVersion(
+        id: volumeID, version: version, token: token, fields: fields)
     }
   }
 
-  func acceptProposedChange(
-    volumeID: String, proposalID: String, token: String, fields: [String]?
-  ) async throws -> ReviewProposalResult {
-    try await withSpan("sdk-accept-proposed-change") { _ in
-      try await sdk.acceptProposedChange(
-        volumeID: volumeID, proposalID: proposalID, token: token, fields: fields)
-    }
-  }
-
-  func rejectProposedChange(
-    volumeID: String, proposalID: String, token: String, note: String?
-  ) async throws -> ReviewProposalResult {
-    try await withSpan("sdk-reject-proposed-change") { _ in
-      try await sdk.rejectProposedChange(
-        volumeID: volumeID, proposalID: proposalID, token: token, note: note)
+  /// Rejects a submitted volume version in full, with an optional review note. Editor/admin
+  /// only, enforced by catalog-api.
+  func rejectVolumeVersion(
+    volumeID: String, version: Int, token: String, note: String?
+  ) async throws -> ReviewVersionResult {
+    try await withSpan("sdk-reject-volume-version") { _ in
+      try await sdk.rejectVolumeVersion(id: volumeID, version: version, token: token, note: note)
     }
   }
 
@@ -331,7 +326,7 @@ struct CatalogAPIClientService {
   /// per-type `Attributes` generic parameter up through the controller layer.
   enum PatchOutcome {
     case applied
-    case proposed(ProposedChangeSubmission)
+    case proposed(SubmittedVersionResponse)
   }
 
   /// Edits a publisher/studio/person/license, or proposes an edit for review - the generic
@@ -351,29 +346,35 @@ struct CatalogAPIClientService {
     }
   }
 
-  func listProposedChanges(path: String, id: String, token: String) async throws
-    -> [ProposedChangeSummary]
+  /// Lists a publisher/studio/person/license's version history, newest first - the generic
+  /// counterpart of `fetchVolumeVersions(volumeID:token:)`.
+  func fetchEntityVersions<T: EntityVersionAttributes>(path: String, id: String, token: String)
+    async throws -> [T]
   {
-    try await withSpan("sdk-list-proposed-changes") { _ in
-      try await sdk.listProposedChanges(path: path, id: id, token: token)
+    try await withSpan("sdk-fetch-entity-versions") { _ in
+      try await sdk.fetchEntityVersions(path: path, id: id, token: token)
     }
   }
 
-  func acceptProposedChange(
-    path: String, id: String, proposalID: String, token: String, fields: [String]?
-  ) async throws -> ReviewProposalResult {
-    try await withSpan("sdk-accept-proposed-change") { _ in
-      try await sdk.acceptProposedChange(
-        path: path, id: id, proposalID: proposalID, token: token, fields: fields)
+  /// Accepts a publisher/studio/person/license submitted version, in full or in part - the
+  /// generic counterpart of `acceptVolumeVersion`. Editor/admin only, enforced by catalog-api.
+  func acceptEntityVersion(
+    path: String, id: String, version: Int, token: String, fields: [String]?
+  ) async throws -> ReviewVersionResult {
+    try await withSpan("sdk-accept-entity-version") { _ in
+      try await sdk.acceptEntityVersion(
+        path: path, id: id, version: version, token: token, fields: fields)
     }
   }
 
-  func rejectProposedChange(
-    path: String, id: String, proposalID: String, token: String, note: String?
-  ) async throws -> ReviewProposalResult {
-    try await withSpan("sdk-reject-proposed-change") { _ in
-      try await sdk.rejectProposedChange(
-        path: path, id: id, proposalID: proposalID, token: token, note: note)
+  /// Rejects a publisher/studio/person/license submitted version - the generic counterpart of
+  /// `rejectVolumeVersion`. Editor/admin only, enforced by catalog-api.
+  func rejectEntityVersion(
+    path: String, id: String, version: Int, token: String, note: String?
+  ) async throws -> ReviewVersionResult {
+    try await withSpan("sdk-reject-entity-version") { _ in
+      try await sdk.rejectEntityVersion(
+        path: path, id: id, version: version, token: token, note: note)
     }
   }
 

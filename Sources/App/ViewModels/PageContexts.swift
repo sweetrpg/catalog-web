@@ -39,9 +39,9 @@ struct DetailContext: Content {
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
   let justProposed: Bool
-  /// Present only for an editor/admin viewer when at least one proposed change is pending -
+  /// Present only for an editor/admin viewer when at least one submitted version is pending -
   /// nil hides the entire review section, including for a submitter who has no review rights.
-  let review: LeafProposalReview?
+  let review: LeafVersionReview?
   /// Field names catalog-api flagged as conflicting on the most recent accept action (via the
   /// `?conflicts=` redirect query param) - the live record changed since the proposal was
   /// submitted, so that field wasn't applied. Empty outside of that redirect.
@@ -230,7 +230,7 @@ struct EntityDetailContext: Content {
   var license: LeafLicenseDetail?
   let canEdit: Bool
   let justProposed: Bool
-  let review: LeafEntityProposalReview?
+  let review: LeafEntityVersionReview?
   let conflicts: [String]
   let user: LeafUser?
   let meta: PageMeta
@@ -238,7 +238,7 @@ struct EntityDetailContext: Content {
   init(
     publisher: LeafPublisherDetail? = nil, studio: LeafStudioDetail? = nil,
     person: LeafPersonDetail? = nil, license: LeafLicenseDetail? = nil,
-    canEdit: Bool, justProposed: Bool, review: LeafEntityProposalReview?, conflicts: [String],
+    canEdit: Bool, justProposed: Bool, review: LeafEntityVersionReview?, conflicts: [String],
     user: LeafUser?, meta: PageMeta
   ) {
     self.publisher = publisher
@@ -254,41 +254,46 @@ struct EntityDetailContext: Content {
   }
 }
 
-/// The generic counterpart of `LeafProposalReview` (CatalogController.swift), parameterized by
-/// a per-type patchable-fields list instead of volume's hardcoded three fields.
-struct LeafEntityProposalReview: Content {
+/// Version-model replacement for the old `LeafEntityProposalReview`/`LeafEntityProposalOption` -
+/// see `LeafVersionReview` (Editing.swift) for volume's non-generic counterpart. An
+/// `EntityVersionAttributes` carries no explicit old/new diff map, so the diff is computed here
+/// against the record's current live values via the caller-supplied `versionFieldValues`
+/// extractor (needed since Swift generics can't call an overloaded free function generically
+/// without it).
+struct LeafEntityVersionReview: Content {
   let recordID: String
   let pendingCount: Int
   let hasMultiplePending: Bool
-  let options: [LeafEntityProposalOption]
-  let selectedID: String
+  let options: [LeafEntityVersionOption]
+  let selectedVersion: Int
   let submittedBy: String
   let submittedAtLabel: String
   let fields: [LeafEntityFieldDiff]
 
-  init(
-    recordID: String, pending: [ProposedChangeSummary], selected: ProposedChangeSummary,
-    fieldSpecs: [EntityFieldSpec]
+  init<T: EntityVersionAttributes>(
+    recordID: String, currentValues: [String: String], pending: [T], selected: T,
+    fieldSpecs: [EntityFieldSpec], versionFieldValues: (T) -> [String: String]
   ) {
     self.recordID = recordID
     self.pendingCount = pending.count
     self.hasMultiplePending = pending.count > 1
-    self.options = pending.map { proposal in
-      LeafEntityProposalOption(
-        id: proposal.id,
-        submittedBy: proposal.submittedBy,
-        submittedAtLabel: Self.format(proposal.submittedAt),
-        isSelected: proposal.id == selected.id
+    self.options = pending.map { version in
+      LeafEntityVersionOption(
+        version: version.version,
+        submittedBy: version.submittedBy,
+        submittedAtLabel: Self.format(version.submittedAt),
+        isSelected: version.version == selected.version
       )
     }
-    self.selectedID = selected.id
+    self.selectedVersion = selected.version
     self.submittedBy = selected.submittedBy
     self.submittedAtLabel = Self.format(selected.submittedAt)
+    let submittedValues = versionFieldValues(selected)
     self.fields = fieldSpecs.compactMap { field in
-      guard let change = selected.diff[field.key] else { return nil }
+      let oldValue = currentValues[field.key] ?? ""
+      guard let newValue = submittedValues[field.key], oldValue != newValue else { return nil }
       return LeafEntityFieldDiff(
-        key: field.key, label: field.label,
-        oldValue: change.old ?? "", newValue: change.new ?? "")
+        key: field.key, label: field.label, oldValue: oldValue, newValue: newValue)
     }
   }
 
