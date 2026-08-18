@@ -11,47 +11,11 @@
 		#endif
 
 		<div>
+			<span class="section-label">License</span>
 			<h1>#(license.title)</h1>
-			<div class="tag-cloud">
-				#for(tag in license.tags):
-					<span class="tag tag-accent">#(tag)</span>
-				#endfor
-			</div>
 
 			#if(canEdit):
 				<a class="btn btn-ghost" href="#(meta.basePath)/licenses/#(license.id)/edit">Edit</a>
-			#endif
-
-			#if(license.hasShortTitle):
-				<p class="detail-notes"><strong>Short title:</strong> #(license.shortTitle)</p>
-			#endif
-
-			#if(license.hasVersion):
-				<p class="detail-notes"><strong>Version:</strong> #(license.version)</p>
-			#endif
-
-			#if(license.hasStatus):
-				<p class="detail-notes"><strong>Status:</strong> #(license.status)</p>
-			#endif
-
-			#if(license.hasAvailability):
-				<p class="detail-notes"><strong>Availability:</strong> #(license.availability)</p>
-			#endif
-
-			#if(license.hasDeed):
-				<p class="detail-notes"><strong>Deed:</strong> <a href="#(license.deed)">#(license.deed)</a></p>
-			#endif
-
-			#if(license.hasLegalCode):
-				<p class="detail-notes"><strong>Legal code:</strong> <a href="#(license.legalCode)">#(license.legalCode)</a></p>
-			#endif
-
-			#if(license.hasWebsite):
-				<p class="detail-notes"><strong>Website:</strong> <a href="#(license.website)">#(license.website)</a></p>
-			#endif
-
-			#if(license.hasNotes):
-				<p class="detail-notes"><strong>Notes:</strong> #(license.notes)</p>
 			#endif
 
 			#if(review):
@@ -111,22 +75,92 @@
 				</div>
 			#endif
 
-			<div class="detail-block">
-				<span class="section-label">Volumes</span>
-				#if(license.hasVolumes):
-					<div class="card-grid">
-						#for(volume in license.volumes):
-							<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
-								<div class="card-body">
-									<div class="card-title">#(volume.title)</div>
-								</div>
-							</a>
-						#endfor
-					</div>
-				#else:
-					<p class="empty-state-inline">No volumes associated with this license yet.</p>
-				#endif
+			<div class="license-columns">
+				<div class="license-meta">
+					#if(license.hasShortTitle):
+						<span class="license-meta-label">Short title</span>
+						<span class="license-meta-value">#(license.shortTitle)</span>
+					#endif
+
+					#if(license.hasVersion):
+						<span class="license-meta-label">Version</span>
+						<span class="license-meta-value">#(license.version)</span>
+					#endif
+
+					#if(license.hasStatus):
+						<span class="license-meta-label">Status</span>
+						<span class="license-meta-value">#(license.status)</span>
+					#endif
+
+					#if(license.hasAvailability):
+						<span class="license-meta-label">Availability</span>
+						<span class="license-meta-value">#(license.availability)</span>
+					#endif
+
+					#if(license.hasWebsite):
+						<span class="license-meta-label">Website</span>
+						<span class="license-meta-value"><a href="#(license.website)">#(license.website)</a></span>
+					#endif
+
+					#for(property in license.properties):
+						<span class="license-meta-label">#(property.name)</span>
+						<span class="license-meta-value">#(property.value)</span>
+					#endfor
+
+					#if(license.hasNotes):
+						<span class="license-meta-label">Notes</span>
+						<div class="license-meta-value license-notes">#(license.notes)</div>
+					#endif
+
+					#if(license.hasTags):
+						<span class="license-meta-label">Tags</span>
+						<div class="license-meta-value tag-cloud">
+							#for(tag in license.tags):
+								<span class="tag tag-accent">#(tag)</span>
+							#endfor
+						</div>
+					#endif
+				</div>
+
+				<div class="license-volumes">
+					<span class="section-label">Volumes</span>
+					#if(license.hasVolumes):
+						<div class="license-volumes-panel">
+							<div class="card-grid">
+								#for(volume in license.volumes):
+									<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
+										<div class="card-body">
+											<div class="card-title">#(volume.title)</div>
+										</div>
+									</a>
+								#endfor
+							</div>
+						</div>
+					#else:
+						<p class="empty-state-inline">No volumes associated with this license yet.</p>
+					#endif
+				</div>
 			</div>
+
+			#if(license.hasDeed || license.hasLegalCode):
+				<div class="detail-block">
+					<span class="section-label">License Text</span>
+					<div class="license-text-panel">
+						#if(license.hasDeed):
+							<details open>
+								<summary>Deed</summary>
+								<p><a href="#(license.deed)">#(license.deed)</a></p>
+							</details>
+						#endif
+						#if(license.hasLegalCode):
+							<details open>
+								<summary>Legal code</summary>
+								<p><a href="#(license.legalCode)">#(license.legalCode)</a></p>
+							</details>
+						#endif
+					</div>
+				</div>
+			#endif
 		</div>
 	#endexport
 #endextend

@@ -13,6 +13,7 @@ struct LicenseViewModel {
   let availability: String
   let notes: String
   let tags: [String]
+  var properties: [(name: String, value: String)] = []
   var volumes: [VolumeSummary] = []
 
   init(id: String, attributes: LicenseAttributes) {
@@ -27,5 +28,6 @@ struct LicenseViewModel {
     self.availability = attributes.availability ?? ""
     self.notes = attributes.notes ?? ""
     self.tags = (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty }
+    self.properties = (attributes.properties ?? []).map { ($0.name, $0.value) }
   }
 }
