@@ -217,6 +217,8 @@ struct EntityBrowseContext<Item: Content>: Content {
   let query: String
   let items: [Item]
   let noResults: Bool
+  let orderIsAsc: Bool
+  let orderIsDesc: Bool
   let user: LeafUser?
   let meta: PageMeta
 }

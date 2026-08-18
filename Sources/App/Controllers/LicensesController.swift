@@ -54,21 +54,26 @@ struct LicensesController: RouteCollection {
 
   private struct BrowseQuery: Content {
     let q: String?
+    let order: String?
   }
 
   @Sendable
   func browseLicenses(req: Request) async throws -> View {
     try await withSpan("licenses-browse") { _ in
       let query = try req.query.decode(BrowseQuery.self)
+      let order = resolveBrowseSortOrder(query.order)
       let licenses = try await req.catalogAPI.fetchLicenses()
       let filtered = filterByName(licenses, query: query.q) { $0.title }
+      let sorted = sortByName(filtered, order: order) { $0.title }
 
       return try await req.view.render(
         "licenses/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: filtered.map { LeafLicenseCard($0) },
+          items: sorted.map { LeafLicenseCard($0) },
           noResults: filtered.isEmpty,
+          orderIsAsc: order == .asc,
+          orderIsDesc: order == .desc,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
