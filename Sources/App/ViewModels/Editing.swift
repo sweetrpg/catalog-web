@@ -25,43 +25,58 @@ struct LeafFieldDiff: Content {
   let newValue: String
 }
 
-struct LeafProposalOption: Content {
-  let id: String
+struct LeafVersionOption: Content {
+  let version: Int
   let submittedBy: String
   let submittedAtLabel: String
   let isSelected: Bool
 }
 
-struct LeafProposalReview: Content {
+/// Version-model replacement for the old `LeafProposalReview`/`LeafProposalOption` - see
+/// design.md's "`proposed_changes` and its Go package are removed once the migration completes".
+/// A `VolumeVersionAttributes` carries no explicit old/new diff map, so the diff is computed
+/// here against the volume's current live values.
+struct LeafVersionReview: Content {
   let volumeID: String
   let pendingCount: Int
   let hasMultiplePending: Bool
-  let options: [LeafProposalOption]
-  let selectedID: String
+  let options: [LeafVersionOption]
+  let selectedVersion: Int
   let submittedBy: String
   let submittedAtLabel: String
   let fields: [LeafFieldDiff]
 
-  init(volumeID: String, pending: [ProposedChangeSummary], selected: ProposedChangeSummary) {
+  init(
+    volumeID: String, currentVolume: VolumeViewModel, pending: [VolumeVersionAttributes],
+    selected: VolumeVersionAttributes
+  ) {
     self.volumeID = volumeID
     self.pendingCount = pending.count
     self.hasMultiplePending = pending.count > 1
-    self.options = pending.map { proposal in
-      LeafProposalOption(
-        id: proposal.id,
-        submittedBy: proposal.submittedBy,
-        submittedAtLabel: Self.format(proposal.submittedAt),
-        isSelected: proposal.id == selected.id
+    self.options = pending.map { version in
+      LeafVersionOption(
+        version: version.version,
+        submittedBy: version.submittedBy,
+        submittedAtLabel: Self.format(version.submittedAt),
+        isSelected: version.version == selected.version
       )
     }
-    self.selectedID = selected.id
+    self.selectedVersion = selected.version
     self.submittedBy = selected.submittedBy
     self.submittedAtLabel = Self.format(selected.submittedAt)
+    let liveValues: [String: String] = [
+      "title": currentVolume.title, "description": currentVolume.description,
+      "notes": currentVolume.notes,
+    ]
+    let submittedValues: [String: String] = [
+      "title": selected.title, "description": selected.description, "notes": selected.notes,
+    ]
     self.fields = patchableFields.compactMap { field in
-      guard let change = selected.diff[field.key] else { return nil }
+      let oldValue = liveValues[field.key] ?? ""
+      let newValue = submittedValues[field.key] ?? ""
+      guard oldValue != newValue else { return nil }
       return LeafFieldDiff(
-        key: field.key, label: field.label,
-        oldValue: change.old ?? "", newValue: change.new ?? "")
+        key: field.key, label: field.label, oldValue: oldValue, newValue: newValue)
     }
   }
 
@@ -73,10 +88,10 @@ struct LeafProposalReview: Content {
   }
 }
 
-/// The volume detail page's fixed, ordered list of fields a `PATCH`/proposal can touch -
-/// `ProposedChangeSummary.diff` is a `[String: FieldChange]` dictionary with no defined
-/// iteration order, so the diff table and review UI both walk this list instead of the raw
-/// dictionary keys, keeping row order stable and matching the edit form's field order.
+/// The volume detail page's fixed, ordered list of fields a `PATCH`/submitted version can touch -
+/// a version's diff is computed as a field-name-keyed dictionary with no defined iteration
+/// order, so the diff table and review UI both walk this list instead of the raw dictionary
+/// keys, keeping row order stable and matching the edit form's field order.
 private let patchableFields: [(key: String, label: String)] = [
   ("title", "Title"),
   ("description", "Description"),
@@ -105,8 +120,8 @@ struct LeafEntityFieldDiff: Content {
   let newValue: String
 }
 
-struct LeafEntityProposalOption: Content {
-  let id: String
+struct LeafEntityVersionOption: Content {
+  let version: Int
   let submittedBy: String
   let submittedAtLabel: String
   let isSelected: Bool

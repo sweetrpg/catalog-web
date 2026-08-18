@@ -27,9 +27,9 @@ struct VolumesController: RouteCollection {
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
-      "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
+      "volumes", ":volumeID", "versions", ":version", "accept", use: acceptVersionReview)
     routes.post(
-      "volumes", ":volumeID", "proposed-changes", ":proposalID", "reject", use: rejectProposal)
+      "volumes", ":volumeID", "versions", ":version", "reject", use: rejectVersionReview)
     routes.get("volumes", ":volumeID", "versions", use: versionHistory)
     routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
     routes.post(
@@ -57,25 +57,26 @@ struct VolumesController: RouteCollection {
       let sessionUser = await req.currentUser
       let roles = sessionUser?.roles ?? []
 
-      var proposalReview: LeafProposalReview?
+      var proposalReview: LeafVersionReview?
       if canReview(roles), let token = sessionUser?.accessToken {
-        // Fails open rather than propagating: catalog-api's proposed-changes endpoints are a
-        // separate deployment from this app's own release, so a version skew or outage there
-        // (e.g. the endpoint not yet shipped) must degrade to "no pending changes shown", not
-        // 500 the entire detail page for every editor/admin viewer - matches AdminClient's and
-        // this app's session-read fail-open contract elsewhere.
+        // Fails open rather than propagating: catalog-api's version endpoints are a separate
+        // deployment from this app's own release, so a version skew or outage there (e.g. the
+        // endpoint not yet shipped) must degrade to "no pending changes shown", not 500 the
+        // entire detail page for every editor/admin viewer - matches AdminClient's and this
+        // app's session-read fail-open contract elsewhere.
         do {
-          let pending = try await req.catalogAPI.listProposedChanges(
+          let allVersions = try await req.catalogAPI.fetchVolumeVersions(
             volumeID: volumeID, token: token)
+          let pending = allVersions.filter { $0.state == "submitted" }
           if !pending.isEmpty {
-            let selectedID = req.query[String.self, at: "proposal"]
-            let selected = pending.first { $0.id == selectedID } ?? pending[0]
-            proposalReview = LeafProposalReview(
-              volumeID: volumeID, pending: pending, selected: selected)
+            let selectedVersion = req.query[Int.self, at: "proposal"]
+            let selected = pending.first { $0.version == selectedVersion } ?? pending[0]
+            proposalReview = LeafVersionReview(
+              volumeID: volumeID, currentVolume: volume, pending: pending, selected: selected)
           }
         } catch {
           req.logger.warning(
-            "failed to fetch proposed changes for volume \(volumeID): \(error)")
+            "failed to fetch pending versions for volume \(volumeID): \(error)")
         }
       }
 
@@ -733,10 +734,10 @@ struct VolumesController: RouteCollection {
   }
 
   @Sendable
-  func acceptProposal(req: Request) async throws -> Response {
-    try await withSpan("volume-accept-proposal") { _ in
+  func acceptVersionReview(req: Request) async throws -> Response {
+    try await withSpan("volume-accept-version-review") { _ in
       guard let volumeID = req.parameters.get("volumeID"),
-        let proposalID = req.parameters.get("proposalID")
+        let versionParam = req.parameters.get("version"), let version = Int(versionParam)
       else {
         throw Abort(.badRequest)
       }
@@ -746,8 +747,8 @@ struct VolumesController: RouteCollection {
       let input = try req.content.decode(AcceptInput.self)
       let fields: [String]? = input.mode == "all" ? nil : (input.fields ?? [])
 
-      let result = try await req.catalogAPI.acceptProposedChange(
-        volumeID: volumeID, proposalID: proposalID, token: user.accessToken, fields: fields)
+      let result = try await req.catalogAPI.acceptVolumeVersion(
+        volumeID: volumeID, version: version, token: user.accessToken, fields: fields)
 
       var redirectPath = "\(req.basePath)/volumes/\(volumeID)"
       if let conflicts = result.conflicts, !conflicts.isEmpty {
@@ -763,10 +764,10 @@ struct VolumesController: RouteCollection {
   }
 
   @Sendable
-  func rejectProposal(req: Request) async throws -> Response {
-    try await withSpan("volume-reject-proposal") { _ in
+  func rejectVersionReview(req: Request) async throws -> Response {
+    try await withSpan("volume-reject-version-review") { _ in
       guard let volumeID = req.parameters.get("volumeID"),
-        let proposalID = req.parameters.get("proposalID")
+        let versionParam = req.parameters.get("version"), let version = Int(versionParam)
       else {
         throw Abort(.badRequest)
       }
@@ -775,8 +776,8 @@ struct VolumesController: RouteCollection {
       }
       let input = try req.content.decode(RejectInput.self)
 
-      _ = try await req.catalogAPI.rejectProposedChange(
-        volumeID: volumeID, proposalID: proposalID, token: user.accessToken, note: input.note)
+      _ = try await req.catalogAPI.rejectVolumeVersion(
+        volumeID: volumeID, version: version, token: user.accessToken, note: input.note)
 
       return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
     }

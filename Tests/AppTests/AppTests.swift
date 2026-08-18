@@ -434,14 +434,14 @@ struct AppTests {
 
   // MARK: - volume-change-review-ui
 
-  private func makeProposal(
-    id: String = "prop-1", submittedBy: String = "auth0|submitter",
-    diff: [String: FieldChange] = ["title": FieldChange(old: "Old", new: "New", status: "pending")]
-  ) -> ProposedChangeSummary {
-    ProposedChangeSummary(
-      id: id, recordType: "volume", recordId: "1", diff: diff, status: "pending",
-      submittedBy: submittedBy, submittedAt: Date(timeIntervalSince1970: 0), reviewedBy: nil,
-      reviewedAt: nil, reviewNote: nil)
+  private func makeVersion(
+    version: Int = 1, submittedBy: String = "auth0|submitter", title: String = "New"
+  ) -> VolumeVersionAttributes {
+    VolumeVersionAttributes(
+      id: "v\(version)", recordId: "1", version: version, title: title, description: "",
+      notes: "", format: "", coverAssetId: "", sampleAssetIds: [], state: "submitted",
+      baseVersion: 1, submittedBy: submittedBy, submittedAt: Date(timeIntervalSince1970: 0),
+      reviewedBy: nil, reviewedAt: nil, reviewNote: nil, resultingVersion: nil)
   }
 
   @Test("detail page shows the Edit action for a submitter/editor/admin session")
@@ -494,10 +494,11 @@ struct AppTests {
   @Test("detail page shows a pending-change indicator and diff for an editor")
   func detailShowsPendingChangeReviewForEditor() async throws {
     let volume = VolumeViewModel(
-      id: "1", title: "Rusthaven", description: "", notes: "",
+      id: "1", title: "Old", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    let proposal = makeProposal()
-    let review = LeafProposalReview(volumeID: "1", pending: [proposal], selected: proposal)
+    let version = makeVersion()
+    let review = LeafVersionReview(
+      volumeID: "1", currentVolume: volume, pending: [version], selected: version)
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
@@ -527,9 +528,10 @@ struct AppTests {
     let volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    let first = makeProposal(id: "prop-1", submittedBy: "auth0|alice")
-    let second = makeProposal(id: "prop-2", submittedBy: "auth0|bob")
-    let review = LeafProposalReview(volumeID: "1", pending: [first, second], selected: first)
+    let first = makeVersion(version: 1, submittedBy: "auth0|alice")
+    let second = makeVersion(version: 2, submittedBy: "auth0|bob")
+    let review = LeafVersionReview(
+      volumeID: "1", currentVolume: volume, pending: [first, second], selected: first)
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in

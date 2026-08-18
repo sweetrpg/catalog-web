@@ -14,6 +14,13 @@ func fieldValues(_ p: PublisherViewModel) -> [String: String] {
   ["name": p.name, "address": p.address, "website": p.website, "notes": p.notes]
 }
 
+/// Version-attributes counterpart of the `fieldValues` overload above - used to build the
+/// review diff table's "proposed value" column against a submitted version's own field values,
+/// the same way `fieldValues(_ p: PublisherViewModel)` supplies the "live value" column.
+func fieldValues(_ p: PublisherVersionAttributes) -> [String: String] {
+  ["name": p.name, "address": p.address, "notes": p.notes]
+}
+
 /// Browse, detail, and edit pages for publishers, studios, persons, and licenses - the four
 /// catalog entity types that, unlike volumes, previously had no pages of their own. One
 /// controller for all four types (rather than four near-identical controllers) since their
@@ -28,11 +35,11 @@ struct PublishersController: RouteCollection {
     routes.get("publishers", ":id", "edit", use: editPublisherForm)
     routes.post("publishers", ":id", "edit", use: submitPublisherEdit)
     routes.post(
-      "publishers", ":id", "proposed-changes", ":proposalID", "accept",
-      use: acceptPublisherProposal)
+      "publishers", ":id", "versions", ":version", "accept",
+      use: acceptPublisherVersion)
     routes.post(
-      "publishers", ":id", "proposed-changes", ":proposalID", "reject",
-      use: rejectPublisherProposal)
+      "publishers", ":id", "versions", ":version", "reject",
+      use: rejectPublisherVersion)
   }
 
   private struct BrowseQuery: Content {
@@ -67,9 +74,10 @@ struct PublishersController: RouteCollection {
       }
       publisher.volumes = try await req.catalogAPI.fetchPublisherVolumes(id: id)
       let sessionUser = await req.currentUser
-      let review = await buildReview(
+      let review: LeafEntityVersionReview? = await buildReview(
         req: req, path: "/publishers", recordID: id, fieldSpecs: publisherFields,
-        sessionUser: sessionUser)
+        currentValues: fieldValues(publisher), sessionUser: sessionUser,
+        versionFieldValues: { (v: PublisherVersionAttributes) in fieldValues(v) })
 
       return try await req.view.render(
         "publishers/detail",
@@ -109,13 +117,13 @@ struct PublishersController: RouteCollection {
   }
 
   @Sendable
-  func acceptPublisherProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/publishers")
+  func acceptPublisherVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/publishers")
   }
 
   @Sendable
-  func rejectPublisherProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/publishers")
+  func rejectPublisherVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/publishers")
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

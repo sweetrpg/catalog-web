@@ -13,6 +13,10 @@ func fieldValues(_ s: StudioViewModel) -> [String: String] {
   ["name": s.name, "website": s.website, "notes": s.notes]
 }
 
+func fieldValues(_ s: StudioVersionAttributes) -> [String: String] {
+  ["name": s.name, "notes": s.notes]
+}
+
 /// Browse, detail, and edit pages for publishers, studios, persons, and licenses - the four
 /// catalog entity types that, unlike volumes, previously had no pages of their own. One
 /// controller for all four types (rather than four near-identical controllers) since their
@@ -27,9 +31,9 @@ struct StudiosController: RouteCollection {
     routes.get("studios", ":id", "edit", use: editStudioForm)
     routes.post("studios", ":id", "edit", use: submitStudioEdit)
     routes.post(
-      "studios", ":id", "proposed-changes", ":proposalID", "accept", use: acceptStudioProposal)
+      "studios", ":id", "versions", ":version", "accept", use: acceptStudioVersion)
     routes.post(
-      "studios", ":id", "proposed-changes", ":proposalID", "reject", use: rejectStudioProposal)
+      "studios", ":id", "versions", ":version", "reject", use: rejectStudioVersion)
   }
 
   private struct BrowseQuery: Content {
@@ -64,9 +68,10 @@ struct StudiosController: RouteCollection {
       }
       studio.volumes = try await req.catalogAPI.fetchStudioVolumes(id: id)
       let sessionUser = await req.currentUser
-      let review = await buildReview(
+      let review: LeafEntityVersionReview? = await buildReview(
         req: req, path: "/studios", recordID: id, fieldSpecs: studioFields,
-        sessionUser: sessionUser)
+        currentValues: fieldValues(studio), sessionUser: sessionUser,
+        versionFieldValues: { (v: StudioVersionAttributes) in fieldValues(v) })
 
       return try await req.view.render(
         "studios/detail",
@@ -106,13 +111,13 @@ struct StudiosController: RouteCollection {
   }
 
   @Sendable
-  func acceptStudioProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/studios")
+  func acceptStudioVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/studios")
   }
 
   @Sendable
-  func rejectStudioProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/studios")
+  func rejectStudioVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/studios")
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

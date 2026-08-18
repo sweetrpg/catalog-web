@@ -1,4 +1,17 @@
 
+## 0.23.0 - 2026-08-18
+
+### Added
+- Version-history UI and review rewire for all entity types, remove proposed_changes
+- Version-history UI and review rewire for all entity types
+
+
+### Fixed
+- Bump catalog-api-client.swift constraint to from: 0.1.0
+- Wire up Vapor's TracingMiddleware
+
+
+
 ## 0.22.0 - 2026-08-17
 
 ### Added

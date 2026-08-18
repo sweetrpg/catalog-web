@@ -23,6 +23,14 @@ func fieldValues(_ l: LicenseViewModel) -> [String: String] {
   ]
 }
 
+func fieldValues(_ l: LicenseVersionAttributes) -> [String: String] {
+  [
+    "title": l.title, "short_title": l.shortTitle, "version": l.licenseVersion, "deed": l.deed,
+    "legal_code": l.legalCode, "status": l.status, "availability": l.availability,
+    "notes": l.notes,
+  ]
+}
+
 /// Browse, detail, and edit pages for publishers, studios, persons, and licenses - the four
 /// catalog entity types that, unlike volumes, previously had no pages of their own. One
 /// controller for all four types (rather than four near-identical controllers) since their
@@ -36,6 +44,12 @@ struct LicensesController: RouteCollection {
     routes.get("licenses", ":id", use: detailLicense)
     routes.get("licenses", ":id", "edit", use: editLicenseForm)
     routes.post("licenses", ":id", "edit", use: submitLicenseEdit)
+    routes.post(
+      "licenses", ":id", "versions", ":version", "accept",
+      use: acceptLicenseVersion)
+    routes.post(
+      "licenses", ":id", "versions", ":version", "reject",
+      use: rejectLicenseVersion)
   }
 
   private struct BrowseQuery: Content {
@@ -70,9 +84,10 @@ struct LicensesController: RouteCollection {
       }
       license.volumes = try await req.catalogAPI.fetchLicenseVolumes(id: id)
       let sessionUser = await req.currentUser
-      let review = await buildReview(
+      let review: LeafEntityVersionReview? = await buildReview(
         req: req, path: "/licenses", recordID: id, fieldSpecs: licenseFields,
-        sessionUser: sessionUser)
+        currentValues: fieldValues(license), sessionUser: sessionUser,
+        versionFieldValues: { (v: LicenseVersionAttributes) in fieldValues(v) })
 
       return try await req.view.render(
         "licenses/detail",
@@ -112,13 +127,13 @@ struct LicensesController: RouteCollection {
   }
 
   @Sendable
-  func acceptLicenseProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/licenses")
+  func acceptLicenseVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/licenses")
   }
 
   @Sendable
-  func rejectLicenseProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/licenses")
+  func rejectLicenseVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/licenses")
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

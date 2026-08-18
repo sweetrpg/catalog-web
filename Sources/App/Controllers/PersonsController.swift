@@ -12,6 +12,10 @@ func fieldValues(_ p: PersonViewModel) -> [String: String] {
   ["name": p.name, "notes": p.notes]
 }
 
+func fieldValues(_ p: PersonVersionAttributes) -> [String: String] {
+  ["name": p.name, "notes": p.notes]
+}
+
 /// Browse, detail, and edit pages for publishers, studios, persons, and licenses - the four
 /// catalog entity types that, unlike volumes, previously had no pages of their own. One
 /// controller for all four types (rather than four near-identical controllers) since their
@@ -26,9 +30,9 @@ struct PersonsController: RouteCollection {
     routes.get("persons", ":id", "edit", use: editPersonForm)
     routes.post("persons", ":id", "edit", use: submitPersonEdit)
     routes.post(
-      "persons", ":id", "proposed-changes", ":proposalID", "accept", use: acceptPersonProposal)
+      "persons", ":id", "versions", ":version", "accept", use: acceptPersonVersion)
     routes.post(
-      "persons", ":id", "proposed-changes", ":proposalID", "reject", use: rejectPersonProposal)
+      "persons", ":id", "versions", ":version", "reject", use: rejectPersonVersion)
   }
 
   private struct BrowseQuery: Content {
@@ -63,9 +67,10 @@ struct PersonsController: RouteCollection {
       }
       person.volumes = try await req.catalogAPI.fetchPersonVolumes(id: id)
       let sessionUser = await req.currentUser
-      let review = await buildReview(
+      let review: LeafEntityVersionReview? = await buildReview(
         req: req, path: "/persons", recordID: id, fieldSpecs: personFields,
-        sessionUser: sessionUser)
+        currentValues: fieldValues(person), sessionUser: sessionUser,
+        versionFieldValues: { (v: PersonVersionAttributes) in fieldValues(v) })
 
       return try await req.view.render(
         "persons/detail",
@@ -105,13 +110,13 @@ struct PersonsController: RouteCollection {
   }
 
   @Sendable
-  func acceptPersonProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/persons")
+  func acceptPersonVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/persons")
   }
 
   @Sendable
-  func rejectPersonProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/persons")
+  func rejectPersonVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/persons")
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

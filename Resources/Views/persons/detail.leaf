@@ -35,7 +35,7 @@
 							<label class="form-label" for="proposal">Viewing proposal from</label>
 							<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
 								#for(option in review.options):
-									<option value="#(option.id)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
+									<option value="#(option.version)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
 								#endfor
 							</select>
 						</form>
@@ -43,7 +43,7 @@
 						<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
 					#endif
 
-					<form class="proposal-diff" method="post" action="#(meta.basePath)/persons/#(person.id)/proposed-changes/#(review.selectedID)/accept">
+					<form class="proposal-diff" method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/accept">
 						<input type="hidden" name="mode" value="subset">
 						<table class="table">
 							<thead>
@@ -71,11 +71,11 @@
 					</form>
 
 					<div class="table-actions">
-						<form method="post" action="#(meta.basePath)/persons/#(person.id)/proposed-changes/#(review.selectedID)/accept">
+						<form method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/accept">
 							<input type="hidden" name="mode" value="all">
 							<button type="submit" class="btn btn-primary">Accept All</button>
 						</form>
-						<form method="post" action="#(meta.basePath)/persons/#(person.id)/proposed-changes/#(review.selectedID)/reject">
+						<form method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/reject">
 							<input class="input" type="text" name="note" placeholder="Optional note">
 							<button type="submit" class="btn btn-ghost">Reject</button>
 						</form>
