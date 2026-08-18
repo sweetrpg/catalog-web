@@ -7,7 +7,9 @@
 			<h2>#(volumeTitle)</h2>
 		</section>
 
-		#if(versions):
+		#if(fetchFailed):
+			<p class="form-error">Version history couldn't be loaded right now. Try again shortly.</p>
+		#elseif(hasVersions):
 			<table class="table">
 				<thead>
 					<tr>
