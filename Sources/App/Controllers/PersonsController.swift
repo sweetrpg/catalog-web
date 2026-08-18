@@ -37,21 +37,26 @@ struct PersonsController: RouteCollection {
 
   private struct BrowseQuery: Content {
     let q: String?
+    let order: String?
   }
 
   @Sendable
   func browsePersons(req: Request) async throws -> View {
     try await withSpan("persons-browse") { _ in
       let query = try req.query.decode(BrowseQuery.self)
+      let order = resolveBrowseSortOrder(query.order)
       let persons = try await req.catalogAPI.fetchPersonsCatalog()
       let filtered = filterByName(persons, query: query.q) { $0.name }
+      let sorted = sortByName(filtered, order: order) { $0.name }
 
       return try await req.view.render(
         "persons/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: filtered.map { LeafPersonCard($0) },
+          items: sorted.map { LeafPersonCard($0) },
           noResults: filtered.isEmpty,
+          orderIsAsc: order == .asc,
+          orderIsDesc: order == .desc,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
