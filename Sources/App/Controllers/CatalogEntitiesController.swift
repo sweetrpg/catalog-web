@@ -60,6 +60,29 @@ func fieldValues(_ l: LicenseViewModel) -> [String: String] {
   ]
 }
 
+/// Version-attributes counterparts of the `fieldValues` overloads above - used to build the
+/// review diff table's "proposed value" column against a submitted version's own field values,
+/// the same way `fieldValues(_ p: PublisherViewModel)` supplies the "live value" column.
+func fieldValues(_ p: PublisherVersionAttributes) -> [String: String] {
+  ["name": p.name, "address": p.address, "notes": p.notes]
+}
+
+func fieldValues(_ s: StudioVersionAttributes) -> [String: String] {
+  ["name": s.name, "notes": s.notes]
+}
+
+func fieldValues(_ p: PersonVersionAttributes) -> [String: String] {
+  ["name": p.name, "notes": p.notes]
+}
+
+func fieldValues(_ l: LicenseVersionAttributes) -> [String: String] {
+  [
+    "title": l.title, "short_title": l.shortTitle, "version": l.licenseVersion, "deed": l.deed,
+    "legal_code": l.legalCode, "status": l.status, "availability": l.availability,
+    "notes": l.notes,
+  ]
+}
+
 /// Browse, detail, and edit pages for publishers, studios, persons, and licenses - the four
 /// catalog entity types that, unlike volumes, previously had no pages of their own. One
 /// controller for all four types (rather than four near-identical controllers) since their
@@ -74,40 +97,40 @@ struct CatalogEntitiesController: RouteCollection {
     routes.get("publishers", ":id", "edit", use: editPublisherForm)
     routes.post("publishers", ":id", "edit", use: submitPublisherEdit)
     routes.post(
-      "publishers", ":id", "proposed-changes", ":proposalID", "accept",
-      use: acceptPublisherProposal)
+      "publishers", ":id", "versions", ":version", "accept",
+      use: acceptPublisherVersion)
     routes.post(
-      "publishers", ":id", "proposed-changes", ":proposalID", "reject",
-      use: rejectPublisherProposal)
+      "publishers", ":id", "versions", ":version", "reject",
+      use: rejectPublisherVersion)
 
     routes.get("studios", use: browseStudios)
     routes.get("studios", ":id", use: detailStudio)
     routes.get("studios", ":id", "edit", use: editStudioForm)
     routes.post("studios", ":id", "edit", use: submitStudioEdit)
     routes.post(
-      "studios", ":id", "proposed-changes", ":proposalID", "accept", use: acceptStudioProposal)
+      "studios", ":id", "versions", ":version", "accept", use: acceptStudioVersion)
     routes.post(
-      "studios", ":id", "proposed-changes", ":proposalID", "reject", use: rejectStudioProposal)
+      "studios", ":id", "versions", ":version", "reject", use: rejectStudioVersion)
 
     routes.get("persons", use: browsePersons)
     routes.get("persons", ":id", use: detailPerson)
     routes.get("persons", ":id", "edit", use: editPersonForm)
     routes.post("persons", ":id", "edit", use: submitPersonEdit)
     routes.post(
-      "persons", ":id", "proposed-changes", ":proposalID", "accept", use: acceptPersonProposal)
+      "persons", ":id", "versions", ":version", "accept", use: acceptPersonVersion)
     routes.post(
-      "persons", ":id", "proposed-changes", ":proposalID", "reject", use: rejectPersonProposal)
+      "persons", ":id", "versions", ":version", "reject", use: rejectPersonVersion)
 
     routes.get("licenses", use: browseLicenses)
     routes.get("licenses", ":id", use: detailLicense)
     routes.get("licenses", ":id", "edit", use: editLicenseForm)
     routes.post("licenses", ":id", "edit", use: submitLicenseEdit)
     routes.post(
-      "licenses", ":id", "proposed-changes", ":proposalID", "accept",
-      use: acceptLicenseProposal)
+      "licenses", ":id", "versions", ":version", "accept",
+      use: acceptLicenseVersion)
     routes.post(
-      "licenses", ":id", "proposed-changes", ":proposalID", "reject",
-      use: rejectLicenseProposal)
+      "licenses", ":id", "versions", ":version", "reject",
+      use: rejectLicenseVersion)
   }
 
   private struct BrowseQuery: Content {
@@ -139,9 +162,10 @@ struct CatalogEntitiesController: RouteCollection {
     }
     publisher.volumes = try await req.catalogAPI.fetchPublisherVolumes(id: id)
     let sessionUser = await req.currentUser
-    let review = await buildReview(
+    let review: LeafEntityVersionReview? = await buildReview(
       req: req, path: "/publishers", recordID: id, fieldSpecs: publisherFields,
-      sessionUser: sessionUser)
+      currentValues: fieldValues(publisher), sessionUser: sessionUser,
+      versionFieldValues: { (v: PublisherVersionAttributes) in fieldValues(v) })
 
     return try await req.view.render(
       "publishers/detail",
@@ -177,13 +201,13 @@ struct CatalogEntitiesController: RouteCollection {
   }
 
   @Sendable
-  func acceptPublisherProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/publishers")
+  func acceptPublisherVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/publishers")
   }
 
   @Sendable
-  func rejectPublisherProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/publishers")
+  func rejectPublisherVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/publishers")
   }
 
   @Sendable
@@ -211,9 +235,10 @@ struct CatalogEntitiesController: RouteCollection {
     }
     studio.volumes = try await req.catalogAPI.fetchStudioVolumes(id: id)
     let sessionUser = await req.currentUser
-    let review = await buildReview(
+    let review: LeafEntityVersionReview? = await buildReview(
       req: req, path: "/studios", recordID: id, fieldSpecs: studioFields,
-      sessionUser: sessionUser)
+      currentValues: fieldValues(studio), sessionUser: sessionUser,
+      versionFieldValues: { (v: StudioVersionAttributes) in fieldValues(v) })
 
     return try await req.view.render(
       "studios/detail",
@@ -249,13 +274,13 @@ struct CatalogEntitiesController: RouteCollection {
   }
 
   @Sendable
-  func acceptStudioProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/studios")
+  func acceptStudioVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/studios")
   }
 
   @Sendable
-  func rejectStudioProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/studios")
+  func rejectStudioVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/studios")
   }
 
   @Sendable
@@ -283,9 +308,10 @@ struct CatalogEntitiesController: RouteCollection {
     }
     person.volumes = try await req.catalogAPI.fetchPersonVolumes(id: id)
     let sessionUser = await req.currentUser
-    let review = await buildReview(
+    let review: LeafEntityVersionReview? = await buildReview(
       req: req, path: "/persons", recordID: id, fieldSpecs: personFields,
-      sessionUser: sessionUser)
+      currentValues: fieldValues(person), sessionUser: sessionUser,
+      versionFieldValues: { (v: PersonVersionAttributes) in fieldValues(v) })
 
     return try await req.view.render(
       "persons/detail",
@@ -321,13 +347,13 @@ struct CatalogEntitiesController: RouteCollection {
   }
 
   @Sendable
-  func acceptPersonProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/persons")
+  func acceptPersonVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/persons")
   }
 
   @Sendable
-  func rejectPersonProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/persons")
+  func rejectPersonVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/persons")
   }
 
   @Sendable
@@ -355,9 +381,10 @@ struct CatalogEntitiesController: RouteCollection {
     }
     license.volumes = try await req.catalogAPI.fetchLicenseVolumes(id: id)
     let sessionUser = await req.currentUser
-    let review = await buildReview(
+    let review: LeafEntityVersionReview? = await buildReview(
       req: req, path: "/licenses", recordID: id, fieldSpecs: licenseFields,
-      sessionUser: sessionUser)
+      currentValues: fieldValues(license), sessionUser: sessionUser,
+      versionFieldValues: { (v: LicenseVersionAttributes) in fieldValues(v) })
 
     return try await req.view.render(
       "licenses/detail",
@@ -393,39 +420,44 @@ struct CatalogEntitiesController: RouteCollection {
   }
 
   @Sendable
-  func acceptLicenseProposal(req: Request) async throws -> Response {
-    try await acceptProposal(req: req, path: "/licenses")
+  func acceptLicenseVersion(req: Request) async throws -> Response {
+    try await acceptVersionReview(req: req, path: "/licenses")
   }
 
   @Sendable
-  func rejectLicenseProposal(req: Request) async throws -> Response {
-    try await rejectProposal(req: req, path: "/licenses")
+  func rejectLicenseVersion(req: Request) async throws -> Response {
+    try await rejectVersionReview(req: req, path: "/licenses")
   }
 
   // MARK: - Shared edit/review implementation
 
-  /// Fetches pending proposed changes for (path, recordID) when the session can review them -
-  /// mirrors CatalogController.detail's inline proposal-fetch block, factored out since all
-  /// four entity types share it. Fails open (nil) on any fetch error, matching that same
-  /// fail-open contract, since a review-fetch failure must degrade to "no pending changes
-  /// shown" rather than breaking the whole detail page for every editor/admin viewer.
-  private func buildReview(
+  /// Fetches pending (state: submitted) versions for (path, recordID) when the session can
+  /// review them - the version-model counterpart of the old proposed_changes-based
+  /// `buildReview`, generic over the entity type's own Version attributes since each type's
+  /// substantive fields differ. Fails open (nil) on any fetch error, matching
+  /// `CatalogController.detail`'s fail-open contract for the same review section on volumes -
+  /// a review-fetch failure must degrade to "no pending changes shown" rather than breaking the
+  /// whole detail page for every editor/admin viewer.
+  private func buildReview<T: EntityVersionAttributes>(
     req: Request, path: String, recordID: String, fieldSpecs: [EntityFieldSpec],
-    sessionUser: SessionUser?
-  ) async -> LeafEntityProposalReview? {
+    currentValues: [String: String], sessionUser: SessionUser?,
+    versionFieldValues: (T) -> [String: String]
+  ) async -> LeafEntityVersionReview? {
     let roles = sessionUser?.roles ?? []
     guard canReview(roles), let token = sessionUser?.accessToken else { return nil }
     do {
-      let pending = try await req.catalogAPI.listProposedChanges(
+      let allVersions: [T] = try await req.catalogAPI.fetchEntityVersions(
         path: path, id: recordID, token: token)
+      let pending = allVersions.filter { $0.state == "submitted" }
       guard !pending.isEmpty else { return nil }
-      let selectedID = req.query[String.self, at: "proposal"]
-      let selected = pending.first { $0.id == selectedID } ?? pending[0]
-      return LeafEntityProposalReview(
-        recordID: recordID, pending: pending, selected: selected, fieldSpecs: fieldSpecs)
+      let selectedVersion = req.query[Int.self, at: "proposal"]
+      let selected = pending.first { $0.version == selectedVersion } ?? pending[0]
+      return LeafEntityVersionReview(
+        recordID: recordID, currentValues: currentValues, pending: pending, selected: selected,
+        fieldSpecs: fieldSpecs, versionFieldValues: versionFieldValues)
     } catch {
       req.logger.warning(
-        "failed to fetch proposed changes for \(path)/\(recordID): \(error)")
+        "failed to fetch pending versions for \(path)/\(recordID): \(error)")
       return nil
     }
   }
@@ -473,8 +505,9 @@ struct CatalogEntitiesController: RouteCollection {
     let fields: [String]?
   }
 
-  private func acceptProposal(req: Request, path: String) async throws -> Response {
-    guard let id = req.parameters.get("id"), let proposalID = req.parameters.get("proposalID")
+  private func acceptVersionReview(req: Request, path: String) async throws -> Response {
+    guard let id = req.parameters.get("id"), let versionParam = req.parameters.get("version"),
+      let version = Int(versionParam)
     else {
       throw Abort(.badRequest)
     }
@@ -482,8 +515,8 @@ struct CatalogEntitiesController: RouteCollection {
     let input = try req.content.decode(AcceptInput.self)
     let fields: [String]? = input.mode == "all" ? nil : (input.fields ?? [])
 
-    let result = try await req.catalogAPI.acceptProposedChange(
-      path: path, id: id, proposalID: proposalID, token: user.accessToken, fields: fields)
+    let result = try await req.catalogAPI.acceptEntityVersion(
+      path: path, id: id, version: version, token: user.accessToken, fields: fields)
 
     var redirectPath = "\(req.basePath)\(path)/\(id)"
     if let conflicts = result.conflicts, !conflicts.isEmpty {
@@ -496,16 +529,17 @@ struct CatalogEntitiesController: RouteCollection {
     let note: String?
   }
 
-  private func rejectProposal(req: Request, path: String) async throws -> Response {
-    guard let id = req.parameters.get("id"), let proposalID = req.parameters.get("proposalID")
+  private func rejectVersionReview(req: Request, path: String) async throws -> Response {
+    guard let id = req.parameters.get("id"), let versionParam = req.parameters.get("version"),
+      let version = Int(versionParam)
     else {
       throw Abort(.badRequest)
     }
     guard let user = await req.currentUser, canReview(user.roles) else { throw Abort(.forbidden) }
     let input = try req.content.decode(RejectInput.self)
 
-    _ = try await req.catalogAPI.rejectProposedChange(
-      path: path, id: id, proposalID: proposalID, token: user.accessToken, note: input.note)
+    _ = try await req.catalogAPI.rejectEntityVersion(
+      path: path, id: id, version: version, token: user.accessToken, note: input.note)
 
     return req.redirect(to: "\(req.basePath)\(path)/\(id)")
   }
@@ -539,7 +573,7 @@ struct EntityDetailContext: Content {
   var license: LeafLicenseDetail?
   let canEdit: Bool
   let justProposed: Bool
-  let review: LeafEntityProposalReview?
+  let review: LeafEntityVersionReview?
   let conflicts: [String]
   let user: LeafUser?
   let meta: PageMeta
@@ -547,7 +581,7 @@ struct EntityDetailContext: Content {
   init(
     publisher: LeafPublisherDetail? = nil, studio: LeafStudioDetail? = nil,
     person: LeafPersonDetail? = nil, license: LeafLicenseDetail? = nil,
-    canEdit: Bool, justProposed: Bool, review: LeafEntityProposalReview?, conflicts: [String],
+    canEdit: Bool, justProposed: Bool, review: LeafEntityVersionReview?, conflicts: [String],
     user: LeafUser?, meta: PageMeta
   ) {
     self.publisher = publisher
@@ -585,48 +619,53 @@ struct LeafEntityFieldDiff: Content {
   let newValue: String
 }
 
-struct LeafEntityProposalOption: Content {
-  let id: String
+struct LeafEntityVersionOption: Content {
+  let version: Int
   let submittedBy: String
   let submittedAtLabel: String
   let isSelected: Bool
 }
 
-/// The generic counterpart of `LeafProposalReview` (CatalogController.swift), parameterized by
-/// a per-type patchable-fields list instead of volume's hardcoded three fields.
-struct LeafEntityProposalReview: Content {
+/// Version-model replacement for the old `LeafEntityProposalReview`/`LeafEntityProposalOption` -
+/// see `LeafVersionReview` (CatalogController.swift) for volume's non-generic counterpart. An
+/// `EntityVersionAttributes` carries no explicit old/new diff map, so the diff is computed here
+/// against the record's current live values via the caller-supplied `versionFieldValues`
+/// extractor (needed since Swift generics can't call an overloaded free function generically
+/// without it).
+struct LeafEntityVersionReview: Content {
   let recordID: String
   let pendingCount: Int
   let hasMultiplePending: Bool
-  let options: [LeafEntityProposalOption]
-  let selectedID: String
+  let options: [LeafEntityVersionOption]
+  let selectedVersion: Int
   let submittedBy: String
   let submittedAtLabel: String
   let fields: [LeafEntityFieldDiff]
 
-  init(
-    recordID: String, pending: [ProposedChangeSummary], selected: ProposedChangeSummary,
-    fieldSpecs: [EntityFieldSpec]
+  init<T: EntityVersionAttributes>(
+    recordID: String, currentValues: [String: String], pending: [T], selected: T,
+    fieldSpecs: [EntityFieldSpec], versionFieldValues: (T) -> [String: String]
   ) {
     self.recordID = recordID
     self.pendingCount = pending.count
     self.hasMultiplePending = pending.count > 1
-    self.options = pending.map { proposal in
-      LeafEntityProposalOption(
-        id: proposal.id,
-        submittedBy: proposal.submittedBy,
-        submittedAtLabel: Self.format(proposal.submittedAt),
-        isSelected: proposal.id == selected.id
+    self.options = pending.map { version in
+      LeafEntityVersionOption(
+        version: version.version,
+        submittedBy: version.submittedBy,
+        submittedAtLabel: Self.format(version.submittedAt),
+        isSelected: version.version == selected.version
       )
     }
-    self.selectedID = selected.id
+    self.selectedVersion = selected.version
     self.submittedBy = selected.submittedBy
     self.submittedAtLabel = Self.format(selected.submittedAt)
+    let submittedValues = versionFieldValues(selected)
     self.fields = fieldSpecs.compactMap { field in
-      guard let change = selected.diff[field.key] else { return nil }
+      let oldValue = currentValues[field.key] ?? ""
+      guard let newValue = submittedValues[field.key], oldValue != newValue else { return nil }
       return LeafEntityFieldDiff(
-        key: field.key, label: field.label,
-        oldValue: change.old ?? "", newValue: change.new ?? "")
+        key: field.key, label: field.label, oldValue: oldValue, newValue: newValue)
     }
   }
 

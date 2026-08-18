@@ -85,9 +85,9 @@ struct CatalogController: RouteCollection {
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
-      "volumes", ":volumeID", "proposed-changes", ":proposalID", "accept", use: acceptProposal)
+      "volumes", ":volumeID", "versions", ":version", "accept", use: acceptVersionReview)
     routes.post(
-      "volumes", ":volumeID", "proposed-changes", ":proposalID", "reject", use: rejectProposal)
+      "volumes", ":volumeID", "versions", ":version", "reject", use: rejectVersionReview)
     routes.get("volumes", ":volumeID", "versions", use: versionHistory)
     routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
     routes.post(
@@ -159,25 +159,26 @@ struct CatalogController: RouteCollection {
     let sessionUser = await req.currentUser
     let roles = sessionUser?.roles ?? []
 
-    var proposalReview: LeafProposalReview?
+    var proposalReview: LeafVersionReview?
     if canReview(roles), let token = sessionUser?.accessToken {
-      // Fails open rather than propagating: catalog-api's proposed-changes endpoints are a
-      // separate deployment from this app's own release, so a version skew or outage there
-      // (e.g. the endpoint not yet shipped) must degrade to "no pending changes shown", not
-      // 500 the entire detail page for every editor/admin viewer - matches AdminClient's and
-      // this app's session-read fail-open contract elsewhere.
+      // Fails open rather than propagating: catalog-api's version endpoints are a separate
+      // deployment from this app's own release, so a version skew or outage there (e.g. the
+      // endpoint not yet shipped) must degrade to "no pending changes shown", not 500 the
+      // entire detail page for every editor/admin viewer - matches AdminClient's and this
+      // app's session-read fail-open contract elsewhere.
       do {
-        let pending = try await req.catalogAPI.listProposedChanges(
+        let allVersions = try await req.catalogAPI.fetchVolumeVersions(
           volumeID: volumeID, token: token)
+        let pending = allVersions.filter { $0.state == "submitted" }
         if !pending.isEmpty {
-          let selectedID = req.query[String.self, at: "proposal"]
-          let selected = pending.first { $0.id == selectedID } ?? pending[0]
-          proposalReview = LeafProposalReview(
-            volumeID: volumeID, pending: pending, selected: selected)
+          let selectedVersion = req.query[Int.self, at: "proposal"]
+          let selected = pending.first { $0.version == selectedVersion } ?? pending[0]
+          proposalReview = LeafVersionReview(
+            volumeID: volumeID, currentVolume: volume, pending: pending, selected: selected)
         }
       } catch {
         req.logger.warning(
-          "failed to fetch proposed changes for volume \(volumeID): \(error)")
+          "failed to fetch pending versions for volume \(volumeID): \(error)")
       }
     }
 
@@ -761,9 +762,9 @@ struct CatalogController: RouteCollection {
   }
 
   @Sendable
-  func acceptProposal(req: Request) async throws -> Response {
+  func acceptVersionReview(req: Request) async throws -> Response {
     guard let volumeID = req.parameters.get("volumeID"),
-      let proposalID = req.parameters.get("proposalID")
+      let versionParam = req.parameters.get("version"), let version = Int(versionParam)
     else {
       throw Abort(.badRequest)
     }
@@ -773,8 +774,8 @@ struct CatalogController: RouteCollection {
     let input = try req.content.decode(AcceptInput.self)
     let fields: [String]? = input.mode == "all" ? nil : (input.fields ?? [])
 
-    let result = try await req.catalogAPI.acceptProposedChange(
-      volumeID: volumeID, proposalID: proposalID, token: user.accessToken, fields: fields)
+    let result = try await req.catalogAPI.acceptVolumeVersion(
+      volumeID: volumeID, version: version, token: user.accessToken, fields: fields)
 
     var redirectPath = "\(req.basePath)/volumes/\(volumeID)"
     if let conflicts = result.conflicts, !conflicts.isEmpty {
@@ -788,9 +789,9 @@ struct CatalogController: RouteCollection {
   }
 
   @Sendable
-  func rejectProposal(req: Request) async throws -> Response {
+  func rejectVersionReview(req: Request) async throws -> Response {
     guard let volumeID = req.parameters.get("volumeID"),
-      let proposalID = req.parameters.get("proposalID")
+      let versionParam = req.parameters.get("version"), let version = Int(versionParam)
     else {
       throw Abort(.badRequest)
     }
@@ -799,8 +800,8 @@ struct CatalogController: RouteCollection {
     }
     let input = try req.content.decode(RejectInput.self)
 
-    _ = try await req.catalogAPI.rejectProposedChange(
-      volumeID: volumeID, proposalID: proposalID, token: user.accessToken, note: input.note)
+    _ = try await req.catalogAPI.rejectVolumeVersion(
+      volumeID: volumeID, version: version, token: user.accessToken, note: input.note)
 
     return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
   }
@@ -841,9 +842,9 @@ struct DetailContext: Content {
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
   let justProposed: Bool
-  /// Present only for an editor/admin viewer when at least one proposed change is pending -
+  /// Present only for an editor/admin viewer when at least one submitted version is pending -
   /// nil hides the entire review section, including for a submitter who has no review rights.
-  let review: LeafProposalReview?
+  let review: LeafVersionReview?
   /// Field names catalog-api flagged as conflicting on the most recent accept action (via the
   /// `?conflicts=` redirect query param) - the live record changed since the proposal was
   /// submitted, so that field wasn't applied. Empty outside of that redirect.
@@ -1364,10 +1365,10 @@ struct LeafVolumeEditForm: Content {
   }
 }
 
-/// The volume detail page's fixed, ordered list of fields a `PATCH`/proposal can touch -
-/// `ProposedChangeSummary.diff` is a `[String: FieldChange]` dictionary with no defined
-/// iteration order, so the diff table and review UI both walk this list instead of the raw
-/// dictionary keys, keeping row order stable and matching the edit form's field order.
+/// The volume detail page's fixed, ordered list of fields a `PATCH`/submitted version can touch -
+/// a version's diff is computed as a field-name-keyed dictionary with no defined iteration
+/// order, so the diff table and review UI both walk this list instead of the raw dictionary
+/// keys, keeping row order stable and matching the edit form's field order.
 private let patchableFields: [(key: String, label: String)] = [
   ("title", "Title"),
   ("description", "Description"),
@@ -1381,43 +1382,58 @@ struct LeafFieldDiff: Content {
   let newValue: String
 }
 
-struct LeafProposalOption: Content {
-  let id: String
+struct LeafVersionOption: Content {
+  let version: Int
   let submittedBy: String
   let submittedAtLabel: String
   let isSelected: Bool
 }
 
-struct LeafProposalReview: Content {
+/// Version-model replacement for the old `LeafProposalReview`/`LeafProposalOption` - see
+/// design.md's "`proposed_changes` and its Go package are removed once the migration completes".
+/// A `VolumeVersionAttributes` carries no explicit old/new diff map, so the diff is computed
+/// here against the volume's current live values.
+struct LeafVersionReview: Content {
   let volumeID: String
   let pendingCount: Int
   let hasMultiplePending: Bool
-  let options: [LeafProposalOption]
-  let selectedID: String
+  let options: [LeafVersionOption]
+  let selectedVersion: Int
   let submittedBy: String
   let submittedAtLabel: String
   let fields: [LeafFieldDiff]
 
-  init(volumeID: String, pending: [ProposedChangeSummary], selected: ProposedChangeSummary) {
+  init(
+    volumeID: String, currentVolume: VolumeViewModel, pending: [VolumeVersionAttributes],
+    selected: VolumeVersionAttributes
+  ) {
     self.volumeID = volumeID
     self.pendingCount = pending.count
     self.hasMultiplePending = pending.count > 1
-    self.options = pending.map { proposal in
-      LeafProposalOption(
-        id: proposal.id,
-        submittedBy: proposal.submittedBy,
-        submittedAtLabel: Self.format(proposal.submittedAt),
-        isSelected: proposal.id == selected.id
+    self.options = pending.map { version in
+      LeafVersionOption(
+        version: version.version,
+        submittedBy: version.submittedBy,
+        submittedAtLabel: Self.format(version.submittedAt),
+        isSelected: version.version == selected.version
       )
     }
-    self.selectedID = selected.id
+    self.selectedVersion = selected.version
     self.submittedBy = selected.submittedBy
     self.submittedAtLabel = Self.format(selected.submittedAt)
+    let liveValues: [String: String] = [
+      "title": currentVolume.title, "description": currentVolume.description,
+      "notes": currentVolume.notes,
+    ]
+    let submittedValues: [String: String] = [
+      "title": selected.title, "description": selected.description, "notes": selected.notes,
+    ]
     self.fields = patchableFields.compactMap { field in
-      guard let change = selected.diff[field.key] else { return nil }
+      let oldValue = liveValues[field.key] ?? ""
+      let newValue = submittedValues[field.key] ?? ""
+      guard oldValue != newValue else { return nil }
       return LeafFieldDiff(
-        key: field.key, label: field.label,
-        oldValue: change.old ?? "", newValue: change.new ?? "")
+        key: field.key, label: field.label, oldValue: oldValue, newValue: newValue)
     }
   }
 
