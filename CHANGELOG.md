@@ -1,4 +1,11 @@
 
+## 0.23.1 - 2026-08-18
+
+### Fixed
+- Volume typeahead broken by HTML-escaped JSON; redesign edit page controls
+
+
+
 ## 0.23.0 - 2026-08-18
 
 ### Added

@@ -684,7 +684,7 @@ struct VolumesController: RouteCollection {
       }
 
       let input = try req.content.decode(SetStagedCoverInput.self)
-      session.stagedCoverAssetId = input.assetId
+      session.stagedCoverAssetId = input.assetId.isEmpty ? nil : input.assetId
       session.updatedAt = Date()
       try await req.editSessions.set(
         userID: user.sub, recordType: recordTypeVolume, session: session)
