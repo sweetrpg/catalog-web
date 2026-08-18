@@ -1605,7 +1605,7 @@ struct AppTests {
     }
   }
 
-  @Test("license edit page renders deed/legal_code as textareas, status/availability as selects, both long-text fields last")
+  @Test("license edit page renders correct field kinds, with long-text fields last")
   func licenseEditPageRendersFieldKindsAndOrder() async throws {
     try await withApp { app in
       app.views.use(.leaf)
