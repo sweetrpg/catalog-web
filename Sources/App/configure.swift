@@ -13,6 +13,13 @@ public func configure(_ app: Application) async throws {
 
   MetricsSetup.bootstrap(app)
   try await TracingSetup.bootstrap(app)
+
+  // Creates a server-kind span per request, extracting an inbound traceparent header if present.
+  // request.serviceContext is set for the request's duration, so outgoing calls via
+  // request.client (AsyncHTTPClient) and CatalogAPIClient (which injects it manually, since it
+  // uses URLSession, not AsyncHTTPClient) both link into the resulting trace.
+  app.middleware.use(TracingMiddleware())
+
   app.middleware.use(SentryMiddleware())
 
   app.views.use(.leaf)
