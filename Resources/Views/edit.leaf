@@ -19,6 +19,16 @@
 		  #edit-form .btn, .contributor-dialog .btn {
 		    border-radius: 999px;
 		  }
+		  #edit-form > div {
+		    margin-top: 1.25rem;
+		    padding-top: 1.25rem;
+		    border-top: 1px solid var(--color-neutral-300, rgba(127, 127, 127, 0.15));
+		  }
+		  #edit-form > div:first-child {
+		    margin-top: 0;
+		    padding-top: 0;
+		    border-top: none;
+		  }
 		  .contributor-dialog, .picker-results {
 		    border-radius: 0.75rem;
 		  }
@@ -246,6 +256,20 @@
 		  }
 		  .contributor-add-type select,
 		  .contributor-add-type input {
+		    flex: 1;
+		    min-width: 0;
+		  }
+		  .property-add-row,
+		  .property-add-name {
+		    display: flex;
+		    align-items: center;
+		    gap: 0.4rem;
+		    margin-top: 0.5rem;
+		    flex-wrap: wrap;
+		  }
+		  .property-add-row select,
+		  .property-add-row input,
+		  .property-add-name input {
 		    flex: 1;
 		    min-width: 0;
 		  }
