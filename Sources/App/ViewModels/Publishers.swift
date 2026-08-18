@@ -6,10 +6,12 @@ import Vapor
 struct LeafPublisherCard: Content {
   let id: String
   let name: String
+  let volumeCountLabel: String
 
-  init(_ publisher: PublisherViewModel) {
+  init(_ publisher: PublisherViewModel, volumeCountLabel: String) {
     self.id = publisher.id
     self.name = publisher.name
+    self.volumeCountLabel = volumeCountLabel
   }
 }
 

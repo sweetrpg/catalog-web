@@ -1,4 +1,5 @@
 import Leaf
+import LingoVapor
 import Redis
 import Vapor
 
@@ -23,6 +24,12 @@ public func configure(_ app: Application) async throws {
   app.middleware.use(SentryMiddleware())
 
   app.views.use(.leaf)
+
+  // English only for now (this app's first consumer, no prior platform pattern to extend) -
+  // real CLDR-style plural rules via Resources/Localizations/*.json, not hand-rolled
+  // "append an s" string logic. Add a locale by dropping another <code>.json file in that
+  // directory; request.locale (once a route reads it) picks the right one automatically.
+  app.lingoVapor.configuration = .init(defaultLocale: "en", localizationsDir: "Localizations")
 
   // Serves Public/ (css, images, favicon) - never registered before, so every static asset
   // 404'd through the app's own JSON not-found handler instead of being served as a file.

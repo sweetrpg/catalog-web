@@ -3,16 +3,27 @@ import Foundation
 import Tracing
 import Vapor
 
+/// Status/availability have no backend-defined vocabulary yet (plain free-text strings in
+/// catalog-api, no enum, no vocabulary endpoint like format/contribution-type have) - this is a
+/// frontend-only closed list, not validated server-side. Confirmed with the user rather than
+/// guessed.
+private let licenseStatusOptions = ["Draft", "Accepted", "Deprecated", "Retired"]
+private let licenseAvailabilityOptions = ["Released", "Withdrawn"]
+
 let licenseFields: [EntityFieldSpec] = [
   EntityFieldSpec(key: "title", label: "Title"),
   EntityFieldSpec(key: "short_title", label: "Short title"),
   EntityFieldSpec(key: "version", label: "Version"),
-  EntityFieldSpec(key: "deed", label: "Deed"),
-  EntityFieldSpec(key: "legal_code", label: "Legal code"),
   EntityFieldSpec(key: "website", label: "Website"),
-  EntityFieldSpec(key: "status", label: "Status"),
-  EntityFieldSpec(key: "availability", label: "Availability"),
+  EntityFieldSpec(key: "status", label: "Status", kind: .select(options: licenseStatusOptions)),
+  EntityFieldSpec(
+    key: "availability", label: "Availability",
+    kind: .select(options: licenseAvailabilityOptions)),
   EntityFieldSpec(key: "notes", label: "Notes"),
+  // Long-form text (deed can be markdown, legal_code is a full license text) - textarea, and
+  // kept last per the page's field order.
+  EntityFieldSpec(key: "deed", label: "Deed", kind: .textarea),
+  EntityFieldSpec(key: "legal_code", label: "Legal code", kind: .textarea),
 ]
 
 func fieldValues(_ l: LicenseViewModel) -> [String: String] {
@@ -66,11 +77,22 @@ struct LicensesController: RouteCollection {
       let filtered = filterByName(licenses, query: query.q) { $0.title }
       let sorted = sortByName(filtered, order: order) { $0.title }
 
+      // Licenses are a small, fixed-ish collection (same "no dedicated search endpoint needed"
+      // assumption filterByName already relies on) - a per-card volume-count fetch is fine here,
+      // it wouldn't be for a larger or more dynamic list.
+      var cards: [LeafLicenseCard] = []
+      for license in sorted {
+        let volumeCount =
+          (try? await req.catalogAPI.fetchLicenseVolumes(id: license.id))?.count ?? 0
+        let label = try await volumeCountLabel(volumeCount, req: req)
+        cards.append(LeafLicenseCard(license, volumeCountLabel: label))
+      }
+
       return try await req.view.render(
         "licenses/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: sorted.map { LeafLicenseCard($0) },
+          items: cards,
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,

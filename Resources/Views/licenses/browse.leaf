@@ -1,5 +1,19 @@
 #extend("base"):
 	#export("body"):
+		<style>
+		  /* Page-specific: a slight app-accent tint on each card background - purely decorative,
+		     no shared-web equivalent to reuse. */
+		  .license-card {
+		    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+		  }
+		  .license-card-meta {
+		    display: flex;
+		    align-items: center;
+		    gap: 8px;
+		    margin-top: 6px;
+		  }
+		</style>
+
 		<section class="page-header">
 			<span class="section-label">Browse</span>
 			<h2>Licenses</h2>
@@ -18,9 +32,15 @@
 
 		<div class="card-grid">
 			#for(item in items):
-				<a class="card" href="#(meta.basePath)/licenses/#(item.id)">
+				<a class="card license-card" href="#(meta.basePath)/licenses/#(item.id)">
 					<div class="card-body">
 						<div class="card-title">#(item.title)</div>
+						<div class="license-card-meta">
+							<span class="card-meta">#(item.volumeCountLabel)</span>
+							#if(item.isNotAccepted):
+								<span class="tag tag-neutral">Not accepted</span>
+							#endif
+						</div>
 					</div>
 				</a>
 			#endfor

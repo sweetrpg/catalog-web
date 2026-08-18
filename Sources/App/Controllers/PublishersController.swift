@@ -56,11 +56,21 @@ struct PublishersController: RouteCollection {
       let filtered = filterByName(publishers, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
 
+      // Publishers are a small, fixed-ish collection (same assumption filterByName already
+      // relies on) - a per-card volume-count fetch is fine here, matching licenses' browse page.
+      var cards: [LeafPublisherCard] = []
+      for publisher in sorted {
+        let volumeCount =
+          (try? await req.catalogAPI.fetchPublisherVolumes(id: publisher.id))?.count ?? 0
+        let label = try await volumeCountLabel(volumeCount, req: req)
+        cards.append(LeafPublisherCard(publisher, volumeCountLabel: label))
+      }
+
       return try await req.view.render(
         "publishers/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: sorted.map { LeafPublisherCard($0) },
+          items: cards,
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
