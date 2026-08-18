@@ -1,5 +1,163 @@
 #extend("base"):
 	#export("body"):
+		<style>
+		  /* Scoped to this page only - shared-web owns the global stylesheet, so page-specific
+		     layout for the edit form's more complex controls (cover overlay, sample strip, tag
+		     clouds) lives here instead of fighting global selectors or growing shared-web's CSS
+		     for a single page's needs. */
+		  #edit-form .input, #edit-form select, #edit-form textarea,
+		  .tag-picker .input, .contributor-dialog .input, .contributor-dialog select {
+		    border: none;
+		    background: rgba(127, 127, 127, 0.08);
+		  }
+		  #edit-form .input:focus, #edit-form select:focus, #edit-form textarea:focus,
+		  .tag-picker .input:focus, .contributor-dialog .input:focus, .contributor-dialog select:focus {
+		    outline: 2px solid var(--accent, #6366f1);
+		    outline-offset: -2px;
+		  }
+
+		  .cover-image-wrap {
+		    position: relative;
+		    display: inline-block;
+		    width: 100%;
+		  }
+		  .cover-overlay-controls {
+		    position: absolute;
+		    top: 0.5rem;
+		    right: 0.5rem;
+		    display: flex;
+		    gap: 0.4rem;
+		  }
+		  .cover-overlay-controls .icon-btn {
+		    background: rgba(0, 0, 0, 0.55);
+		    border-radius: 50%;
+		    width: 2rem;
+		    height: 2rem;
+		    display: flex;
+		    align-items: center;
+		    justify-content: center;
+		    border: none;
+		    cursor: pointer;
+		  }
+		  .cover-overlay-controls .icon-btn img {
+		    width: 1.1rem;
+		    height: 1.1rem;
+		    filter: invert(1);
+		  }
+		  .cover-overlay-controls .cover-remove-trigger {
+		    color: #fff;
+		    font-size: 1.1rem;
+		    line-height: 1;
+		  }
+
+		  .sample-thumbnails-row {
+		    display: flex;
+		    flex-wrap: wrap;
+		    gap: 0.5rem;
+		    margin-top: 0.75rem;
+		  }
+		  .sample-thumbnail-small {
+		    width: 3.5rem;
+		    height: 3.5rem;
+		    object-fit: cover;
+		    border-radius: 0.25rem;
+		  }
+		  .chip-list-thumbnails {
+		    display: contents;
+		  }
+		  .chip-thumbnail-chip {
+		    position: relative;
+		    padding: 0;
+		    border-radius: 0.25rem;
+		    overflow: hidden;
+		  }
+		  .chip-thumbnail-chip .chip-thumbnail {
+		    width: 3.5rem;
+		    height: 3.5rem;
+		    object-fit: cover;
+		    display: block;
+		  }
+		  .chip-thumbnail-chip .chip-remove {
+		    position: absolute;
+		    top: 0;
+		    right: 0;
+		    background: rgba(0, 0, 0, 0.55);
+		    color: #fff;
+		    border: none;
+		    width: 1.1rem;
+		    height: 1.1rem;
+		    line-height: 1;
+		    border-radius: 0 0 0 0.25rem;
+		  }
+		  #samples-field .sample-upload-label {
+		    display: block;
+		    width: fit-content;
+		    margin: 0.75rem auto 0;
+		  }
+
+		  /* Tag cloud (publisher/studio/format): chips plus a trailing "+" trigger, with an
+		     inline reveal (not a popup) for the add/search affordance so keyboard focus and
+		     Enter/Escape stay predictable. */
+		  .tag-cloud-field .chip-list {
+		    display: flex;
+		    flex-wrap: wrap;
+		    align-items: center;
+		    gap: 0.4rem;
+		  }
+		  .tag-cloud-field .chip {
+		    cursor: pointer;
+		  }
+		  .chip-add-trigger {
+		    border: none;
+		    background: rgba(127, 127, 127, 0.15);
+		    border-radius: 999px;
+		    width: 1.6rem;
+		    height: 1.6rem;
+		    line-height: 1;
+		    cursor: pointer;
+		    font-size: 1rem;
+		  }
+		  .tag-picker {
+		    display: flex;
+		    align-items: center;
+		    gap: 0.4rem;
+		    margin-top: 0.4rem;
+		    position: relative;
+		  }
+		  .tag-picker .picker-filter {
+		    flex: 1;
+		  }
+		  .tag-picker-cancel {
+		    border: none;
+		    background: rgba(127, 127, 127, 0.15);
+		    border-radius: 999px;
+		    width: 1.6rem;
+		    height: 1.6rem;
+		    line-height: 1;
+		    cursor: pointer;
+		  }
+		  #edit-form .chip {
+		    border: none;
+		  }
+		  .picker-results {
+		    border: none;
+		    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		  }
+		  .picker-results li.picker-add-new {
+		    font-style: italic;
+		    opacity: 0.85;
+		  }
+		  .contributor-dialog {
+		    display: flex;
+		    flex-direction: column;
+		    gap: 0.6rem;
+		    margin-top: 0.6rem;
+		    padding: 0.75rem;
+		    border-radius: 0.5rem;
+		    background: rgba(127, 127, 127, 0.06);
+		  }
+		</style>
+
 		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
 
 		#if(hasSubmitError):
@@ -8,15 +166,44 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
-				<span class="card-cover-fallback">Cover pending</span>
+				<div class="cover-image-wrap">
+					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
+					<span class="card-cover-fallback">Cover pending</span>
+					#if(canUploadCover):
+						<div class="cover-overlay-controls" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover" data-live-cover-path="#(volume.liveCoverPath)">
+							<label class="icon-btn cover-edit-trigger" for="cover-upload-input" title="Change cover">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Change cover">
+							</label>
+							#if(volume.hasStagedCover):
+								<button type="button" class="icon-btn cover-remove-trigger" id="cover-remove-trigger" title="Remove staged cover">&times;</button>
+							#else:
+								<button type="button" class="icon-btn cover-remove-trigger" id="cover-remove-trigger" title="Remove staged cover" hidden>&times;</button>
+							#endif
+							<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+						</div>
+					#endif
+				</div>
 				#if(canUploadCover):
-					<div class="cover-upload" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover">
-						<label class="btn btn-ghost cover-upload-label" for="cover-upload-input">Upload cover</label>
-						<input type="file" id="cover-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-						<p class="form-error cover-upload-error" hidden></p>
-					</div>
+					<p class="form-error cover-upload-error" hidden></p>
 				#endif
+
+				<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
+					<div class="sample-thumbnails-row" id="sample-thumbnails-row">
+						#if(volume.hasLivingSamples):
+							#for(path in volume.livingSamplePaths):
+								<img class="sample-thumbnail-small" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
+							#endfor
+						#endif
+						<div class="chip-list chip-list-thumbnails" id="staged-sample-list" data-chip-list>
+							#for(sample in volume.stagedSamples):
+								<span class="chip chip-thumbnail-chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
+							#endfor
+						</div>
+					</div>
+					<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
+					<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+					<p class="form-error" id="sample-upload-error" hidden></p>
+				</div>
 			</div>
 
 			<div>
@@ -77,40 +264,48 @@
 						</span>
 					</div>
 
-					<div class="picker-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
 						<h3>Publishers</h3>
 						<div class="chip-list" data-chip-list>
 							#for(pub in volume.selectedPublishers):
-								<span class="chip" data-id="#(pub.id)">#(pub.name)<button type="button" class="chip-remove" title="Remove #(pub.name)">&times;</button></span>
+								<span class="chip" data-id="#(pub.id)" data-name="#(pub.name)"><span class="chip-label">#(pub.name)</span><button type="button" class="chip-remove" title="Remove #(pub.name)">&times;</button></span>
 							#endfor
+							<button type="button" class="chip-add-trigger" title="Add a publisher">+</button>
 						</div>
-						<input type="text" class="input picker-filter" placeholder="Add a publisher..." autocomplete="off">
-						<ul class="picker-results" hidden></ul>
-						<script type="application/json" class="picker-options">#(volume.publisherOptionsJSON)</script>
+						<div class="tag-picker" hidden>
+							<input type="text" class="input picker-filter" placeholder="Search publishers..." autocomplete="off">
+							<ul class="picker-results" hidden></ul>
+							<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+						</div>
+						<script type="application/json" class="picker-options">#unsafeHTML(volume.publisherOptionsJSON)</script>
 					</div>
 
-					<div class="picker-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+					<div class="picker-field tag-cloud-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
 						<h3>Studios</h3>
 						<div class="chip-list" data-chip-list>
 							#for(studio in volume.selectedStudios):
-								<span class="chip" data-id="#(studio.id)">#(studio.name)<button type="button" class="chip-remove" title="Remove #(studio.name)">&times;</button></span>
+								<span class="chip" data-id="#(studio.id)" data-name="#(studio.name)"><span class="chip-label">#(studio.name)</span><button type="button" class="chip-remove" title="Remove #(studio.name)">&times;</button></span>
 							#endfor
+							<button type="button" class="chip-add-trigger" title="Add a studio">+</button>
 						</div>
-						<input type="text" class="input picker-filter" placeholder="Add a studio..." autocomplete="off">
-						<ul class="picker-results" hidden></ul>
-						<script type="application/json" class="picker-options">#(volume.studioOptionsJSON)</script>
+						<div class="tag-picker" hidden>
+							<input type="text" class="input picker-filter" placeholder="Search studios..." autocomplete="off">
+							<ul class="picker-results" hidden></ul>
+							<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+						</div>
+						<script type="application/json" class="picker-options">#unsafeHTML(volume.studioOptionsJSON)</script>
 					</div>
 
-					<div class="credits-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
+					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
 						<h3>Contributors</h3>
 						<div class="chip-list" data-chip-list>
 							#for(credit in volume.selectedCredits):
-								<span class="chip" data-person-id="#(credit.personId)" data-person-name="#(credit.personName)" data-contribution-type="#(credit.contributionType)">#(credit.personName) &mdash; #(credit.contributionType)<button type="button" class="chip-remove" title="Remove #(credit.personName)">&times;</button></span>
+								<span class="chip" data-person-id="#(credit.personId)" data-person-name="#(credit.personName)" data-contribution-type="#(credit.contributionType)"><span class="chip-label">#(credit.personName) &mdash; #(credit.contributionType)</span><button type="button" class="chip-remove" title="Remove #(credit.personName)">&times;</button></span>
 							#endfor
+							<button type="button" class="chip-add-trigger" id="add-contributor-trigger" title="Add a contributor">+</button>
 						</div>
-						<button type="button" class="btn btn-ghost" id="add-contributor-trigger">Add contributor</button>
-						<script type="application/json" id="contributor-person-options">#(volume.personOptionsJSON)</script>
-						<script type="application/json" id="contributor-type-options">#(volume.contributionTypeOptionsJSON)</script>
+						<script type="application/json" id="contributor-person-options">#unsafeHTML(volume.personOptionsJSON)</script>
+						<script type="application/json" id="contributor-type-options">#unsafeHTML(volume.contributionTypeOptionsJSON)</script>
 
 						<div class="contributor-dialog" id="contributor-dialog" hidden>
 							<label class="contributor-dialog-label">
@@ -149,7 +344,7 @@
 								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.name): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.name)">&times;</button></span>
 							#endfor
 						</div>
-						<script type="application/json" id="property-name-options">#(volume.propertyNameOptionsJSON)</script>
+						<script type="application/json" id="property-name-options">#unsafeHTML(volume.propertyNameOptionsJSON)</script>
 
 						<div class="property-add-row">
 							<select class="input" id="property-name-select">
@@ -169,42 +364,25 @@
 					</div>
 
 					#if(volume.canSetFormat):
-						<div class="format-field" id="format-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/format" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/format" data-selected-format="#(volume.selectedFormat)">
+						<div class="format-field tag-cloud-field" id="format-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/format" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/format" data-selected-format="#(volume.selectedFormat)">
 							<h3>Format</h3>
-							<select class="input" id="format-select">
-								<option value="">No format set</option>
-							</select>
-							<script type="application/json" id="format-options">#(volume.formatOptionsJSON)</script>
-
-							<div class="format-add-value">
-								<input type="text" class="input" id="format-new-value" placeholder="Add a new format...">
-								<button type="button" class="btn btn-ghost" id="format-add-value-trigger">Add format</button>
-								<p class="form-error" id="format-add-value-error" hidden></p>
+							<div class="chip-list" data-chip-list>
+								#if(volume.hasSelectedFormat):
+									<span class="chip" data-value="#(volume.selectedFormat)"><span class="chip-label">#(volume.selectedFormat)</span><button type="button" class="chip-remove" title="Remove format">&times;</button></span>
+									<button type="button" class="chip-add-trigger" title="Change format" hidden>+</button>
+								#else:
+									<button type="button" class="chip-add-trigger" title="Set a format">+</button>
+								#endif
 							</div>
+							<div class="tag-picker" hidden>
+								<input type="text" class="input picker-filter" placeholder="Search formats..." autocomplete="off">
+								<ul class="picker-results" hidden></ul>
+								<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+							</div>
+							<p class="form-error" id="format-add-value-error" hidden></p>
+							<script type="application/json" id="format-options">#unsafeHTML(volume.formatOptionsJSON)</script>
 						</div>
 					#endif
-
-					<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
-						<h3>Sample Pages</h3>
-						#if(volume.hasLivingSamples):
-							<p class="empty-state-inline">Current samples - uploading new ones below replaces this whole set when you save.</p>
-							<div class="sample-thumbnails">
-								#for(path in volume.livingSamplePaths):
-									<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
-								#endfor
-							</div>
-						#endif
-
-						<div class="chip-list" id="staged-sample-list" data-chip-list>
-							#for(sample in volume.stagedSamples):
-								<span class="chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
-							#endfor
-						</div>
-
-						<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
-						<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-						<p class="form-error" id="sample-upload-error" hidden></p>
-					</div>
 
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
@@ -218,6 +396,21 @@
 				</form>
 			</div>
 		</div>
+
+		<script>
+		(function () {
+		  // Enter in any text input on this page must never implicitly submit #edit-form - the
+		  // page has several free-text inputs with their own Enter/click-driven behavior
+		  // (publisher/studio picker, contributor type, property name/value, format) that have
+		  // nothing to do with saving the whole form. Without this, Enter in any of them fires
+		  // the browser's default "submit nearest form" behavior, silently saving and redirecting
+		  // to the detail page. Capture phase so it runs before (and independent of) the
+		  // per-field line/block handlers below, which call preventDefault themselves anyway.
+		  document.getElementById('edit-form').addEventListener('keydown', function (e) {
+		    if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault();
+		  }, true);
+		})();
+		</script>
 
 		<script>
 		(function () {
@@ -299,30 +492,40 @@
 
 		<script>
 		(function () {
-		  // Type-to-filter publisher/studio picker (task 7.1/7.2): filters the full candidate
-		  // list embedded as JSON at page load client-side (no search endpoint - existing
-		  // entities only, per design.md), and there is deliberately no way to add a name that
-		  // doesn't match an existing option. Each add/remove sends the *full* resulting id list
-		  // to the session (full-replace, same semantics PATCH itself uses for these fields).
+		  // Type-to-filter publisher/studio picker (task 7.1/7.2, tag-cloud rework): filters the
+		  // full candidate list embedded as JSON at page load client-side (no search endpoint -
+		  // existing entities only, per design.md), and there is deliberately no way to add a
+		  // name that doesn't match an existing option. Each add/remove/edit sends the *full*
+		  // resulting id list to the session (full-replace, same semantics PATCH itself uses for
+		  // these fields). The filter row is hidden until "+" (add) or an existing tag (edit,
+		  // swapping that tag for a different one in place) reveals it.
 		  document.querySelectorAll('.picker-field').forEach(function (field) {
 		    var sessionURL = field.dataset.sessionUrl;
 		    var pickerKind = field.dataset.picker;
 		    var fieldKey = pickerKind + 'Ids';
 		    var chipList = field.querySelector('[data-chip-list]');
+		    var addTrigger = field.querySelector('.chip-add-trigger');
+		    var pickerRow = field.querySelector('.tag-picker');
 		    var input = field.querySelector('.picker-filter');
 		    var results = field.querySelector('.picker-results');
+		    var cancelBtn = field.querySelector('.tag-picker-cancel');
 		    var optionsScript = field.querySelector('.picker-options');
 		    var options = [];
 		    try { options = JSON.parse(optionsScript.textContent); } catch (e) {}
 
+		    var editingChip = null;
+		    var currentMatches = [];
+
 		    function selectedIds() {
 		      return Array.prototype.map.call(
-		        chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+		        chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; })
+		        .filter(function (id) { return !editingChip || id !== editingChip.dataset.id; });
 		    }
 
 		    function autosave() {
 		      var body = {};
-		      body[fieldKey] = selectedIds();
+		      body[fieldKey] = Array.prototype.map.call(
+		        chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
 		      fetch(sessionURL, {
 		        method: 'POST',
 		        headers: { 'Content-Type': 'application/json' },
@@ -331,33 +534,75 @@
 		      });
 		    }
 
+		    function bindChip(chip) {
+		      var label = chip.querySelector('.chip-label');
+		      var removeBtn = chip.querySelector('.chip-remove');
+		      label.addEventListener('click', function () { openPicker(chip); });
+		      removeBtn.addEventListener('click', function (e) {
+		        e.stopPropagation();
+		        chip.remove();
+		        autosave();
+		      });
+		    }
+
 		    function addChip(option) {
 		      var chip = document.createElement('span');
 		      chip.className = 'chip';
 		      chip.dataset.id = option.id;
-		      chip.textContent = option.name;
+		      chip.dataset.name = option.name;
+		      var label = document.createElement('span');
+		      label.className = 'chip-label';
+		      label.textContent = option.name;
+		      chip.appendChild(label);
 		      var removeBtn = document.createElement('button');
 		      removeBtn.type = 'button';
 		      removeBtn.className = 'chip-remove';
 		      removeBtn.title = 'Remove ' + option.name;
 		      removeBtn.textContent = '×';
-		      removeBtn.addEventListener('click', function () {
-		        chip.remove();
-		        autosave();
-		      });
 		      chip.appendChild(removeBtn);
-		      chipList.appendChild(chip);
+		      bindChip(chip);
+		      chipList.insertBefore(chip, addTrigger);
+		      return chip;
 		    }
 
-		    chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
-		      btn.addEventListener('click', function () {
-		        btn.closest('.chip').remove();
-		        autosave();
-		      });
-		    });
+		    chipList.querySelectorAll('.chip').forEach(bindChip);
+
+		    function openPicker(chip) {
+		      editingChip = chip || null;
+		      addTrigger.hidden = true;
+		      pickerRow.hidden = false;
+		      input.value = editingChip ? editingChip.dataset.name : '';
+		      input.focus();
+		      input.select();
+		      renderResults(input.value.trim());
+		    }
+
+		    function closePicker() {
+		      editingChip = null;
+		      pickerRow.hidden = true;
+		      addTrigger.hidden = false;
+		      input.value = '';
+		      results.hidden = true;
+		    }
+
+		    function commit(option) {
+		      if (editingChip) {
+		        editingChip.dataset.id = option.id;
+		        editingChip.dataset.name = option.name;
+		        editingChip.querySelector('.chip-label').textContent = option.name;
+		      } else {
+		        addChip(option);
+		      }
+		      autosave();
+		      closePicker();
+		    }
+
+		    addTrigger.addEventListener('click', function () { openPicker(null); });
+		    cancelBtn.addEventListener('click', closePicker);
 
 		    function renderResults(query) {
 		      results.innerHTML = '';
+		      currentMatches = [];
 		      if (!query) {
 		        results.hidden = true;
 		        return;
@@ -368,6 +613,7 @@
 		        return selected.indexOf(option.id) === -1
 		          && option.name.toLowerCase().indexOf(needle) !== -1;
 		      }).slice(0, 8);
+		      currentMatches = matches;
 
 		      if (matches.length === 0) {
 		        results.hidden = true;
@@ -376,18 +622,22 @@
 		      matches.forEach(function (option) {
 		        var item = document.createElement('li');
 		        item.textContent = option.name;
-		        item.addEventListener('click', function () {
-		          addChip(option);
-		          autosave();
-		          input.value = '';
-		          results.hidden = true;
-		        });
+		        item.addEventListener('click', function () { commit(option); });
 		        results.appendChild(item);
 		      });
 		      results.hidden = false;
 		    }
 
 		    input.addEventListener('input', function () { renderResults(input.value.trim()); });
+		    input.addEventListener('keydown', function (e) {
+		      if (e.key === 'Enter') {
+		        e.preventDefault();
+		        if (currentMatches.length === 1) commit(currentMatches[0]);
+		      } else if (e.key === 'Escape') {
+		        e.preventDefault();
+		        closePicker();
+		      }
+		    });
 		    input.addEventListener('blur', function () {
 		      // Deferred so a click on a result fires before the list disappears.
 		      setTimeout(function () { results.hidden = true; }, 150);
@@ -432,6 +682,7 @@
 		  } catch (e) {}
 
 		  var selectedPerson = null;
+		  var editingChip = null;
 
 		  function renderTypeOptions() {
 		    var current = typeSelect.value;
@@ -461,32 +712,38 @@
 		    });
 		  }
 
+		  function bindChip(chip) {
+		    chip.querySelector('.chip-label').addEventListener('click', function () {
+		      openDialog(chip);
+		    });
+		    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
+		      e.stopPropagation();
+		      chip.remove();
+		      autosave();
+		    });
+		  }
+
 		  function addChip(personId, personName, contributionType) {
 		    var chip = document.createElement('span');
 		    chip.className = 'chip';
 		    chip.dataset.personId = personId;
 		    chip.dataset.personName = personName;
 		    chip.dataset.contributionType = contributionType;
-		    chip.textContent = personName + ' — ' + contributionType;
+		    var label = document.createElement('span');
+		    label.className = 'chip-label';
+		    label.textContent = personName + ' — ' + contributionType;
+		    chip.appendChild(label);
 		    var removeBtn = document.createElement('button');
 		    removeBtn.type = 'button';
 		    removeBtn.className = 'chip-remove';
 		    removeBtn.title = 'Remove ' + personName;
 		    removeBtn.textContent = '×';
-		    removeBtn.addEventListener('click', function () {
-		      chip.remove();
-		      autosave();
-		    });
 		    chip.appendChild(removeBtn);
-		    chipList.appendChild(chip);
+		    bindChip(chip);
+		    chipList.insertBefore(chip, openBtn);
 		  }
 
-		  chipList.querySelectorAll('.chip-remove').forEach(function (btn) {
-		    btn.addEventListener('click', function () {
-		      btn.closest('.chip').remove();
-		      autosave();
-		    });
-		  });
+		  chipList.querySelectorAll('.chip').forEach(bindChip);
 
 		  function updateConfirmEnabled() {
 		    confirmBtn.disabled = !selectedPerson || !typeSelect.value;
@@ -504,17 +761,36 @@
 		    updateConfirmEnabled();
 		  }
 
-		  function openDialog() {
+		  function openDialog(chip) {
 		    resetDialog();
+		    editingChip = chip || null;
+		    if (editingChip) {
+		      selectedPerson = { id: editingChip.dataset.personId, name: editingChip.dataset.personName };
+		      selectedPersonLabel.textContent = 'Selected: ' + selectedPerson.name;
+		      selectedPersonLabel.hidden = false;
+		      typeSelect.value = editingChip.dataset.contributionType;
+		      updateConfirmEnabled();
+		    }
+		    confirmBtn.textContent = editingChip ? 'Update' : 'Add';
 		    dialog.hidden = false;
 		  }
 
 		  function closeDialog() {
 		    dialog.hidden = true;
+		    editingChip = null;
 		  }
 
-		  openBtn.addEventListener('click', openDialog);
+		  openBtn.addEventListener('click', function () { openDialog(null); });
 		  cancelBtn.addEventListener('click', closeDialog);
+		  dialog.addEventListener('keydown', function (e) {
+		    if (e.key === 'Enter') {
+		      e.preventDefault();
+		      if (!confirmBtn.disabled) confirmBtn.click();
+		    } else if (e.key === 'Escape') {
+		      e.preventDefault();
+		      closeDialog();
+		    }
+		  });
 
 		  function renderPersonResults(query) {
 		    personResults.innerHTML = '';
@@ -585,7 +861,15 @@
 
 		  confirmBtn.addEventListener('click', function () {
 		    if (!selectedPerson || !typeSelect.value) return;
-		    addChip(selectedPerson.id, selectedPerson.name, typeSelect.value);
+		    if (editingChip) {
+		      editingChip.dataset.personId = selectedPerson.id;
+		      editingChip.dataset.personName = selectedPerson.name;
+		      editingChip.dataset.contributionType = typeSelect.value;
+		      editingChip.querySelector('.chip-label').textContent =
+		        selectedPerson.name + ' — ' + typeSelect.value;
+		    } else {
+		      addChip(selectedPerson.id, selectedPerson.name, typeSelect.value);
+		    }
 		    autosave();
 		    closeDialog();
 		  });
@@ -719,18 +1003,23 @@
 
 		<script>
 		(function () {
-		  // Format selector (task 10.1) - the entire control is only rendered server-side for
-		  // editor/admin sessions (see edit.leaf's #if(volume.canSetFormat)), so this script has
-		  // nothing to do at all for a submitter session.
+		  // Format selector (task 10.1, tag-cloud rework) - a single-tag counterpart of the
+		  // publisher/studio picker above: 0 or 1 chip instead of a list, and unlike
+		  // publisher/studio, an editor/admin (the only session this control ever renders for -
+		  // see edit.leaf's #if(volume.canSetFormat)) can add a brand new format value inline
+		  // when nothing matches, via the same vocabulary endpoint the old <select>-based
+		  // version used.
 		  var field = document.getElementById('format-field');
 		  if (!field) return;
 
 		  var sessionURL = field.dataset.sessionUrl;
 		  var vocabularyURL = field.dataset.vocabularyUrl;
-		  var selectedFormat = field.dataset.selectedFormat;
-		  var select = document.getElementById('format-select');
-		  var newValueInput = document.getElementById('format-new-value');
-		  var addValueBtn = document.getElementById('format-add-value-trigger');
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var addTrigger = field.querySelector('.chip-add-trigger');
+		  var pickerRow = field.querySelector('.tag-picker');
+		  var input = field.querySelector('.picker-filter');
+		  var results = field.querySelector('.picker-results');
+		  var cancelBtn = field.querySelector('.tag-picker-cancel');
 		  var addValueError = document.getElementById('format-add-value-error');
 
 		  var formatOptions = [];
@@ -738,32 +1027,79 @@
 		    formatOptions = JSON.parse(document.getElementById('format-options').textContent);
 		  } catch (e) {}
 
-		  function renderFormatOptions() {
-		    var current = select.value;
-		    select.innerHTML = '<option value="">No format set</option>';
-		    formatOptions.forEach(function (format) {
-		      var option = document.createElement('option');
-		      option.value = format;
-		      option.textContent = format;
-		      select.appendChild(option);
-		    });
-		    select.value = current;
+		  function currentChip() {
+		    return chipList.querySelector('.chip');
 		  }
-		  renderFormatOptions();
-		  select.value = selectedFormat;
 
-		  select.addEventListener('change', function () {
+		  function autosave(value) {
 		    fetch(sessionURL, {
 		      method: 'POST',
 		      headers: { 'Content-Type': 'application/json' },
-		      body: JSON.stringify({ format: select.value }),
+		      body: JSON.stringify({ format: value }),
 		      credentials: 'include'
 		    });
-		  });
+		  }
 
-		  addValueBtn.addEventListener('click', function () {
-		    var value = newValueInput.value.trim();
-		    if (!value) return;
+		  function bindChip(chip) {
+		    chip.querySelector('.chip-label').addEventListener('click', function () {
+		      openPicker();
+		    });
+		    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
+		      e.stopPropagation();
+		      chip.remove();
+		      addTrigger.hidden = false;
+		      autosave('');
+		    });
+		  }
+		  if (currentChip()) bindChip(currentChip());
+
+		  function setChip(value) {
+		    var existing = currentChip();
+		    if (existing) {
+		      existing.dataset.value = value;
+		      existing.querySelector('.chip-label').textContent = value;
+		      return;
+		    }
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.value = value;
+		    var label = document.createElement('span');
+		    label.className = 'chip-label';
+		    label.textContent = value;
+		    chip.appendChild(label);
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove format';
+		    removeBtn.textContent = '×';
+		    chip.appendChild(removeBtn);
+		    bindChip(chip);
+		    chipList.insertBefore(chip, addTrigger);
+		  }
+
+		  function openPicker() {
+		    addTrigger.hidden = true;
+		    pickerRow.hidden = false;
+		    addValueError.hidden = true;
+		    input.value = '';
+		    input.focus();
+		    renderResults('');
+		  }
+
+		  function closePicker() {
+		    pickerRow.hidden = true;
+		    if (!currentChip()) addTrigger.hidden = false;
+		    input.value = '';
+		    results.hidden = true;
+		  }
+
+		  function commit(value) {
+		    setChip(value);
+		    autosave(value);
+		    closePicker();
+		  }
+
+		  function addNewFormat(value) {
 		    addValueError.hidden = true;
 		    fetch(vocabularyURL, {
 		      method: 'POST',
@@ -777,15 +1113,66 @@
 		      })
 		      .then(function (data) {
 		        formatOptions = data.values || formatOptions;
-		        renderFormatOptions();
-		        select.value = value;
-		        newValueInput.value = '';
-		        select.dispatchEvent(new Event('change'));
+		        commit(value);
 		      })
 		      .catch(function () {
 		        addValueError.textContent = 'Unable to add that format. Try again.';
 		        addValueError.hidden = false;
 		      });
+		  }
+
+		  addTrigger.addEventListener('click', openPicker);
+		  cancelBtn.addEventListener('click', closePicker);
+
+		  var currentMatches = [];
+		  var currentQuery = '';
+
+		  function renderResults(query) {
+		    currentQuery = query;
+		    results.innerHTML = '';
+		    var needle = query.toLowerCase();
+		    var matches = formatOptions.filter(function (format) {
+		      return format.toLowerCase().indexOf(needle) !== -1;
+		    }).slice(0, 8);
+		    currentMatches = matches;
+
+		    matches.forEach(function (format) {
+		      var item = document.createElement('li');
+		      item.textContent = format;
+		      item.addEventListener('click', function () { commit(format); });
+		      results.appendChild(item);
+		    });
+
+		    var exactMatch = formatOptions.some(function (format) {
+		      return format.toLowerCase() === needle;
+		    });
+		    if (query && !exactMatch) {
+		      var addItem = document.createElement('li');
+		      addItem.className = 'picker-add-new';
+		      addItem.textContent = 'Add "' + query + '" as a new format';
+		      addItem.addEventListener('click', function () { addNewFormat(query); });
+		      results.appendChild(addItem);
+		    }
+
+		    results.hidden = matches.length === 0 && !(query && !exactMatch);
+		  }
+
+		  input.addEventListener('input', function () { renderResults(input.value.trim()); });
+		  input.addEventListener('keydown', function (e) {
+		    if (e.key === 'Enter') {
+		      e.preventDefault();
+		      if (currentMatches.length === 1) {
+		        commit(currentMatches[0]);
+		      } else if (currentQuery && currentMatches.length === 0) {
+		        addNewFormat(currentQuery);
+		      }
+		    } else if (e.key === 'Escape') {
+		      e.preventDefault();
+		      closePicker();
+		    }
+		  });
+		  input.addEventListener('blur', function () {
+		    setTimeout(function () { results.hidden = true; }, 150);
 		  });
 		})();
 		</script>
@@ -942,13 +1329,16 @@
 			  var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 			  var ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
-			  var container = document.querySelector('.cover-upload');
+			  var container = document.querySelector('.cover-overlay-controls');
 			  if (!container) return;
 
 			  var input = document.getElementById('cover-upload-input');
-			  var errorEl = container.querySelector('.cover-upload-error');
+			  var removeBtn = document.getElementById('cover-remove-trigger');
+			  var errorEl = document.querySelector('.cover-upload-error');
 			  var coverImg = document.getElementById('cover-preview-img');
 			  var uploadURL = container.dataset.assetsUrl + '/' + container.dataset.stagedCoverPath;
+			  var livePath = container.dataset.liveCoverPath;
+			  var liveURL = container.dataset.assetsUrl + '/' + livePath;
 			  var sessionCoverURL = container.dataset.sessionCoverUrl;
 
 			  function showError(message) {
@@ -1001,10 +1391,33 @@
 			          coverImg.style.display = '';
 			          coverImg.src = uploadURL + '?t=' + Date.now();
 			        }
+			        removeBtn.hidden = false;
 			      })
 			      .catch(function () {
 			        showError('Cover upload failed. Try again.');
 			        input.value = '';
+			      });
+			  });
+
+			  // Only a *staged* (not-yet-saved) cover can be removed here - there's no way today
+			  // to clear an already-live cover to none, only to replace it with a new upload.
+			  removeBtn.addEventListener('click', function () {
+			    clearError();
+			    fetch(uploadURL, { method: 'DELETE', credentials: 'include' }).catch(function () {});
+			    fetch(sessionCoverURL, {
+			      method: 'POST',
+			      headers: { 'Content-Type': 'application/json' },
+			      body: JSON.stringify({ assetId: '' }),
+			      credentials: 'include'
+			    })
+			      .then(function (resp) {
+			        if (!resp.ok) throw new Error('Failed to clear staged cover');
+			        if (coverImg) coverImg.src = liveURL + '?t=' + Date.now();
+			        removeBtn.hidden = true;
+			        input.value = '';
+			      })
+			      .catch(function () {
+			        showError('Unable to remove the staged cover. Try again.');
 			      });
 			  });
 			})();

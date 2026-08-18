@@ -1333,7 +1333,7 @@ struct AppTests {
         #expect(res.status == .ok)
         #expect(res.body.string.contains(#"data-selected-format="Hardcover""#))
         #expect(res.body.string.contains("Paperback"))
-        #expect(res.body.string.contains("format-new-value"))
+        #expect(res.body.string.contains(#"data-value="Hardcover""#))
         #expect(res.body.string.contains("/volumes/1/edit/session/format"))
         #expect(res.body.string.contains("/volumes/1/edit/vocabulary/format"))
       }
@@ -1417,7 +1417,7 @@ struct AppTests {
       try await app.testing().test(.GET, "test-edit") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("asset/sample/1-0"))
-        #expect(res.body.string.contains("replaces this whole set"))
+        #expect(res.body.string.contains("sample-thumbnail-small"))
         #expect(res.body.string.contains("sample-upload-input"))
         #expect(res.body.string.contains(#"accept="image/png,image/jpeg,image/webp""#))
       }

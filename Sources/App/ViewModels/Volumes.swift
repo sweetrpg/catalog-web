@@ -87,6 +87,13 @@ struct LeafVolumeEditForm: Content {
   /// The current session's cover: a staged one if the user has uploaded one this session,
   /// otherwise the volume's existing live cover.
   let coverAssetPath: String
+  /// The volume's live cover, ignoring any staged replacement - what the "remove staged cover"
+  /// control reverts the preview to.
+  let liveCoverPath: String
+  /// `true` when the session already has a staged cover on page load (a prior visit staged one
+  /// without finalizing) - shows the "remove staged cover" control immediately rather than only
+  /// after a fresh upload this same page view.
+  let hasStagedCover: Bool
   /// The signed-in user's Auth0 subject - the id staged assets are filed under
   /// (`cover-staged/<sub>`, see docs/frontend-conventions.md's staging convention in
   /// sweetrpg/platform) and this page's JS needs it to build the upload URL.
@@ -165,6 +172,8 @@ struct LeafVolumeEditForm: Content {
     } else {
       self.coverAssetPath = volume.coverAssetPath
     }
+    self.liveCoverPath = volume.coverAssetPath
+    self.hasStagedCover = session.stagedCoverAssetId != nil
 
     let publisherByID = Dictionary(uniqueKeysWithValues: publisherOptions)
     let selectedPublisherIds = session.stringArrayField("publisherIds") ?? volume.publisherIds
