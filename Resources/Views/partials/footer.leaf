@@ -3,5 +3,5 @@
 		<span>&copy; 2026 Pilgrimage Software</span>
 		<a href="https://github.com/sweetrpg" target="_blank" rel="noopener">GitHub</a>
 	</div>
-	<h6 class="footer-build">#(meta.buildVersion) &middot; built #(meta.buildDate) / #(meta.buildHash)</h6>
+	<span class="footer-build">#(meta.buildVersion) &middot; built #(meta.buildDate) / #(meta.buildHash)</span>
 </footer>

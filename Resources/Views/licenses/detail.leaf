@@ -1,5 +1,54 @@
 #extend("base"):
 	#export("body"):
+		<style>
+		  /* Page-specific: these classes have no shared-web equivalent, unlike .detail-layout/
+		     .card-cover which volumes reuse - a license's shape (label/value metadata pairs,
+		     long-form legal text) doesn't match the volume detail page's layout closely enough
+		     to share it. */
+		  .license-columns {
+		    display: grid;
+		    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+		    gap: 40px;
+		    margin-top: 24px;
+		    align-items: start;
+		  }
+		  .license-meta {
+		    display: grid;
+		    grid-template-columns: auto 1fr;
+		    gap: 6px 16px;
+		    align-items: baseline;
+		  }
+		  .license-meta-label {
+		    font-size: 13px;
+		    letter-spacing: 0.04em;
+		    text-transform: uppercase;
+		    opacity: 0.55;
+		  }
+		  .license-notes {
+		    white-space: pre-wrap;
+		  }
+		  .license-volumes-panel {
+		    margin-top: 12px;
+		  }
+		  .license-text-panel details {
+		    margin-top: 12px;
+		    border-top: 1px solid var(--color-divider);
+		    padding-top: 12px;
+		  }
+		  .license-text-panel summary {
+		    cursor: pointer;
+		    font-weight: var(--font-heading-weight);
+		  }
+		  .license-text-body {
+		    white-space: pre-wrap;
+		    font-size: 14px;
+		    line-height: 1.6;
+		    max-height: 60vh;
+		    overflow-y: auto;
+		    margin-top: 8px;
+		  }
+		</style>
+
 		<a class="back-link" href="#(meta.basePath)/licenses">&larr; Back</a>
 
 		#if(justProposed):
@@ -147,15 +196,15 @@
 					<span class="section-label">License Text</span>
 					<div class="license-text-panel">
 						#if(license.hasDeed):
-							<details open>
+							<details>
 								<summary>Deed</summary>
-								<p><a href="#(license.deed)">#(license.deed)</a></p>
+								<p class="license-text-body">#(license.deed)</p>
 							</details>
 						#endif
 						#if(license.hasLegalCode):
-							<details open>
+							<details>
 								<summary>Legal code</summary>
-								<p><a href="#(license.legalCode)">#(license.legalCode)</a></p>
+								<p class="license-text-body">#(license.legalCode)</p>
 							</details>
 						#endif
 					</div>

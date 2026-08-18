@@ -107,8 +107,22 @@ func makeEditContext(
     id: id,
     backPath: "\(basePath)/\(id)",
     submitPath: "\(basePath)/\(id)/edit",
-    fields: fields.map {
-      LeafEntityFieldInput(key: $0.key, label: $0.label, value: values[$0.key] ?? "")
+    fields: fields.map { spec in
+      let value = values[spec.key] ?? ""
+      switch spec.kind {
+      case .text:
+        return LeafEntityFieldInput(
+          key: spec.key, label: spec.label, value: value, isTextarea: false, isSelect: false,
+          selectOptions: [])
+      case .textarea:
+        return LeafEntityFieldInput(
+          key: spec.key, label: spec.label, value: value, isTextarea: true, isSelect: false,
+          selectOptions: [])
+      case .select(let options):
+        return LeafEntityFieldInput(
+          key: spec.key, label: spec.label, value: value, isTextarea: false, isSelect: true,
+          selectOptions: options.map { LeafSelectOption(value: $0, isSelected: $0 == value) })
+      }
     },
     user: LeafUser(user),
     meta: meta

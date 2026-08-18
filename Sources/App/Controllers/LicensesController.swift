@@ -3,16 +3,27 @@ import Foundation
 import Tracing
 import Vapor
 
+/// Status/availability have no backend-defined vocabulary yet (plain free-text strings in
+/// catalog-api, no enum, no vocabulary endpoint like format/contribution-type have) - this is a
+/// frontend-only closed list, not validated server-side. Confirmed with the user rather than
+/// guessed.
+private let licenseStatusOptions = ["Draft", "Accepted", "Deprecated", "Retired"]
+private let licenseAvailabilityOptions = ["Released", "Withdrawn"]
+
 let licenseFields: [EntityFieldSpec] = [
   EntityFieldSpec(key: "title", label: "Title"),
   EntityFieldSpec(key: "short_title", label: "Short title"),
   EntityFieldSpec(key: "version", label: "Version"),
-  EntityFieldSpec(key: "deed", label: "Deed"),
-  EntityFieldSpec(key: "legal_code", label: "Legal code"),
   EntityFieldSpec(key: "website", label: "Website"),
-  EntityFieldSpec(key: "status", label: "Status"),
-  EntityFieldSpec(key: "availability", label: "Availability"),
+  EntityFieldSpec(key: "status", label: "Status", kind: .select(options: licenseStatusOptions)),
+  EntityFieldSpec(
+    key: "availability", label: "Availability",
+    kind: .select(options: licenseAvailabilityOptions)),
   EntityFieldSpec(key: "notes", label: "Notes"),
+  // Long-form text (deed can be markdown, legal_code is a full license text) - textarea, and
+  // kept last per the page's field order.
+  EntityFieldSpec(key: "deed", label: "Deed", kind: .textarea),
+  EntityFieldSpec(key: "legal_code", label: "Legal code", kind: .textarea),
 ]
 
 func fieldValues(_ l: LicenseViewModel) -> [String: String] {
