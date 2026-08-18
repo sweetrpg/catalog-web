@@ -1,6 +1,9 @@
 
 ## 0.25.0 - 2026-08-18
 
+
+## 0.25.0 - 2026-08-18
+
 ### Added
 - Add name sort order control next to search
 
