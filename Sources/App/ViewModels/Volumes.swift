@@ -1,6 +1,7 @@
 import CatalogAPIClient
 import Crypto
 import Foundation
+import Ink
 import Vapor
 
 struct LeafVolumeCard: Content {
@@ -21,6 +22,9 @@ struct LeafVolumeDetail: Content {
   let id: String
   let title: String
   let description: String
+  /// The description rendered from Markdown (line breaks, emphasis, lists) - templates render
+  /// this via #unsafeHTML rather than the raw `description` field.
+  let descriptionHTML: String
   let hasDescription: Bool
   let notes: String
   let hasNotes: Bool
@@ -50,6 +54,7 @@ struct LeafVolumeDetail: Content {
     self.id = volume.id
     self.title = volume.title
     self.description = volume.description
+    self.descriptionHTML = MarkdownParser().html(from: volume.description)
     self.hasDescription = !volume.description.isEmpty
     self.notes = volume.notes
     self.hasNotes = !volume.notes.isEmpty
