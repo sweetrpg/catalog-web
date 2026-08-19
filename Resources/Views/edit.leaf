@@ -384,26 +384,6 @@
 						</span>
 					</div>
 
-					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
-						#if(volume.hasNotes):
-							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
-						#else:
-							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
-						#endif
-						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
-						<span class="field-actions">
-							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
-								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit notes">
-							</button>
-							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
-								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
-							</button>
-							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
-								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
-							</button>
-						</span>
-					</div>
-
 					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
 						<h3>Publishers</h3>
 						<div class="chip-list" data-chip-list>
@@ -524,6 +504,26 @@
 							<script type="application/json" id="format-options">#unsafeHTML(volume.formatOptionsJSON)</script>
 						</div>
 					#endif
+
+					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
+						#if(volume.hasNotes):
+							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
+						#else:
+							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
+						#endif
+						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit notes">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
 
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
