@@ -19,18 +19,26 @@ struct CatalogController: RouteCollection {
       let volumes = try await req.catalogAPI.fetchVolumes()
       let trending = Array(volumes.prefix(8))
       let tagCloud = Array(Set(volumes.flatMap(\.tags))).sorted().prefix(14)
+      let stats = try await req.catalogAPI.fetchCatalogStats()
 
       return try await req.view.render(
         "home",
         HomeContext(
-          volumeCount: volumes.count,
-          lastUpdated: "TODO",
+          volumeCount: stats.volumeCount,
+          lastUpdated: stats.lastUpdated.map(Self.formatLastUpdated) ?? "Unknown",
           trending: trending.map(LeafVolumeCard.init),
           tagCloud: tagCloud.map { LeafTag(name: $0) },
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  private static func formatLastUpdated(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .none
+    return formatter.string(from: date)
   }
 
   @Sendable

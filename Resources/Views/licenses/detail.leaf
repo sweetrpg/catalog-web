@@ -45,7 +45,10 @@
 		    line-height: 1.6;
 		    max-height: 60vh;
 		    overflow-y: auto;
-		    margin-top: 8px;
+		    /* A <p>'s UA-stylesheet margin (~1em top/bottom) was adding visible blank space above
+		       and below the text inside this scroll container - reset both, keep only the
+		       deliberate gap below the <summary> toggle. */
+		    margin: 8px 0 0;
 		  }
 		</style>
 
