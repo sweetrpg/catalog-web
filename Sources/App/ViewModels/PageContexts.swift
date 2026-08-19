@@ -242,6 +242,7 @@ struct EntityBrowseContext<Item: Content>: Content {
   let noResults: Bool
   let orderIsAsc: Bool
   let orderIsDesc: Bool
+  let canEdit: Bool
   let user: LeafUser?
   let meta: PageMeta
 }

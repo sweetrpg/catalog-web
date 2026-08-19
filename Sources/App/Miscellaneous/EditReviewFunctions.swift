@@ -129,6 +129,56 @@ func makeEditContext(
   )
 }
 
+/// Builds a blank create form's context - same field list/kind as `makeEditContext`, empty
+/// values, and a `submitPath`/`backPath` pointing at the collection (`/new`, the browse page)
+/// instead of an existing record.
+func makeCreateContext(
+  basePath: String, fields: [EntityFieldSpec], user: SessionUser, meta: PageMeta
+) -> EntityEditContext {
+  EntityEditContext(
+    id: "",
+    backPath: basePath,
+    submitPath: "\(basePath)/new",
+    fields: fields.map { spec in
+      switch spec.kind {
+      case .text:
+        return LeafEntityFieldInput(
+          key: spec.key, label: spec.label, value: "", isTextarea: false, isSelect: false,
+          selectOptions: [])
+      case .textarea:
+        return LeafEntityFieldInput(
+          key: spec.key, label: spec.label, value: "", isTextarea: true, isSelect: false,
+          selectOptions: [])
+      case .select(let options):
+        return LeafEntityFieldInput(
+          key: spec.key, label: spec.label, value: "", isTextarea: false, isSelect: true,
+          selectOptions: options.map { LeafSelectOption(value: $0, isSelected: false) })
+      }
+    },
+    user: LeafUser(user),
+    meta: meta
+  )
+}
+
+/// Creates a publisher/studio/person/license - the generic counterpart of `submitEdit`.
+/// Editor/admin/submitter, same gate as editing (`canEdit`); catalog-api always creates the
+/// record live regardless of role (see sweetrpg/catalog-api#220 - there's no prior version to
+/// submit a proposal against).
+func submitCreate(req: Request, path: String, fields: [EntityFieldSpec]) async throws -> Response {
+  try await withSpan("submit-create") { _ in
+    guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+
+    let input = try req.content.decode([String: String].self)
+    let known = Set(fields.map(\.key))
+    let filtered = input.filter { known.contains($0.key) }
+
+    let id = try await req.catalogAPI.createEntity(
+      path: path, token: user.accessToken, fields: filtered)
+
+    return req.redirect(to: "\(req.basePath)\(path)/\(id)")
+  }
+}
+
 func submitEdit(req: Request, path: String, fields: [EntityFieldSpec]) async throws
   -> Response
 {

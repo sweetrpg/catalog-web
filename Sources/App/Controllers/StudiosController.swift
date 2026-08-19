@@ -27,6 +27,8 @@ func fieldValues(_ s: StudioVersionAttributes) -> [String: String] {
 struct StudiosController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("studios", use: browseStudios)
+    routes.get("studios", "new", use: newStudioForm)
+    routes.post("studios", "new", use: submitStudioCreate)
     routes.get("studios", ":id", use: detailStudio)
     routes.get("studios", ":id", "edit", use: editStudioForm)
     routes.post("studios", ":id", "edit", use: submitStudioEdit)
@@ -58,10 +60,27 @@ struct StudiosController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newStudioForm(req: Request) async throws -> View {
+    try await withSpan("studios-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "studios/create",
+        makeCreateContext(
+          basePath: "/studios", fields: studioFields, user: user, meta: await PageMeta.make(req)))
+    }
+  }
+
+  @Sendable
+  func submitStudioCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/studios", fields: studioFields)
   }
 
   @Sendable

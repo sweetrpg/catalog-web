@@ -31,6 +31,8 @@ func fieldValues(_ p: PublisherVersionAttributes) -> [String: String] {
 struct PublishersController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("publishers", use: browsePublishers)
+    routes.get("publishers", "new", use: newPublisherForm)
+    routes.post("publishers", "new", use: submitPublisherCreate)
     routes.get("publishers", ":id", use: detailPublisher)
     routes.get("publishers", ":id", "edit", use: editPublisherForm)
     routes.post("publishers", ":id", "edit", use: submitPublisherEdit)
@@ -74,10 +76,28 @@ struct PublishersController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newPublisherForm(req: Request) async throws -> View {
+    try await withSpan("publishers-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "publishers/create",
+        makeCreateContext(
+          basePath: "/publishers", fields: publisherFields, user: user,
+          meta: await PageMeta.make(req)))
+    }
+  }
+
+  @Sendable
+  func submitPublisherCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/publishers", fields: publisherFields)
   }
 
   @Sendable
