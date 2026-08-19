@@ -24,6 +24,9 @@
 					<option value="desc" #if(orderIsDesc): selected #endif>Title (Z-A)</option>
 				</select>
 			</form>
+			#if(canEdit):
+				<a class="btn btn-primary" href="#(meta.basePath)/licenses/new">Add license</a>
+			#endif
 		</section>
 
 		#if(noResults):

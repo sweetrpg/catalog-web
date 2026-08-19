@@ -12,10 +12,12 @@ import Vapor
 struct CatalogAPIClientService {
   let sdk: CatalogAPIClient
   let cache: CacheService
+  private let req: Request
 
   init(request: Request) {
     self.sdk = CatalogAPIClient(baseURL: request.backendConfig.catalogAPIURL)
     self.cache = request.cacheService
+    self.req = request
   }
 
   func fetchVolumes() async throws -> [VolumeViewModel] {
@@ -375,6 +377,61 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-reject-entity-version") { _ in
       try await sdk.rejectEntityVersion(
         path: path, id: id, version: version, token: token, note: note)
+    }
+  }
+
+  /// Creates a publisher/studio/person/license - the generic counterpart of `patchEntity`, for
+  /// catalog-api's `POST /:type` route (sweetrpg/catalog-api#220). Implemented as a raw
+  /// `req.client` call rather than through `sdk` - the `catalog-api-client.swift` SDK (pinned
+  /// pre-1.0) doesn't have a create method yet, and adding one there plus a version bump wasn't
+  /// worth it for the one page (this create form) that needs it; revisit if a second consumer of
+  /// entity creation shows up. `path` is the resource's collection path (e.g. `/publishers`).
+  /// Returns the new record's id.
+  func createEntity(path: String, token: String, fields: [String: String]) async throws -> String {
+    try await withSpan("create-entity") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + path)
+      let response = try await req.client.post(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+        try clientReq.content.encode(fields, as: .json)
+      }
+      guard response.status == .created else {
+        throw Abort(response.status, reason: "catalog-api create failed")
+      }
+      let doc = try response.content.decode(JSONAPISingleDocument<NamedAttributes>.self)
+      return doc.data.id
+    }
+  }
+
+  /// Sets a license's `tags` field - separate from `patchEntity` since tags is the one
+  /// array-valued field catalog-api's generic entity PATCH accepts
+  /// (sweetrpg/catalog-api#220's `arrayFields`), and the SDK's `patchEntity` only encodes a
+  /// `[String: String]` body. Same raw-`req.client` rationale as `createEntity` above.
+  func patchLicenseTags(id: String, token: String, tags: [String]) async throws {
+    try await withSpan("patch-license-tags") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + "/licenses/\(id)")
+      let response = try await req.client.patch(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+        try clientReq.content.encode(["tags": tags], as: .json)
+      }
+      guard response.status == .ok || response.status == .accepted else {
+        throw Abort(response.status, reason: "catalog-api tags update failed")
+      }
+    }
+  }
+
+  /// Sets the full list of volumes a license is associated with (full-replace) - catalog-api's
+  /// `PATCH /licenses/:id/volumes` (sweetrpg/catalog-api#220), editor/admin only. Same raw-
+  /// `req.client` rationale as `createEntity` above.
+  func patchLicenseVolumes(id: String, token: String, volumeIds: [String]) async throws {
+    try await withSpan("patch-license-volumes") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + "/licenses/\(id)/volumes")
+      let response = try await req.client.patch(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+        try clientReq.content.encode(["volumeIds": volumeIds], as: .json)
+      }
+      guard response.status == .ok else {
+        throw Abort(response.status, reason: "catalog-api license volumes update failed")
+      }
     }
   }
 

@@ -10,6 +10,9 @@
 					<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
 				</select>
 			</form>
+			#if(canEdit):
+				<a class="btn btn-primary" href="#(meta.basePath)/studios/new">Add studio</a>
+			#endif
 		</section>
 
 		#if(noResults):

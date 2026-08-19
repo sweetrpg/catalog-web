@@ -26,6 +26,8 @@ func fieldValues(_ p: PersonVersionAttributes) -> [String: String] {
 struct PersonsController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("persons", use: browsePersons)
+    routes.get("persons", "new", use: newPersonForm)
+    routes.post("persons", "new", use: submitPersonCreate)
     routes.get("persons", ":id", use: detailPerson)
     routes.get("persons", ":id", "edit", use: editPersonForm)
     routes.post("persons", ":id", "edit", use: submitPersonEdit)
@@ -57,10 +59,27 @@ struct PersonsController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newPersonForm(req: Request) async throws -> View {
+    try await withSpan("persons-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "persons/create",
+        makeCreateContext(
+          basePath: "/persons", fields: personFields, user: user, meta: await PageMeta.make(req)))
+    }
+  }
+
+  @Sendable
+  func submitPersonCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/persons", fields: personFields)
   }
 
   @Sendable
