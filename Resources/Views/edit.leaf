@@ -19,15 +19,31 @@
 		  #edit-form .btn, .contributor-dialog .btn {
 		    border-radius: 999px;
 		  }
+		  #edit-form > div {
+		    margin-top: 1.25rem;
+		    padding-top: 1.25rem;
+		    border-top: 1px solid var(--color-neutral-300, rgba(127, 127, 127, 0.15));
+		  }
+		  #edit-form > div:first-child {
+		    margin-top: 0;
+		    padding-top: 0;
+		    border-top: none;
+		  }
 		  .contributor-dialog, .picker-results {
 		    border-radius: 0.75rem;
 		  }
 
+		  .card-cover.detail-cover {
+		    aspect-ratio: unset;
+		    flex-direction: column;
+		    align-items: stretch;
+		    justify-content: flex-start;
+		  }
 		  .cover-image-wrap {
 		    position: relative;
 		    display: block;
 		    width: 100%;
-		    height: 100%;
+		    aspect-ratio: 3 / 4;
 		  }
 		  .cover-overlay-controls {
 		    position: absolute;
@@ -103,6 +119,8 @@
 		    display: block;
 		    width: fit-content;
 		    margin: 0.75rem auto 0;
+		    text-transform: none;
+		    font-size: 14px;
 		  }
 
 		  /* Tag cloud (publisher/studio/format): chips plus a trailing "+" trigger, with an
@@ -230,10 +248,41 @@
 		  .contributor-dialog[hidden] {
 		    display: none;
 		  }
+		  .contributor-add-type {
+		    display: flex;
+		    align-items: center;
+		    gap: 0.4rem;
+		    margin-top: 0.3rem;
+		  }
+		  .contributor-add-type select,
+		  .contributor-add-type input {
+		    flex: 1;
+		    min-width: 0;
+		  }
+		  .property-add-row,
+		  .property-add-name {
+		    display: flex;
+		    align-items: center;
+		    gap: 0.4rem;
+		    margin-top: 0.5rem;
+		    flex-wrap: wrap;
+		  }
+		  .property-add-row select,
+		  .property-add-row input,
+		  .property-add-name input {
+		    flex: 1;
+		    min-width: 0;
+		  }
 		  .field-actions .icon-btn {
 		    width: 1.75rem;
 		    height: 1.75rem;
 		    padding: 0.35rem;
+		  }
+		  .field-edit-trigger {
+		    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		  }
+		  .field-edit-trigger:hover {
+		    background: color-mix(in srgb, var(--color-accent) 26%, transparent);
 		  }
 		  .field-actions .icon-btn img {
 		    width: 1rem;
@@ -341,26 +390,6 @@
 						</span>
 					</div>
 
-					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
-						#if(volume.hasNotes):
-							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
-						#else:
-							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
-						#endif
-						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
-						<span class="field-actions">
-							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
-								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit notes">
-							</button>
-							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
-								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
-							</button>
-							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
-								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
-							</button>
-						</span>
-					</div>
-
 					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
 						<h3>Publishers</h3>
 						<div class="chip-list" data-chip-list>
@@ -414,17 +443,18 @@
 
 							<label class="contributor-dialog-label">
 								Contribution type
-								<select class="input" id="contributor-type-select">
-									<option value="">Select a type&hellip;</option>
-								</select>
-							</label>
-
-							#if(volume.canAddContributionType):
 								<div class="contributor-add-type">
-									<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
-									<button type="button" class="btn btn-ghost" id="contributor-add-type-trigger">Add type</button>
-									<p class="form-error" id="contributor-add-type-error" hidden></p>
+									<select class="input" id="contributor-type-select">
+										<option value="">Select a type&hellip;</option>
+									</select>
+									#if(volume.canAddContributionType):
+										<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
+										<button type="button" class="btn btn-ghost" id="contributor-add-type-trigger">Add type</button>
+									#endif
 								</div>
+							</label>
+							#if(volume.canAddContributionType):
+								<p class="form-error" id="contributor-add-type-error" hidden></p>
 							#endif
 
 							<div class="contributor-dialog-actions">
@@ -481,15 +511,34 @@
 						</div>
 					#endif
 
+					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
+						#if(volume.hasNotes):
+							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
+						#else:
+							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
+						#endif
+						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
+						<span class="field-actions">
+							<button type="button" class="icon-btn field-edit-trigger" title="Edit notes">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit notes">
+							</button>
+							<button type="button" class="icon-btn field-accept-trigger" title="Accept" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Accept">
+							</button>
+							<button type="button" class="icon-btn field-cancel-trigger" title="Cancel" hidden>
+								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+							</button>
+						</span>
+					</div>
+
 					<div class="form-actions">
 						<button type="submit" class="btn btn-primary">Save changes</button>
-						<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)">Back</a>
+						<button type="submit" form="discard-form" class="btn btn-ghost discard-changes-trigger">Discard changes</button>
 					</div>
 				</form>
 
 				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.assetsURL)">
 					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volume.id)">
-					<button type="submit" class="btn btn-ghost discard-changes-trigger">Discard changes</button>
 				</form>
 			</div>
 		</div>
@@ -897,8 +946,20 @@
 		    }
 		  });
 
+		  var currentPersonMatches = [];
+
+		  function selectPerson(option) {
+		    selectedPerson = option;
+		    selectedPersonLabel.textContent = 'Selected: ' + option.name;
+		    selectedPersonLabel.hidden = false;
+		    personFilter.value = '';
+		    personResults.hidden = true;
+		    updateConfirmEnabled();
+		  }
+
 		  function renderPersonResults(query) {
 		    personResults.innerHTML = '';
+		    currentPersonMatches = [];
 		    if (!query) {
 		      personResults.hidden = true;
 		      return;
@@ -907,6 +968,7 @@
 		    var matches = personOptions.filter(function (option) {
 		      return option.name.toLowerCase().indexOf(needle) !== -1;
 		    }).slice(0, 8);
+		    currentPersonMatches = matches;
 
 		    if (matches.length === 0) {
 		      personResults.hidden = true;
@@ -915,22 +977,32 @@
 		    matches.forEach(function (option) {
 		      var item = document.createElement('li');
 		      item.textContent = option.name;
-		      item.addEventListener('click', function () {
-		        selectedPerson = option;
-		        selectedPersonLabel.textContent = 'Selected: ' + option.name;
-		        selectedPersonLabel.hidden = false;
-		        personFilter.value = '';
-		        personResults.hidden = true;
-		        updateConfirmEnabled();
-		      });
+		      item.addEventListener('click', function () { selectPerson(option); });
 		      personResults.appendChild(item);
 		    });
 		    personResults.hidden = false;
 		  }
 
 		  personFilter.addEventListener('input', function () { renderPersonResults(personFilter.value.trim()); });
+		  personFilter.addEventListener('keydown', function (e) {
+		    if (e.key === 'Enter') {
+		      e.preventDefault();
+		      if (currentPersonMatches.length === 1) selectPerson(currentPersonMatches[0]);
+		    }
+		  });
 		  personFilter.addEventListener('blur', function () {
-		    setTimeout(function () { personResults.hidden = true; }, 150);
+		    // Deferred so a click on a result fires first; also catches the case where the typed
+		    // text is already an exact match but the user tabbed/clicked away instead of pressing
+		    // Enter or clicking the suggestion - without this, Add silently stays disabled even
+		    // though the field looks filled in.
+		    setTimeout(function () {
+		      personResults.hidden = true;
+		      if (selectedPerson) return;
+		      var needle = personFilter.value.trim().toLowerCase();
+		      if (!needle) return;
+		      var exact = personOptions.find(function (option) { return option.name.toLowerCase() === needle; });
+		      if (exact) selectPerson(exact);
+		    }, 150);
 		  });
 
 		  typeSelect.addEventListener('change', updateConfirmEnabled);
