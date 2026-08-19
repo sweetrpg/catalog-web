@@ -402,19 +402,37 @@ struct CatalogAPIClientService {
     }
   }
 
-  /// Sets a license's `tags` field - separate from `patchEntity` since tags is the one
-  /// array-valued field catalog-api's generic entity PATCH accepts
-  /// (sweetrpg/catalog-api#220's `arrayFields`), and the SDK's `patchEntity` only encodes a
-  /// `[String: String]` body. Same raw-`req.client` rationale as `createEntity` above.
-  func patchLicenseTags(id: String, token: String, tags: [String]) async throws {
-    try await withSpan("patch-license-tags") { _ in
+  /// Edits a license's string fields and (optionally) its `tags` array in one PATCH - the
+  /// license-specific counterpart of `patchEntity`, which only encodes a `[String: String]` body
+  /// and so can't carry `tags` (catalog-api's one array-valued entity field, sweetrpg/
+  /// catalog-api#220's `arrayFields`). Combining both into a single request matters, not just for
+  /// fewer round trips: catalog-api creates one new version per PATCH request, so calling
+  /// `patchEntity` and a separate tags-only PATCH back to back would create two versions (two
+  /// separate submitted proposals for a submitter) instead of one unified edit. Same raw-
+  /// `req.client` rationale as `createEntity` above.
+  func patchLicenseFields(id: String, token: String, fields: [String: String], tags: [String]?)
+    async throws -> PatchOutcome
+  {
+    try await withSpan("patch-license-fields") { _ in
       let uri = URI(string: req.backendConfig.catalogAPIURL + "/licenses/\(id)")
       let response = try await req.client.patch(uri) { clientReq in
         clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
-        try clientReq.content.encode(["tags": tags], as: .json)
+        var body: [String: Any] = fields
+        if let tags {
+          body["tags"] = tags
+        }
+        let data = try JSONSerialization.data(withJSONObject: body)
+        clientReq.headers.contentType = .json
+        clientReq.body = ByteBuffer(data: data)
       }
-      guard response.status == .ok || response.status == .accepted else {
-        throw Abort(response.status, reason: "catalog-api tags update failed")
+      switch response.status {
+      case .ok:
+        _ = try response.content.decode(JSONAPISingleDocument<NamedAttributes>.self)
+        return .applied
+      case .accepted:
+        return .proposed(try response.content.decode(SubmittedVersionResponse.self))
+      default:
+        throw Abort(response.status, reason: "catalog-api license update failed")
       }
     }
   }
