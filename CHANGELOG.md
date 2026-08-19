@@ -1,4 +1,14 @@
 
+## 0.26.1 - 2026-08-19
+
+### Fixed
+- Lingo localizationsDir path, sample button layout, form actions, contributor add-flow
+- Properties row layout, section spacing dividers
+- Move notes field to the bottom, above save/discard
+- Tint field edit-trigger buttons in the accent color
+
+
+
 ## 0.26.0 - 2026-08-18
 
 ### Added
