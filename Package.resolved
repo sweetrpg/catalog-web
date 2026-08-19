@@ -1,5 +1,5 @@
 {
-  "originHash" : "bef6c71e802d6bda7f5d0880947a5a973d951bfc642c2efd6f05a3b1f07aab0b",
+  "originHash" : "66ce8500b7631f6de7616846d14e5ee970cea9bf34748a3c56592e20a7b299c0",
   "pins" : [
     {
       "identity" : "admin-api-client.swift",
@@ -53,6 +53,15 @@
       "state" : {
         "revision" : "6a8927df5a91710b414caba4f8a088dead4633db",
         "version" : "1.27.5"
+      }
+    },
+    {
+      "identity" : "ink",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/JohnSundell/Ink.git",
+      "state" : {
+        "revision" : "bcc9f219900a62c4210e6db726035d7f03ae757b",
+        "version" : "0.6.0"
       }
     },
     {
