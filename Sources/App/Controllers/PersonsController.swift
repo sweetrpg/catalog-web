@@ -28,6 +28,8 @@ struct PersonsController: RouteCollection {
     routes.get("persons", use: browsePersons)
     routes.get("persons", "new", use: newPersonForm)
     routes.post("persons", "new", use: submitPersonCreate)
+    routes.get("persons", "bulk-add", use: bulkAddPersonsForm)
+    routes.post("persons", "bulk-add", use: submitBulkAddPersons)
     routes.get("persons", ":id", use: detailPerson)
     routes.get("persons", ":id", "edit", use: editPersonForm)
     routes.post("persons", ":id", "edit", use: submitPersonEdit)
@@ -40,6 +42,11 @@ struct PersonsController: RouteCollection {
   private struct BrowseQuery: Content {
     let q: String?
     let order: String?
+    // Set by submitBulkAddPersons' redirect - see PersonsBrowseContext's own doc comment for why
+    // this rides on persons/browse rather than a separate results page.
+    let bulk_created: Int?
+    let bulk_failed: Int?
+    let bulk_errors: String?
   }
 
   @Sendable
@@ -50,19 +57,90 @@ struct PersonsController: RouteCollection {
       let persons = try await req.catalogAPI.fetchPersonsCatalog()
       let filtered = filterByName(persons, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
+      let roles = (await req.currentUser)?.roles ?? []
+
+      var bulkFailures: [LeafBulkAddFailure] = []
+      if let errorsJSON = query.bulk_errors, let data = errorsJSON.data(using: .utf8) {
+        bulkFailures = (try? JSONDecoder().decode([LeafBulkAddFailure].self, from: data)) ?? []
+      }
 
       return try await req.view.render(
         "persons/browse",
-        EntityBrowseContext(
+        PersonsBrowseContext(
           query: query.q ?? "",
           items: sorted.map { LeafPersonCard($0) },
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
-          canEdit: canEdit((await req.currentUser)?.roles ?? []),
+          canEdit: canEdit(roles),
+          canBulkAdd: canBulkAddPersons(roles),
+          hasBulkResult: query.bulk_created != nil || query.bulk_failed != nil,
+          bulkCreatedCount: query.bulk_created ?? 0,
+          bulkFailedCount: query.bulk_failed ?? 0,
+          bulkFailures: bulkFailures,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
+    }
+  }
+
+  @Sendable
+  func bulkAddPersonsForm(req: Request) async throws -> View {
+    try await withSpan("persons-bulk-add-form") { _ in
+      guard let user = await req.currentUser, canBulkAddPersons(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      return try await req.view.render(
+        "persons/bulk-add",
+        BulkAddPersonsContext(
+          backPath: "/persons", submitPath: "/persons/bulk-add",
+          user: LeafUser(user), meta: await PageMeta.make(req)))
+    }
+  }
+
+  private struct BulkAddInput: Content {
+    let names: String
+  }
+
+  @Sendable
+  func submitBulkAddPersons(req: Request) async throws -> Response {
+    try await withSpan("submit-bulk-add-persons") { _ in
+      guard let user = await req.currentUser, canBulkAddPersons(user.roles) else {
+        throw Abort(.forbidden)
+      }
+
+      let input = try req.content.decode(BulkAddInput.self)
+      let names =
+        input.names
+        .split(separator: "\n")
+        .map { $0.trimmingCharacters(in: .whitespaces) }
+        .filter { !$0.isEmpty }
+
+      let results = try await req.catalogAPI.bulkCreatePersons(
+        fields: names.map { ["name": $0] }, token: user.accessToken)
+
+      let createdCount = results.filter(\.success).count
+      let failures = zip(names, results).compactMap { name, result -> LeafBulkAddFailure? in
+        guard !result.success else { return nil }
+        return LeafBulkAddFailure(name: name, error: result.error ?? "unknown error")
+      }
+
+      if createdCount > 0 {
+        await req.catalogAPI.invalidateEntityListCache(path: "/persons")
+      }
+
+      var components = URLComponents()
+      components.queryItems = [
+        URLQueryItem(name: "bulk_created", value: String(createdCount)),
+        URLQueryItem(name: "bulk_failed", value: String(failures.count)),
+      ]
+      if !failures.isEmpty, let encoded = try? JSONEncoder().encode(failures),
+        let json = String(data: encoded, encoding: .utf8)
+      {
+        components.queryItems?.append(URLQueryItem(name: "bulk_errors", value: json))
+      }
+
+      return req.redirect(to: "\(req.basePath)/persons?\(components.percentEncodedQuery ?? "")")
     }
   }
 

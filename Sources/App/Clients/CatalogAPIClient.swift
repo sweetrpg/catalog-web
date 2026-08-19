@@ -423,6 +423,38 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// One entry's outcome in a bulk-create response - success/id for a created record, or an
+  /// error message, never both (matches catalog-api's bulkCreateResult).
+  struct BulkCreateResult: Content {
+    let success: Bool
+    let id: String?
+    let error: String?
+  }
+
+  private struct BulkCreateResponse: Content {
+    let results: [BulkCreateResult]
+  }
+
+  /// Bulk-creates N persons from a single request (catalog-entity-bulk-add) - each entry
+  /// succeeds or fails independently, so a caller gets back one result per input entry rather
+  /// than an all-or-nothing outcome. Same raw-`req.client` rationale as `createEntity` above -
+  /// no `catalog-api-client.swift` SDK method exists for this yet.
+  func bulkCreatePersons(fields: [[String: String]], token: String) async throws
+    -> [BulkCreateResult]
+  {
+    try await withSpan("bulk-create-persons") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + "/persons/bulk")
+      let response = try await req.client.post(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+        try clientReq.content.encode(fields, as: .json)
+      }
+      guard response.status == .ok else {
+        throw Abort(response.status, reason: "catalog-api bulk create failed")
+      }
+      return try response.content.decode(BulkCreateResponse.self).results
+    }
+  }
+
   /// Edits a license's string fields and (optionally) its `tags` array in one PATCH - the
   /// license-specific counterpart of `patchEntity`, which only encodes a `[String: String]` body
   /// and so can't carry `tags` (catalog-api's one array-valued entity field, sweetrpg/
