@@ -12,12 +12,47 @@ import Vapor
 /// `req.view.render`, which requires a real `Encodable` context type.
 
 struct HomeContext: Content {
-  let volumeCount: Int
-  let lastUpdated: String
-  let trending: [LeafVolumeCard]
+  let statCards: [LeafTypeStatsCard]
   let tagCloud: [LeafTag]
   let user: LeafUser?
   let meta: PageMeta
+}
+
+/// One entity type's landing-page-summary card (catalog-landing-page-summary): total count plus
+/// a link to the most recently added/updated entity, or an empty-state when the type has zero
+/// records - see spec's "degrades gracefully for an empty entity type" requirement.
+///
+/// `detailPathPrefix` is `nil` for a type with no catalog-web detail page of its own (systems -
+/// relations onto a volume only, no `/systems/:id` route exists, matching this app's existing
+/// "systems have no dedicated pages" scoping elsewhere) - `hasDetailLink` gates the template
+/// between a link and plain text for "most recent" so this doesn't render a dead link.
+struct LeafTypeStatsCard: Content {
+  let label: String
+  let count: Int
+  let hasDetailLink: Bool
+  let detailPathPrefix: String
+  let hasMostRecent: Bool
+  let mostRecentID: String
+  let mostRecentName: String
+  let lastUpdatedLabel: String
+
+  init(label: String, detailPathPrefix: String?, stats: TypeStats) {
+    self.label = label
+    self.count = stats.count
+    self.hasDetailLink = detailPathPrefix != nil
+    self.detailPathPrefix = detailPathPrefix ?? ""
+    self.hasMostRecent = stats.mostRecent != nil
+    self.mostRecentID = stats.mostRecent?.id ?? ""
+    self.mostRecentName = stats.mostRecent?.name ?? ""
+    self.lastUpdatedLabel = stats.lastUpdated.map(formatDateShort) ?? ""
+  }
+}
+
+func formatDateShort(_ date: Date) -> String {
+  let formatter = DateFormatter()
+  formatter.dateStyle = .medium
+  formatter.timeStyle = .none
+  return formatter.string(from: date)
 }
 
 struct BrowseContext: Content {
