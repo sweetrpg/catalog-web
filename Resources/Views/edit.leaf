@@ -468,7 +468,7 @@
 						<h3>Properties</h3>
 						<div class="chip-list" data-chip-list>
 							#for(property in volume.selectedProperties):
-								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.name): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.name)">&times;</button></span>
+								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.displayLabel): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.displayLabel)">&times;</button></span>
 							#endfor
 						</div>
 						<script type="application/json" id="property-name-options">#unsafeHTML(volume.propertyNameOptionsJSON)</script>
@@ -489,27 +489,6 @@
 							</div>
 						#endif
 					</div>
-
-					#if(volume.canSetFormat):
-						<div class="format-field tag-cloud-field" id="format-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/format" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/format" data-selected-format="#(volume.selectedFormat)">
-							<h3>Format</h3>
-							<div class="chip-list" data-chip-list>
-								#if(volume.hasSelectedFormat):
-									<span class="chip" data-value="#(volume.selectedFormat)"><span class="chip-label">#(volume.selectedFormat)</span><button type="button" class="chip-remove" title="Remove format">&times;</button></span>
-									<button type="button" class="chip-add-trigger" title="Change format" hidden>+</button>
-								#else:
-									<button type="button" class="chip-add-trigger" title="Set a format">+</button>
-								#endif
-							</div>
-							<div class="tag-picker" hidden>
-								<input type="text" class="input picker-filter" placeholder="Search formats..." autocomplete="off">
-								<ul class="picker-results" hidden></ul>
-								<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
-							</div>
-							<p class="form-error" id="format-add-value-error" hidden></p>
-							<script type="application/json" id="format-options">#unsafeHTML(volume.formatOptionsJSON)</script>
-						</div>
-					#endif
 
 					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
 						#if(volume.hasNotes):
@@ -1078,13 +1057,28 @@
 		    nameOptions = JSON.parse(document.getElementById('property-name-options').textContent);
 		  } catch (e) {}
 
+		  // Client-side counterpart of the server's propertyDisplayLabel: only the humanize half
+		  // (no localization lookup available here) - a page reload picks up any localized label
+		  // the server knows about. Property keys are always stored lowercase/dash-separated (see
+		  // normalizePropertyKey below), so this only ever needs to reverse that, never guess at
+		  // arbitrary input.
+		  function humanizePropertyKey(key) {
+		    return key.split('-').map(function (word) {
+		      return word ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+		    }).join(' ');
+		  }
+
+		  function normalizePropertyKey(raw) {
+		    return raw.trim().toLowerCase().split(/\s+/).filter(Boolean).join('-');
+		  }
+
 		  function renderNameOptions() {
 		    var current = nameSelect.value;
 		    nameSelect.innerHTML = '<option value="">Select a property…</option>';
 		    nameOptions.forEach(function (name) {
 		      var option = document.createElement('option');
 		      option.value = name;
-		      option.textContent = name;
+		      option.textContent = humanizePropertyKey(name);
 		      nameSelect.appendChild(option);
 		    });
 		    nameSelect.value = current;
@@ -1111,11 +1105,11 @@
 		    chip.className = 'chip';
 		    chip.dataset.name = name;
 		    chip.dataset.value = value;
-		    chip.textContent = name + ': ' + value;
+		    chip.textContent = humanizePropertyKey(name) + ': ' + value;
 		    var removeBtn = document.createElement('button');
 		    removeBtn.type = 'button';
 		    removeBtn.className = 'chip-remove';
-		    removeBtn.title = 'Remove ' + name;
+		    removeBtn.title = 'Remove ' + humanizePropertyKey(name);
 		    removeBtn.textContent = '×';
 		    removeBtn.addEventListener('click', function () {
 		      chip.remove();
@@ -1149,7 +1143,7 @@
 
 		  if (addNameBtn) {
 		    addNameBtn.addEventListener('click', function () {
-		      var value = newNameInput.value.trim();
+		      var value = normalizePropertyKey(newNameInput.value);
 		      if (!value) return;
 		      addNameError.hidden = true;
 		      fetch(vocabularyURL, {
@@ -1175,182 +1169,6 @@
 		        });
 		    });
 		  }
-		})();
-		</script>
-
-		<script>
-		(function () {
-		  // Format selector (task 10.1, tag-cloud rework) - a single-tag counterpart of the
-		  // publisher/studio picker above: 0 or 1 chip instead of a list, and unlike
-		  // publisher/studio, an editor/admin (the only session this control ever renders for -
-		  // see edit.leaf's #if(volume.canSetFormat)) can add a brand new format value inline
-		  // when nothing matches, via the same vocabulary endpoint the old <select>-based
-		  // version used.
-		  var field = document.getElementById('format-field');
-		  if (!field) return;
-
-		  var sessionURL = field.dataset.sessionUrl;
-		  var vocabularyURL = field.dataset.vocabularyUrl;
-		  var chipList = field.querySelector('[data-chip-list]');
-		  var addTrigger = field.querySelector('.chip-add-trigger');
-		  var pickerRow = field.querySelector('.tag-picker');
-		  var input = field.querySelector('.picker-filter');
-		  var results = field.querySelector('.picker-results');
-		  var cancelBtn = field.querySelector('.tag-picker-cancel');
-		  var addValueError = document.getElementById('format-add-value-error');
-
-		  var formatOptions = [];
-		  try {
-		    formatOptions = JSON.parse(document.getElementById('format-options').textContent);
-		  } catch (e) {}
-
-		  function currentChip() {
-		    return chipList.querySelector('.chip');
-		  }
-
-		  function autosave(value) {
-		    fetch(sessionURL, {
-		      method: 'POST',
-		      headers: { 'Content-Type': 'application/json' },
-		      body: JSON.stringify({ format: value }),
-		      credentials: 'include'
-		    });
-		  }
-
-		  function bindChip(chip) {
-		    chip.querySelector('.chip-label').addEventListener('click', function () {
-		      openPicker();
-		    });
-		    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
-		      e.stopPropagation();
-		      chip.remove();
-		      addTrigger.hidden = false;
-		      autosave('');
-		    });
-		  }
-		  if (currentChip()) bindChip(currentChip());
-
-		  function setChip(value) {
-		    var existing = currentChip();
-		    if (existing) {
-		      existing.dataset.value = value;
-		      existing.querySelector('.chip-label').textContent = value;
-		      return;
-		    }
-		    var chip = document.createElement('span');
-		    chip.className = 'chip';
-		    chip.dataset.value = value;
-		    var label = document.createElement('span');
-		    label.className = 'chip-label';
-		    label.textContent = value;
-		    chip.appendChild(label);
-		    var removeBtn = document.createElement('button');
-		    removeBtn.type = 'button';
-		    removeBtn.className = 'chip-remove';
-		    removeBtn.title = 'Remove format';
-		    removeBtn.textContent = '×';
-		    chip.appendChild(removeBtn);
-		    bindChip(chip);
-		    chipList.insertBefore(chip, addTrigger);
-		  }
-
-		  function openPicker() {
-		    addTrigger.hidden = true;
-		    pickerRow.hidden = false;
-		    addValueError.hidden = true;
-		    input.value = '';
-		    input.focus();
-		    renderResults('');
-		  }
-
-		  function closePicker() {
-		    pickerRow.hidden = true;
-		    if (!currentChip()) addTrigger.hidden = false;
-		    input.value = '';
-		    results.hidden = true;
-		  }
-
-		  function commit(value) {
-		    setChip(value);
-		    autosave(value);
-		    closePicker();
-		  }
-
-		  function addNewFormat(value) {
-		    addValueError.hidden = true;
-		    fetch(vocabularyURL, {
-		      method: 'POST',
-		      headers: { 'Content-Type': 'application/json' },
-		      body: JSON.stringify({ value: value }),
-		      credentials: 'include'
-		    })
-		      .then(function (resp) {
-		        if (!resp.ok) throw new Error('Failed to add format');
-		        return resp.json();
-		      })
-		      .then(function (data) {
-		        formatOptions = data.values || formatOptions;
-		        commit(value);
-		      })
-		      .catch(function () {
-		        addValueError.textContent = 'Unable to add that format. Try again.';
-		        addValueError.hidden = false;
-		      });
-		  }
-
-		  addTrigger.addEventListener('click', openPicker);
-		  cancelBtn.addEventListener('click', closePicker);
-
-		  var currentMatches = [];
-		  var currentQuery = '';
-
-		  function renderResults(query) {
-		    currentQuery = query;
-		    results.innerHTML = '';
-		    var needle = query.toLowerCase();
-		    var matches = formatOptions.filter(function (format) {
-		      return format.toLowerCase().indexOf(needle) !== -1;
-		    }).slice(0, 8);
-		    currentMatches = matches;
-
-		    matches.forEach(function (format) {
-		      var item = document.createElement('li');
-		      item.textContent = format;
-		      item.addEventListener('click', function () { commit(format); });
-		      results.appendChild(item);
-		    });
-
-		    var exactMatch = formatOptions.some(function (format) {
-		      return format.toLowerCase() === needle;
-		    });
-		    if (query && !exactMatch) {
-		      var addItem = document.createElement('li');
-		      addItem.className = 'picker-add-new';
-		      addItem.textContent = 'Add "' + query + '" as a new format';
-		      addItem.addEventListener('click', function () { addNewFormat(query); });
-		      results.appendChild(addItem);
-		    }
-
-		    results.hidden = matches.length === 0 && !(query && !exactMatch);
-		  }
-
-		  input.addEventListener('input', function () { renderResults(input.value.trim()); });
-		  input.addEventListener('keydown', function (e) {
-		    if (e.key === 'Enter') {
-		      e.preventDefault();
-		      if (currentMatches.length === 1) {
-		        commit(currentMatches[0]);
-		      } else if (currentQuery && currentMatches.length === 0) {
-		        addNewFormat(currentQuery);
-		      }
-		    } else if (e.key === 'Escape') {
-		      e.preventDefault();
-		      closePicker();
-		    }
-		  });
-		  input.addEventListener('blur', function () {
-		    setTimeout(function () { results.hidden = true; }, 150);
-		  });
 		})();
 		</script>
 

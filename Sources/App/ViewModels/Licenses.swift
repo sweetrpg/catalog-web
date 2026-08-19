@@ -47,7 +47,7 @@ struct LeafLicenseDetail: Content {
   let volumes: [LeafVolumeSummary]
   let hasVolumes: Bool
 
-  init(_ license: LicenseViewModel) {
+  init(_ license: LicenseViewModel, req: Request) throws {
     self.id = license.id
     self.title = license.title
     self.shortTitle = license.shortTitle
@@ -68,7 +68,10 @@ struct LeafLicenseDetail: Content {
     self.hasNotes = !license.notes.isEmpty
     self.tags = license.tags
     self.hasTags = !license.tags.isEmpty
-    self.properties = license.properties.map(LeafProperty.init)
+    self.properties = try license.properties.map {
+      LeafProperty(
+        name: $0.name, value: $0.value, displayLabel: try propertyDisplayLabel($0.name, req: req))
+    }
     self.hasProperties = !license.properties.isEmpty
     self.volumes = license.volumes.map(LeafVolumeSummary.init)
     self.hasVolumes = !license.volumes.isEmpty
