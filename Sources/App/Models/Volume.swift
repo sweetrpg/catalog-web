@@ -10,13 +10,14 @@ struct VolumeViewModel {
   let description: String
   let notes: String
   let tags: [String]
-  let systemNames: [String]
+  var systemNames: [String]
   var systemIds: [String] = []
   let publisherNames: [String]
   var publisherIds: [String] = []
   let studioNames: [String]
   var studioIds: [String] = []
   let licenseNames: [String]
+  var licenseIds: [String] = []
   var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
   var properties: [(name: String, value: String)] = []

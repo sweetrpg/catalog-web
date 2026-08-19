@@ -83,6 +83,13 @@ func canRollback(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: rollbackCapableRoles)
 }
 
+/// Roles that may soft-delete/restore a catalog entity - admin only (task 3.1's spec
+/// requirement), same role set as `rollbackCapableRoles` (catalog-api gates both routes
+/// identically) but its own named function since the two gate conceptually distinct actions.
+func canDelete(_ roles: [String]) -> Bool {
+  canRollback(roles)
+}
+
 /// The only `recordType` the durable edit-session mechanism supports today - see
 /// docs/frontend-conventions.md's edit-session schema in sweetrpg/platform.
 let recordTypeVolume = "volume"

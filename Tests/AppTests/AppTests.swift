@@ -297,7 +297,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -320,7 +321,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -343,7 +345,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -367,7 +370,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -394,7 +398,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
         )
@@ -483,7 +488,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: true,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -508,7 +514,8 @@ struct AppTests {
           DetailContext(
             // canEdit: true (submitter can propose), but review stays nil - only
             // CatalogController decides to populate it, gated on canReview, not canEdit.
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: true,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -530,7 +537,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -557,7 +565,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -590,7 +599,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -615,7 +625,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
       }
@@ -638,7 +649,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }

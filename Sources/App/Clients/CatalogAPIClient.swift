@@ -57,6 +57,7 @@ struct CatalogAPIClientService {
           studioNames: names("studio", from: studioNames),
           studioIds: ids("studio"),
           licenseNames: names("license", from: licenseNames),
+          licenseIds: ids("license"),
           properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
           format: resource.attributes.format ?? "",
           sampleAssetIds: resource.attributes.sampleAssetIds ?? [],
@@ -474,6 +475,146 @@ struct CatalogAPIClientService {
       }
       guard response.status == .ok else {
         throw Abort(response.status, reason: "catalog-api \(path) volumes update failed")
+      }
+    }
+  }
+
+  private struct DeletionAttributes: Codable, Sendable {
+    let deletedAt: Date?
+    enum CodingKeys: String, CodingKey {
+      case deletedAt = "deleted_at"
+    }
+  }
+
+  /// Whether a publisher/studio/person/license/system/volume is currently soft-deleted - gates a
+  /// detail page's Delete vs. Restore action (task 3.2). `path` is the resource's own path (e.g.
+  /// `/publishers/abc123`). Same raw-`req.client` rationale as `fetchNamedById` - the SDK's
+  /// attribute types don't decode `deletedAt`.
+  func fetchIsDeleted(path: String) async -> Bool {
+    (try? await withSpan("fetch-is-deleted") { _ -> Bool in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + path)
+      let response = try await req.client.get(uri)
+      guard response.status == .ok else { return false }
+      let doc = try response.content.decode(JSONAPISingleDocument<DeletionAttributes>.self)
+      return doc.data.attributes.deletedAt != nil
+    }) ?? false
+  }
+
+  /// Fetches one record's display name directly by id, bypassing the (deleted-record-excluding)
+  /// list endpoints - `Get*ByID` stays unfiltered per design.md, so this reaches a soft-deleted
+  /// record's name too. Returns `nil` on any error (not-found or otherwise) rather than
+  /// throwing - callers use this as a best-effort fallback, not a required fetch. Same raw-
+  /// `req.client` rationale as `createEntity`: the SDK has no single-record-by-arbitrary-path
+  /// method today.
+  private func fetchNamedById(path: String, id: String) async -> String? {
+    try? await withSpan("fetch-named-by-id") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + path + "/\(id)")
+      let response = try await req.client.get(uri)
+      guard response.status == .ok else { return nil }
+      let doc = try response.content.decode(JSONAPISingleDocument<NamedAttributes>.self)
+      return doc.data.attributes.displayName
+    }
+  }
+
+  /// Resolves any publisher/studio/license/system reference on a volume that's soft-deleted
+  /// since the volume linked it, so its detail/edit page can label it "(deleted)" instead of
+  /// silently dropping it (task 4.1) - a reference id present on the volume but missing from the
+  /// live (non-deleted) name map is, by construction, a deleted record (the map is built from
+  /// the same filtered `List*` calls that exclude deleted records - see design.md). Detail-page-
+  /// only: called once per single-volume view, not from `fetchVolumes()`'s browse-wide fetch,
+  /// since the extra per-deleted-reference round trip is fine for one volume, not every volume
+  /// in a listing.
+  func resolveDeletedReferences(_ volume: VolumeViewModel) async -> VolumeViewModel {
+    async let publisherMap = fetchNameMap(path: "/publishers")
+    async let studioMap = fetchNameMap(path: "/studios")
+    async let licenseMap = fetchNameMap(path: "/licenses")
+    async let systemMap = fetchNameMap(path: "/systems")
+
+    var volume = volume
+    volume.publisherRefs = await resolveRefs(
+      ids: volume.publisherIds, liveMap: (try? await publisherMap) ?? [:], path: "/publishers")
+    volume.studioRefs = await resolveRefs(
+      ids: volume.studioIds, liveMap: (try? await studioMap) ?? [:], path: "/studios")
+    volume.licenseRefs = await resolveRefs(
+      ids: volume.licenseIds, liveMap: (try? await licenseMap) ?? [:], path: "/licenses")
+    volume.systemRefs = await resolveRefs(
+      ids: volume.systemIds, liveMap: (try? await systemMap) ?? [:], path: "/systems")
+    volume.systemNames = await resolveNames(
+      ids: volume.systemIds, liveMap: (try? await systemMap) ?? [:], path: "/systems")
+    return volume
+  }
+
+  private func resolveRefs(ids: [String], liveMap: [String: String], path: String) async
+    -> [EntityRef]
+  {
+    var result: [EntityRef] = []
+    for id in ids {
+      if let name = liveMap[id] {
+        result.append(EntityRef(id: id, name: name))
+      } else if let name = await fetchNamedById(path: path, id: id) {
+        result.append(EntityRef(id: id, name: name, isDeleted: true))
+      }
+    }
+    return result
+  }
+
+  private func resolveNames(ids: [String], liveMap: [String: String], path: String) async
+    -> [String]
+  {
+    var result: [String] = []
+    for id in ids {
+      if let name = liveMap[id] {
+        result.append(name)
+      } else if let name = await fetchNamedById(path: path, id: id) {
+        result.append("\(name) (deleted)")
+      }
+    }
+    return result
+  }
+
+  /// Evicts every cache key that could still be serving this entity type's now-stale list -
+  /// called after a delete/restore (task 3.4) so the change is reflected in browse/pickers
+  /// immediately, not after the normal 60s TTL. `path` is the resource's collection path (e.g.
+  /// `/publishers`) - every cache key any `fetch*`/`fetchNameMap` call site above uses for that
+  /// type, kept in sync with them by hand since they're plain string literals, not derived from
+  /// one shared source.
+  func invalidateListCache(path: String) async {
+    let keysByPath: [String: [String]] = [
+      "/publishers": ["catalog:publishers", "catalog:/publishers", "catalog:stats"],
+      "/studios": ["catalog:studios", "catalog:/studios", "catalog:stats"],
+      "/persons": ["catalog:persons", "catalog:persons-list", "catalog:stats"],
+      "/licenses": ["catalog:licenses-list", "catalog:/licenses", "catalog:stats"],
+      "/systems": ["catalog:/systems", "catalog:stats"],
+      "/volumes": ["catalog:volumes", "catalog:stats"],
+    ]
+    await cache.delete(keysByPath[path] ?? [])
+  }
+
+  /// Soft-deletes a publisher/studio/person/license/system/volume - catalog-api's
+  /// `DELETE /<type>/:id` (sweetrpg/catalog-api#228), admin only. `path` is the resource's own
+  /// path (e.g. `/publishers/abc123`), not its collection path.
+  func deleteEntity(path: String, token: String) async throws {
+    try await withSpan("delete-entity") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + path)
+      let response = try await req.client.delete(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+      }
+      guard response.status == .noContent else {
+        throw Abort(response.status, reason: "catalog-api delete failed")
+      }
+    }
+  }
+
+  /// Restores a soft-deleted entity - catalog-api's `POST /<type>/:id/restore`, admin only.
+  /// `path` is the resource's own path (e.g. `/publishers/abc123`).
+  func restoreEntity(path: String, token: String) async throws {
+    try await withSpan("restore-entity") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + path + "/restore")
+      let response = try await req.client.post(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+      }
+      guard response.status == .ok else {
+        throw Abort(response.status, reason: "catalog-api restore failed")
       }
     }
   }
