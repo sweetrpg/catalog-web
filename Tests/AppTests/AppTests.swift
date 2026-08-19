@@ -161,6 +161,29 @@ struct AppTests {
     }
   }
 
+  @Test("header renders the app switcher with four destinations and no admin link")
+  func headerRendersAppSwitcher() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("app-switcher-trigger"))
+        #expect(res.body.string.contains(#"href="/">Main"#))
+        #expect(res.body.string.contains(#"href="/catalog">Catalog"#))
+        #expect(res.body.string.contains(#"href="/shelf">Shelf"#))
+        #expect(res.body.string.contains(#"href="/initiative">Initiative"#))
+        #expect(!res.body.string.contains(#"app-switcher-item" href="/admin""#))
+      }
+    }
+  }
+
   @Test("header renders a Gravatar image with an onerror fallback when the session has an email")
   func headerRendersGravatarImageWhenEmailPresent() async throws {
     try await withApp { app in
