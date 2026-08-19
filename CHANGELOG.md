@@ -1,4 +1,11 @@
 
+## 0.27.0 - 2026-08-19
+
+### Added
+- Store format as a property, normalize keys, localize/humanize display
+
+
+
 ## 0.26.1 - 2026-08-19
 
 ### Fixed
