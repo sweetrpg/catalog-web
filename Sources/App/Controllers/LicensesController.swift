@@ -52,6 +52,8 @@ func fieldValues(_ l: LicenseVersionAttributes) -> [String: String] {
 struct LicensesController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("licenses", use: browseLicenses)
+    routes.get("licenses", "new", use: newLicenseForm)
+    routes.post("licenses", "new", use: submitLicenseCreate)
     routes.get("licenses", ":id", use: detailLicense)
     routes.get("licenses", ":id", "edit", use: editLicenseForm)
     routes.post("licenses", ":id", "edit", use: submitLicenseEdit)
@@ -96,10 +98,28 @@ struct LicensesController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newLicenseForm(req: Request) async throws -> View {
+    try await withSpan("licenses-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "licenses/create",
+        makeCreateContext(
+          basePath: "/licenses", fields: licenseFields, user: user, meta: await PageMeta.make(req))
+      )
+    }
+  }
+
+  @Sendable
+  func submitLicenseCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/licenses", fields: licenseFields)
   }
 
   @Sendable

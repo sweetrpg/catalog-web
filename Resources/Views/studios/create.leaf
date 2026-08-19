@@ -1,0 +1,22 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+
+		<section class="page-header">
+			<span class="section-label">New</span>
+			<h2>Studio</h2>
+		</section>
+
+		<form class="form" action="#(meta.basePath)#(submitPath)" method="post">
+			#for(field in fields):
+				<label class="form-label" for="#(field.key)">#(field.label)</label>
+				<input class="input" type="text" id="#(field.key)" name="#(field.key)" value="#(field.value)">
+			#endfor
+
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">Create</button>
+				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
+			</div>
+		</form>
+	#endexport
+#endextend
