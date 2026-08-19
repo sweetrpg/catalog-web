@@ -1,4 +1,31 @@
 
+## 0.26.1 - 2026-08-19
+
+### Fixed
+- Lingo localizationsDir path, sample button layout, form actions, contributor add-flow
+- Properties row layout, section spacing dividers
+- Move notes field to the bottom, above save/discard
+- Tint field edit-trigger buttons in the accent color
+
+
+
+## 0.26.0 - 2026-08-18
+
+### Added
+- Add publisher volume-count label, share Lingo helper across browse pages
+
+
+### Fixed
+- Cover image, title field, tag pickers, chip remove, styling
+- Version history was silently swallowing fetch failures as empty
+- Show deed/legal_code, textarea + select field kinds, lowercase footer
+- Shorten license edit test name to satisfy swift-format line length
+
+
+
+## 0.25.0 - 2026-08-18
+
+
 ## 0.25.0 - 2026-08-18
 
 ### Added
