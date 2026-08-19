@@ -110,9 +110,9 @@ struct LeafVersionSummary: Content {
     self.version = attributes.version
     self.state = attributes.state
     self.isLive = attributes.state == "live"
-    self.submittedBy = attributes.submittedBy
+    self.submittedBy = humanizeSubmitterID(attributes.submittedBy)
     self.submittedAtLabel = LeafVersionSummary.format(attributes.submittedAt)
-    self.reviewedBy = attributes.reviewedBy ?? ""
+    self.reviewedBy = attributes.reviewedBy.map(humanizeSubmitterID) ?? ""
     self.hasReviewedBy = attributes.reviewedBy != nil
     self.reviewNote = attributes.reviewNote ?? ""
     self.hasReviewNote = attributes.reviewNote != nil
@@ -154,9 +154,9 @@ struct LeafVersionDetail: Content {
     self.notes = attributes.notes
     self.hasNotes = !attributes.notes.isEmpty
     self.format = attributes.format
-    self.submittedBy = attributes.submittedBy
+    self.submittedBy = humanizeSubmitterID(attributes.submittedBy)
     self.submittedAtLabel = LeafVersionDetail.format(attributes.submittedAt)
-    self.reviewedBy = attributes.reviewedBy ?? ""
+    self.reviewedBy = attributes.reviewedBy.map(humanizeSubmitterID) ?? ""
     self.hasReviewedBy = attributes.reviewedBy != nil
     self.reviewNote = attributes.reviewNote ?? ""
     self.hasReviewNote = attributes.reviewNote != nil
@@ -306,13 +306,13 @@ struct LeafEntityVersionReview: Content {
     self.options = pending.map { version in
       LeafEntityVersionOption(
         version: version.version,
-        submittedBy: version.submittedBy,
+        submittedBy: humanizeSubmitterID(version.submittedBy),
         submittedAtLabel: Self.format(version.submittedAt),
         isSelected: version.version == selected.version
       )
     }
     self.selectedVersion = selected.version
-    self.submittedBy = selected.submittedBy
+    self.submittedBy = humanizeSubmitterID(selected.submittedBy)
     self.submittedAtLabel = Self.format(selected.submittedAt)
     let submittedValues = versionFieldValues(selected)
     self.fields = fieldSpecs.compactMap { field in
