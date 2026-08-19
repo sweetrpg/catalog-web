@@ -29,7 +29,8 @@ public func configure(_ app: Application) async throws {
   // real CLDR-style plural rules via Resources/Localizations/*.json, not hand-rolled
   // "append an s" string logic. Add a locale by dropping another <code>.json file in that
   // directory; request.locale (once a route reads it) picks the right one automatically.
-  app.lingoVapor.configuration = .init(defaultLocale: "en", localizationsDir: "Localizations")
+  app.lingoVapor.configuration = .init(
+    defaultLocale: "en", localizationsDir: "Resources/Localizations")
 
   // Serves Public/ (css, images, favicon) - never registered before, so every static asset
   // 404'd through the app's own JSON not-found handler instead of being served as a file.
