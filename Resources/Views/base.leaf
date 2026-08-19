@@ -7,6 +7,7 @@
 	<link rel="icon" type="image/png" href="#(meta.sharedURL)/static/img/favicon.png">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/main.css">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/avatar-menu.css">
+	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/app-switcher.css">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/catalog/theme.css">
 	<script>
 	/* Applied synchronously, before first paint, so the page never flashes the wrong theme.
@@ -35,6 +36,7 @@
 	</main>
 	#extend("partials/footer")
 	<script src="#(meta.sharedURL)/static/js/avatar-menu.js" defer></script>
+	<script src="#(meta.sharedURL)/static/js/app-switcher.js" defer></script>
 	<script src="#(meta.sharedURL)/static/js/theme.js" defer></script>
 </body>
 </html>
