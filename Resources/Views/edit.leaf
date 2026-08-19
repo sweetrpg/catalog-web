@@ -278,6 +278,12 @@
 		    height: 1.75rem;
 		    padding: 0.35rem;
 		  }
+		  .field-edit-trigger {
+		    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		  }
+		  .field-edit-trigger:hover {
+		    background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+		  }
 		  .field-actions .icon-btn img {
 		    width: 1rem;
 		    height: 1rem;
