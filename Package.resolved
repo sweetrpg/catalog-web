@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sweetrpg/catalog-api-client.swift.git",
       "state" : {
-        "revision" : "65bf8e505a8e0192084846e51edee6e30c039a02",
-        "version" : "0.3.0"
+        "revision" : "ef93e349d193c106b808ff52e148ff52762db0b2",
+        "version" : "0.3.1"
       }
     },
     {
