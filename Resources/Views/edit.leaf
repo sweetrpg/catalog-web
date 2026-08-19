@@ -39,6 +39,9 @@
 		    align-items: stretch;
 		    justify-content: flex-start;
 		  }
+		  .samples-field {
+		    grid-column: 1;
+		  }
 		  .cover-image-wrap {
 		    position: relative;
 		    display: block;
@@ -332,24 +335,24 @@
 				#if(canUploadCover):
 					<p class="form-error cover-upload-error" hidden></p>
 				#endif
+			</div>
 
-				<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
-					<div class="sample-thumbnails-row" id="sample-thumbnails-row">
-						#if(volume.hasLivingSamples):
-							#for(path in volume.livingSamplePaths):
-								<img class="sample-thumbnail-small" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
-							#endfor
-						#endif
-						<div class="chip-list chip-list-thumbnails" id="staged-sample-list" data-chip-list>
-							#for(sample in volume.stagedSamples):
-								<span class="chip chip-thumbnail-chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
-							#endfor
-						</div>
+			<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
+				<div class="sample-thumbnails-row" id="sample-thumbnails-row">
+					#if(volume.hasLivingSamples):
+						#for(path in volume.livingSamplePaths):
+							<img class="sample-thumbnail-small" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
+						#endfor
+					#endif
+					<div class="chip-list chip-list-thumbnails" id="staged-sample-list" data-chip-list>
+						#for(sample in volume.stagedSamples):
+							<span class="chip chip-thumbnail-chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
+						#endfor
 					</div>
-					<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
-					<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-					<p class="form-error" id="sample-upload-error" hidden></p>
 				</div>
+				<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
+				<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+				<p class="form-error" id="sample-upload-error" hidden></p>
 			</div>
 
 			<div>
@@ -388,6 +391,22 @@
 								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
 							</button>
 						</span>
+					</div>
+
+					<div class="picker-field tag-cloud-field" data-picker="system" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+						<h3>Game Systems</h3>
+						<div class="chip-list" data-chip-list>
+							#for(system in volume.selectedSystems):
+								<span class="chip" data-id="#(system.id)" data-name="#(system.name)"><span class="chip-label">#(system.name)</span><button type="button" class="chip-remove" title="Remove #(system.name)">&times;</button></span>
+							#endfor
+							<button type="button" class="chip-add-trigger" title="Add a game system">+</button>
+						</div>
+						<div class="tag-picker" hidden>
+							<input type="text" class="input picker-filter" placeholder="Search game systems..." autocomplete="off">
+							<ul class="picker-results" hidden></ul>
+							<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+						</div>
+						<script type="application/json" class="picker-options">#unsafeHTML(volume.systemOptionsJSON)</script>
 					</div>
 
 					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
