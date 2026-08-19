@@ -1,4 +1,11 @@
 
+## 0.26.1 - 2026-08-19
+
+### Fixed
+- Resolve Localizations dir under Resources/, avoid session-coupled locale
+
+
+
 ## 0.26.0 - 2026-08-18
 
 ### Added
