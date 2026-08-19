@@ -8,7 +8,7 @@ metadata:
 data:
   ENV: local
   PORT: "8080"
-  REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  REDIS_HOST: cache.sweetrpg-catalog.svc.cluster.local
   REDIS_PORT: "6379"
 
   # Separate logical DB from catalog-api on the same shared Redis instance - see the comment
@@ -18,13 +18,13 @@ data:
   # auth-web's own dedicated Redis instance - the shared session store this app reads (never
   # writes). Not the same instance as REDIS_HOST above. Host/DB must match auth-web's own
   # REDIS_HOST/REDIS_DB exactly - see dev overlay's comment for the same reasoning.
-  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-auth.svc.cluster.local
+  SHARED_SESSION_REDIS_HOST: cache.sweetrpg-auth.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
   SHARED_SESSION_REDIS_DB: "0"
 
   # Same instance as REDIS_HOST above, a third logical DB - the durable volume-edit session
   # store. See dev overlay's comment for the same reasoning.
-  EDIT_SESSION_REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  EDIT_SESSION_REDIS_HOST: cache.sweetrpg-catalog.svc.cluster.local
   EDIT_SESSION_REDIS_PORT: "6379"
   EDIT_SESSION_REDIS_DB: "2"
 
