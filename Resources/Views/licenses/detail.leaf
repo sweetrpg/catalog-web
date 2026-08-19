@@ -30,7 +30,7 @@
 		  .license-volumes-panel {
 		    margin-top: 12px;
 		  }
-		  .license-text-panel details {
+		  .license-text-panel details + details {
 		    margin-top: 12px;
 		    border-top: 1px solid var(--color-divider);
 		    padding-top: 12px;
@@ -199,7 +199,7 @@
 					<span class="section-label">License Text</span>
 					<div class="license-text-panel">
 						#if(license.hasDeed):
-							<details>
+							<details open>
 								<summary>Deed</summary>
 								<p class="license-text-body">#(license.deed)</p>
 							</details>
