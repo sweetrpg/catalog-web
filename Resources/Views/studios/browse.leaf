@@ -3,16 +3,18 @@
 		<section class="page-header">
 			<span class="section-label">Browse</span>
 			<h2>Studios</h2>
-			<form class="nav-search" action="#(meta.basePath)/studios" method="get">
-				<input class="input" type="search" name="q" placeholder="Search studios" value="#(query)">
-				<select class="input" name="order" onchange="this.form.submit()">
-					<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
-					<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
-				</select>
-			</form>
-			#if(canEdit):
-				<a class="btn btn-primary" href="#(meta.basePath)/studios/new">Add studio</a>
-			#endif
+			<div class="page-header-toolbar">
+				<form class="nav-search" action="#(meta.basePath)/studios" method="get">
+					<input class="input" type="search" name="q" placeholder="Search studios" value="#(query)">
+					<select class="input" name="order" onchange="this.form.submit()">
+						<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
+						<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
+					</select>
+				</form>
+				#if(canEdit):
+					<a class="btn btn-primary" href="#(meta.basePath)/studios/new">Add studio</a>
+				#endif
+			</div>
 		</section>
 
 		#if(noResults):
