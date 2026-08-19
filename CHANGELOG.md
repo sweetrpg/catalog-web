@@ -1,4 +1,18 @@
 
+## 0.28.0 - 2026-08-19
+
+### Added
+- Wire up the real catalog stats endpoint
+- Render volume description as Markdown, bound its height, restyle header actions
+
+
+### Fixed
+- Remove extra blank space above/below license text
+- Raise body-size limit past 16kb, route 413 to the branded error page
+- Route 409 Conflict to the branded error page too
+
+
+
 ## 0.27.0 - 2026-08-19
 
 ### Added
