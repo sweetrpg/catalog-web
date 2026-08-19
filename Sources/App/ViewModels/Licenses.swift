@@ -77,3 +77,45 @@ struct LeafLicenseDetail: Content {
     self.hasVolumes = !license.volumes.isEmpty
   }
 }
+
+/// The license edit page's context - `EntityEditContext` plus the two fields the generic entity
+/// edit form doesn't have (sweetrpg/catalog-web#121): a free-text `tags` value and a
+/// volume-association picker. Not folded into `EntityEditContext` itself since publisher/studio/
+/// person don't need either.
+struct LicenseEditContext: Content {
+  let id: String
+  let backPath: String
+  let submitPath: String
+  let fields: [LeafEntityFieldInput]
+  /// Comma-joined for a plain text input - license tags are free-text labels (no shared
+  /// vocabulary to pick from, unlike publisher/studio on the volume edit page), so a
+  /// type-to-filter picker would have nothing to filter against.
+  let tagsValue: String
+  /// The volumes picker writes directly to volume records with no review step (see
+  /// sweetrpg/catalog-api#220), so it's only shown to a session with review rights - a
+  /// submitter still gets the rest of this form (tags included, which does go through the
+  /// normal review flow).
+  let canManageVolumes: Bool
+  let selectedVolumes: [LeafNamedOption]
+  let volumeOptionsJSON: String
+  let user: LeafUser?
+  let meta: PageMeta
+
+  init(
+    base: EntityEditContext, tags: [String], canManageVolumes: Bool,
+    selectedVolumes: [VolumeSummary], allVolumes: [(id: String, title: String)]
+  ) {
+    self.id = base.id
+    self.backPath = base.backPath
+    self.submitPath = base.submitPath
+    self.fields = base.fields
+    self.tagsValue = tags.joined(separator: ", ")
+    self.canManageVolumes = canManageVolumes
+    self.selectedVolumes = selectedVolumes.map { LeafNamedOption(id: $0.id, name: $0.title) }
+    let options = allVolumes.map { LeafNamedOption(id: $0.id, name: $0.title) }
+    self.volumeOptionsJSON =
+      (try? JSONEncoder().encode(options)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+    self.user = base.user
+    self.meta = base.meta
+  }
+}
