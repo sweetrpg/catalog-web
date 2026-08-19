@@ -1,6 +1,9 @@
 
 ## 0.26.1 - 2026-08-19
 
+
+## 0.26.1 - 2026-08-19
+
 ### Fixed
 - Lingo localizationsDir path, sample button layout, form actions, contributor add-flow
 - Properties row layout, section spacing dividers
