@@ -41,6 +41,39 @@ func canCreateVocabularyValue(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: vocabularyCreateCapableRoles)
 }
 
+/// Adds a new shared-vocabulary value (contribution type, property name, license tag, ...) on
+/// behalf of an editor/admin picker's "add new" affordance - a browser call can't carry the
+/// bearer token itself, so this forwards it server-to-server and returns the vocabulary's
+/// updated value list for the picker to pick up without a full page reload. Shared by
+/// VolumesController and LicensesController's `edit/vocabulary/:type` routes rather than
+/// duplicated per controller - the handler is generic over `type`, nothing volume- or
+/// license-specific about it.
+struct AddVocabularyValueInput: Content {
+  let value: String
+}
+
+struct VocabularyValuesResponse: Content {
+  let values: [String]
+}
+
+@Sendable
+func addVocabularyValue(req: Request) async throws -> VocabularyValuesResponse {
+  try await withSpan("add-vocabulary-value") { _ in
+    guard let type = req.parameters.get("type") else {
+      throw Abort(.badRequest)
+    }
+    guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
+      throw Abort(.forbidden)
+    }
+
+    let input = try req.content.decode(AddVocabularyValueInput.self)
+    let values = try await req.catalogAPI.addVocabularyValue(
+      type: type, value: input.value, token: user.accessToken)
+
+    return VocabularyValuesResponse(values: values)
+  }
+}
+
 /// Roles that may roll a record back to a past version - admin only per design.md's decision:
 /// unlike `reviewCapableRoles`, an editor can create/accept/reject versions but not arbitrarily
 /// rewind history.
@@ -64,6 +97,18 @@ let recordTypeVolume = "volume"
 /// know or care about this sanitization.
 func sanitizedAssetUserID(_ sub: String) -> String {
   sub.replacingOccurrences(of: "|", with: "-")
+}
+
+/// Renders a raw Auth0 subject (`github|419457`) as a readable "provider #id" label for display
+/// in version history/review UI - profiles-api isn't wired up yet (`ProfilesAPIClient.swift`),
+/// so a real display name/username isn't available; this is a readability improvement over the
+/// bare sub, not a stand-in for that lookup. A sub without a `|` (unexpected shape) is returned
+/// unchanged.
+func humanizeSubmitterID(_ sub: String) -> String {
+  guard let pipeIndex = sub.firstIndex(of: "|") else { return sub }
+  let provider = sub[sub.startIndex..<pipeIndex]
+  let id = sub[sub.index(after: pipeIndex)...]
+  return "\(provider) #\(id)"
 }
 
 /// Fetches pending (state: submitted) versions for (path, recordID) when the session can
@@ -174,6 +219,7 @@ func submitCreate(req: Request, path: String, fields: [EntityFieldSpec]) async t
 
     let id = try await req.catalogAPI.createEntity(
       path: path, token: user.accessToken, fields: filtered)
+    await req.catalogAPI.invalidateEntityListCache(path: path)
 
     return req.redirect(to: "\(req.basePath)\(path)/\(id)")
   }
@@ -196,6 +242,9 @@ func submitEdit(req: Request, path: String, fields: [EntityFieldSpec]) async thr
     let basePath = "\(req.basePath)\(path)/\(id)"
     switch result {
     case .applied:
+      // Only .applied changes the live record's display name - a .proposed submitter edit
+      // hasn't touched it yet, so the list-cache entry is still accurate.
+      await req.catalogAPI.invalidateEntityListCache(path: path)
       return req.redirect(to: basePath)
     case .proposed:
       return req.redirect(to: "\(basePath)?proposed=1")

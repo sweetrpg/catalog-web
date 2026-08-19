@@ -1,6 +1,11 @@
 #extend("base"):
 	#export("body"):
 		<style>
+		  /* This page's long-form fields (deed/legal code) crowd the shared .form's 640px cap -
+		     widen just this form rather than the shared class every admin-web form also uses. */
+		  #edit-form {
+		    max-width: 960px;
+		  }
 		  /* Volumes picker (mirrors the volume edit page's publisher/studio tag-cloud-field, but
 		     submits as part of this page's single full-form POST rather than autosaving to a
 		     session - this page has no edit-session concept). */
@@ -108,8 +113,22 @@
 				#endif
 			#endfor
 
-			<label class="form-label" for="tags">Tags</label>
-			<input class="input" type="text" id="tags" name="tags" value="#(tagsValue)" placeholder="Comma-separated, e.g. OGL, community-content">
+			<label class="form-label" for="tag-picker-filter">Tags</label>
+			<div class="picker-field tag-cloud-field" id="tags-field">
+				<div class="chip-list" data-chip-list>
+					#for(tag in tags):
+						<span class="chip" data-id="#(tag.id)" data-name="#(tag.name)"><span class="chip-label">#(tag.name)</span><button type="button" class="chip-remove" title="Remove #(tag.name)">&times;</button></span>
+					#endfor
+					<button type="button" class="chip-add-trigger" title="Add a tag">+</button>
+				</div>
+				<div class="tag-picker" hidden>
+					<input type="text" class="input picker-filter" id="tag-picker-filter" placeholder="Search tags..." autocomplete="off">
+					<ul class="picker-results" hidden></ul>
+					<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+				</div>
+				<input type="hidden" name="tags" id="tags-input">
+				<script type="application/json" class="picker-options">#(tagOptionsJSON)</script>
+			</div>
 
 			#if(canManageVolumes):
 				<div class="picker-field tag-cloud-field" id="volumes-field">
@@ -135,6 +154,157 @@
 				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
 			</div>
 		</form>
+
+		<script>
+		(function () {
+		  // Tags picker: type-to-filter against the shared "tag" vocabulary, same chip-cloud
+		  // pattern as the Volumes picker below - but tags are free-text labels, not references to
+		  // an existing entity, so typing a value with no match offers an "Add new tag" result
+		  // that adds it as a chip immediately. If the session can grow the shared vocabulary
+		  // (canAddTag), the new value is also POSTed there so it shows up in other editors'
+		  // autocomplete - best-effort, doesn't block adding the chip to this license if it fails.
+		  var field = document.getElementById('tags-field');
+		  if (!field) return;
+
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var addTrigger = field.querySelector('.chip-add-trigger');
+		  var pickerRow = field.querySelector('.tag-picker');
+		  var input = field.querySelector('.picker-filter');
+		  var results = field.querySelector('.picker-results');
+		  var cancelBtn = field.querySelector('.tag-picker-cancel');
+		  var hiddenInput = document.getElementById('tags-input');
+		  var vocabularyURL = "#(meta.basePath)#(backPath)/edit/vocabulary/tag";
+		  var canAddTag = #(canAddTag);
+		  var options = [];
+		  try { options = JSON.parse(field.querySelector('.picker-options').textContent); } catch (e) {}
+
+		  function syncHiddenInput() {
+		    var names = Array.prototype.map.call(
+		      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.name; });
+		    hiddenInput.value = names.join(',');
+		  }
+
+		  function selectedNames() {
+		    return Array.prototype.map.call(
+		      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.name.toLowerCase(); });
+		  }
+
+		  function bindChip(chip) {
+		    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
+		      e.stopPropagation();
+		      chip.remove();
+		      syncHiddenInput();
+		    });
+		  }
+
+		  function addChip(name) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.id = name;
+		    chip.dataset.name = name;
+		    var label = document.createElement('span');
+		    label.className = 'chip-label';
+		    label.textContent = name;
+		    chip.appendChild(label);
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove ' + name;
+		    removeBtn.textContent = '×';
+		    chip.appendChild(removeBtn);
+		    bindChip(chip);
+		    chipList.insertBefore(chip, addTrigger);
+		    if (options.indexOf(name) === -1) options.push(name);
+		  }
+
+		  function selectTag(name) {
+		    addChip(name);
+		    syncHiddenInput();
+		    closePicker();
+		    if (canAddTag) {
+		      fetch(vocabularyURL, {
+		        method: 'POST',
+		        headers: { 'Content-Type': 'application/json' },
+		        body: JSON.stringify({ value: name }),
+		        credentials: 'include'
+		      }).catch(function () {});
+		    }
+		  }
+
+		  chipList.querySelectorAll('.chip').forEach(bindChip);
+		  syncHiddenInput();
+
+		  function openPicker() {
+		    addTrigger.hidden = true;
+		    pickerRow.hidden = false;
+		    input.value = '';
+		    input.focus();
+		    renderResults('');
+		  }
+
+		  function closePicker() {
+		    pickerRow.hidden = true;
+		    addTrigger.hidden = false;
+		    input.value = '';
+		    results.hidden = true;
+		  }
+
+		  var currentMatches = [];
+
+		  function renderResults(query) {
+		    results.innerHTML = '';
+		    currentMatches = [];
+		    if (!query) {
+		      results.hidden = true;
+		      return;
+		    }
+		    var selected = selectedNames();
+		    var needle = query.toLowerCase();
+		    var matches = options.filter(function (name) {
+		      return selected.indexOf(name.toLowerCase()) === -1
+		        && name.toLowerCase().indexOf(needle) !== -1;
+		    }).slice(0, 8);
+		    currentMatches = matches;
+
+		    matches.forEach(function (name) {
+		      var item = document.createElement('li');
+		      item.textContent = name;
+		      item.addEventListener('click', function () { selectTag(name); });
+		      results.appendChild(item);
+		    });
+
+		    var exactMatch = selected.indexOf(needle) !== -1
+		      || options.some(function (name) { return name.toLowerCase() === needle; });
+		    if (!exactMatch) {
+		      var addItem = document.createElement('li');
+		      addItem.textContent = 'Add new tag "' + query.trim() + '"';
+		      addItem.addEventListener('click', function () { selectTag(query.trim()); });
+		      results.appendChild(addItem);
+		    }
+
+		    results.hidden = false;
+		  }
+
+		  addTrigger.addEventListener('click', openPicker);
+		  cancelBtn.addEventListener('click', closePicker);
+		  input.addEventListener('input', function () { renderResults(input.value.trim()); });
+		  input.addEventListener('keydown', function (e) {
+		    if (e.key === 'Enter') {
+		      e.preventDefault();
+		      var query = input.value.trim();
+		      if (!query) return;
+		      var exact = currentMatches.filter(function (name) { return name.toLowerCase() === query.toLowerCase(); });
+		      selectTag(exact.length ? exact[0] : query);
+		    } else if (e.key === 'Escape') {
+		      e.preventDefault();
+		      closePicker();
+		    }
+		  });
+		  input.addEventListener('blur', function () {
+		    setTimeout(function () { results.hidden = true; }, 150);
+		  });
+		})();
+		</script>
 
 		#if(canManageVolumes):
 			<script>
