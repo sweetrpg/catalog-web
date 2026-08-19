@@ -40,6 +40,10 @@ let package = Package(
         // hand-rolled "append an s" string logic. First consumer of this pattern on the
         // platform (no prior Swift/Vapor precedent) - see Resources/Localizations/en.json.
         .package(url: "https://github.com/vapor-community/Lingo-Vapor.git", from: "4.2.0"),
+        // 📝 Markdown-to-HTML for volume descriptions (line breaks, emphasis, lists) - a plain
+        // parser+renderer with no AST-walking of our own to write, unlike apple/swift-markdown
+        // (parse-tree only, no built-in HTML output).
+        .package(url: "https://github.com/JohnSundell/Ink.git", from: "0.6.0"),
     ],
     targets: [
         .executableTarget(
@@ -56,6 +60,7 @@ let package = Package(
                 .product(name: "AdminAPIClient", package: "admin-api-client.swift"),
                 .product(name: "CatalogAPIClient", package: "catalog-api-client.swift"),
                 .product(name: "LingoVapor", package: "Lingo-Vapor"),
+                .product(name: "Ink", package: "Ink"),
             ],
             // Resources/ and the top-level Public/ are shipped as plain directories next to the
             // built binary (see Dockerfile), not via SwiftPM resource bundling - Vapor's default
