@@ -25,8 +25,13 @@ func sortByName<T>(_ items: [T], order: BrowseSortOrder, name: (T) -> String) ->
 
 /// Pluralized "N volume(s)" label for a browse card, shared across every entity type that shows
 /// a per-item volume count (licenses, publishers, ...).
+///
+/// English only for now, so the locale is hardcoded rather than read via `req.locale` -
+/// Lingo-Vapor's `Request.locale` reads `session.data`, which fatally crashes the process on any
+/// app (like this one) that never registers `SessionsMiddleware`. Switch to a session-free
+/// locale source (e.g. parsing Accept-Language directly) if/when a second locale ships.
 func volumeCountLabel(_ count: Int, req: Request) async throws -> String {
   let lingo = try req.application.lingoVapor.lingo()
   return lingo.localize(
-    "catalog.volume_count", locale: req.locale, interpolations: ["count": count])
+    "catalog.volume_count", locale: lingo.defaultLocale, interpolations: ["count": count])
 }
