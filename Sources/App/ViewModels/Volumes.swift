@@ -108,6 +108,9 @@ struct LeafVolumeEditForm: Content {
   let userSub: String
   /// The full publisher candidate list, JSON-encoded for the page's own JS to filter
   /// client-side (task 7.1) - no search endpoint, existing entities only, per design.md.
+  let systemOptionsJSON: String
+  let selectedSystems: [LeafNamedOption]
+  let hasSelectedSystems: Bool
   let publisherOptionsJSON: String
   let selectedPublishers: [LeafNamedOption]
   let hasSelectedPublishers: Bool
@@ -147,6 +150,7 @@ struct LeafVolumeEditForm: Content {
 
   init(
     volume: VolumeViewModel, session: EditSession, userSub: String, req: Request,
+    systemOptions: [(id: String, name: String)] = [],
     publisherOptions: [(id: String, name: String)] = [],
     studioOptions: [(id: String, name: String)] = [],
     personOptions: [(id: String, name: String)] = [],
@@ -169,6 +173,15 @@ struct LeafVolumeEditForm: Content {
     }
     self.liveCoverPath = volume.coverAssetPath
     self.hasStagedCover = session.stagedCoverAssetId != nil
+
+    let systemByID = Dictionary(uniqueKeysWithValues: systemOptions)
+    let selectedSystemIds = session.stringArrayField("systemIds") ?? volume.systemIds
+    self.selectedSystems = selectedSystemIds.map {
+      LeafNamedOption(id: $0, name: systemByID[$0] ?? "Unknown system")
+    }
+    self.hasSelectedSystems = !self.selectedSystems.isEmpty
+    self.systemOptionsJSON =
+      Self.encodeOptions(systemOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
 
     let publisherByID = Dictionary(uniqueKeysWithValues: publisherOptions)
     let selectedPublisherIds = session.stringArrayField("publisherIds") ?? volume.publisherIds

@@ -278,6 +278,7 @@ struct VolumesController: RouteCollection {
           ))
       }
 
+      async let systemOptions = req.catalogAPI.fetchSystemOptions()
       async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
       async let studioOptions = req.catalogAPI.fetchStudioOptions()
       async let personOptions = req.catalogAPI.fetchPersonOptions()
@@ -298,6 +299,7 @@ struct VolumesController: RouteCollection {
           volume: try LeafVolumeEditForm(
             volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
             req: req,
+            systemOptions: try await systemOptions,
             publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
             personOptions: try await personOptions,
             contributionTypeOptions: try await contributionTypeOptions,
@@ -365,6 +367,7 @@ struct VolumesController: RouteCollection {
         else {
           throw Abort(.notFound)
         }
+        async let systemOptions = req.catalogAPI.fetchSystemOptions()
         async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
         async let studioOptions = req.catalogAPI.fetchStudioOptions()
         async let personOptions = req.catalogAPI.fetchPersonOptions()
@@ -383,6 +386,7 @@ struct VolumesController: RouteCollection {
             volume: try LeafVolumeEditForm(
               volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
               req: req,
+              systemOptions: try await systemOptions,
               publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
               personOptions: try await personOptions,
               contributionTypeOptions: try await contributionTypeOptions,
@@ -444,6 +448,7 @@ struct VolumesController: RouteCollection {
   /// list, same full-replace semantics `PATCH /volumes/:id` itself uses for these fields, so
   /// this never needs to diff against what's already in the session.
   private struct AutosaveAssociationsInput: Content {
+    let systemIds: [String]?
     let publisherIds: [String]?
     let studioIds: [String]?
   }
@@ -465,6 +470,7 @@ struct VolumesController: RouteCollection {
       }
 
       let input = try req.content.decode(AutosaveAssociationsInput.self)
+      if let systemIds = input.systemIds { session.fields["systemIds"] = .stringArray(systemIds) }
       if let publisherIds = input.publisherIds {
         session.fields["publisherIds"] = .stringArray(publisherIds)
       }
@@ -588,36 +594,6 @@ struct VolumesController: RouteCollection {
         userID: user.sub, recordType: recordTypeVolume, session: session)
 
       return Response(status: .noContent)
-    }
-  }
-
-  /// Adds a new shared-vocabulary value (contribution type today) on behalf of the editor/admin
-  /// contributor dialog's "add new" affordance (task 8.1/8.2) - a browser call can't carry the
-  /// bearer token itself, so this forwards it server-to-server and returns the vocabulary's
-  /// updated value list for the dialog's picker to pick up without a full page reload.
-  private struct AddVocabularyValueInput: Content {
-    let value: String
-  }
-
-  struct VocabularyValuesResponse: Content {
-    let values: [String]
-  }
-
-  @Sendable
-  func addVocabularyValue(req: Request) async throws -> VocabularyValuesResponse {
-    try await withSpan("volume-add-vocabulary-value") { _ in
-      guard let type = req.parameters.get("type") else {
-        throw Abort(.badRequest)
-      }
-      guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
-        throw Abort(.forbidden)
-      }
-
-      let input = try req.content.decode(AddVocabularyValueInput.self)
-      let values = try await req.catalogAPI.addVocabularyValue(
-        type: type, value: input.value, token: user.accessToken)
-
-      return VocabularyValuesResponse(values: values)
     }
   }
 

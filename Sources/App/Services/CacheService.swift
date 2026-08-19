@@ -28,6 +28,15 @@ struct CacheService {
       return value
     }
   }
+
+  /// Deletes cached entries by key - best-effort (a delete failure just means the entry lives
+  /// out its TTL, same degraded-but-not-broken behavior as a cache miss).
+  func delete(_ keys: [String]) async {
+    guard request.application.redisConfigured, !keys.isEmpty else { return }
+    for key in keys {
+      _ = try? await request.redis.delete(RedisKey(key)).get()
+    }
+  }
 }
 
 extension Request {

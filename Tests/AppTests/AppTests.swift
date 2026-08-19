@@ -1596,15 +1596,18 @@ struct AppTests {
         let user = SessionUser(
           sub: "abc", name: "Editor", email: nil, roles: ["editor"], accessToken: "test-token",
           expiry: Date().addingTimeInterval(3600))
+        let base = makeEditContext(
+          id: "1", basePath: "/licenses", fields: licenseFields,
+          values: [
+            "title": "CC BY 4.0", "status": "Accepted", "availability": "Released",
+            "deed": "Full deed text", "legal_code": "Full legal text",
+          ],
+          user: user, meta: await PageMeta.make(req))
         return try await req.view.render(
           "licenses/edit",
-          makeEditContext(
-            id: "1", basePath: "/licenses", fields: licenseFields,
-            values: [
-              "title": "CC BY 4.0", "status": "Accepted", "availability": "Released",
-              "deed": "Full deed text", "legal_code": "Full legal text",
-            ],
-            user: user, meta: await PageMeta.make(req)))
+          LicenseEditContext(
+            base: base, tags: [], tagOptions: [], canAddTag: false, canManageVolumes: false,
+            selectedVolumes: [], allVolumes: []))
       }
       try await app.testing().test(.GET, "test-license-edit") { res in
         #expect(res.status == .ok)
@@ -1643,8 +1646,9 @@ struct AppTests {
       }
       try await app.testing().test(.GET, "test-version-detail") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("auth0|submitter"))
-        #expect(res.body.string.contains("auth0|editor"))
+        // humanizeSubmitterID renders "auth0|x" as "auth0 #x" (no real display-name lookup yet).
+        #expect(res.body.string.contains("auth0 #submitter"))
+        #expect(res.body.string.contains("auth0 #editor"))
         #expect(res.body.string.contains("not needed"))
       }
     }
