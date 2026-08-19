@@ -379,7 +379,7 @@ struct AppTests {
         #expect(res.body.string.contains("Schwalb Entertainment"))
         #expect(res.body.string.contains("OGL"))
         #expect(!res.body.string.contains(">Studio<"))
-        #expect(!res.body.string.contains(">Edit<"))
+        #expect(!res.body.string.contains(#"title="Edit""#))
       }
     }
   }
@@ -463,7 +463,7 @@ struct AppTests {
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains(">Edit<"))
+        #expect(res.body.string.contains(#"title="Edit""#))
         #expect(res.body.string.contains("/volumes/1/edit"))
       }
     }
@@ -489,6 +489,30 @@ struct AppTests {
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
         #expect(!res.body.string.contains("Pending Changes"))
+      }
+    }
+  }
+
+  @Test("detail page renders the description as Markdown, not raw text")
+  func detailRendersDescriptionAsMarkdown() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "**Bold** text.\n\nSecond paragraph.", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("<strong>Bold</strong>"))
+        #expect(res.body.string.contains("Second paragraph."))
+        #expect(!res.body.string.contains("**Bold**"))
       }
     }
   }

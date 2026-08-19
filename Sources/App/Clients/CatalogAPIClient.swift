@@ -467,6 +467,14 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// Catalog-wide summary (total volume count, most recent update) for the landing page - one
+  /// call instead of counting whatever page a paginated volume list happened to return.
+  func fetchCatalogStats() async throws -> CatalogStats {
+    try await withSpan("sdk-fetch-catalog-stats") { _ in
+      try await getCached("catalog:stats") { try await sdk.fetchCatalogStats() }
+    }
+  }
+
   private func getCached<T: Codable & Sendable>(
     _ cacheKey: String, fetch: @Sendable () async throws -> T
   ) async throws -> T {
