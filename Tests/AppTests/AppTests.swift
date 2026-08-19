@@ -120,7 +120,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
+            statCards: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -143,7 +143,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -169,7 +169,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
+            statCards: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -192,7 +192,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
@@ -219,7 +219,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -242,7 +242,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token",
@@ -257,21 +257,24 @@ struct AppTests {
     }
   }
 
-  @Test("home page renders a volume card's cover image with an onerror fallback")
-  func homeRendersVolumeCoverWithFallback() async throws {
+  // The landing page's own "recently catalogued" volume grid was replaced by the
+  // catalog-landing-page-summary per-entity-type cards - this markup now lives only on the
+  // browse page, so the coverage moved there with it.
+  @Test("browse page renders a volume card's cover image with an onerror fallback")
+  func browseRendersVolumeCoverWithFallback() async throws {
     let volume = VolumeViewModel(
       id: "64c7cf96a3fc8ee7407f9b76", title: "A Glorious Death", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
     try await withApp { app in
       app.views.use(.leaf)
-      app.get("test-home") { req async throws -> View in
+      app.get("test-browse") { req async throws -> View in
         try await req.view.render(
-          "home",
-          HomeContext(
-            volumeCount: 1, lastUpdated: "", trending: [LeafVolumeCard(volume)], tagCloud: [],
-            user: nil, meta: await PageMeta.make(req)))
+          "browse",
+          BrowseContext(
+            query: "", noActiveTag: true, tagCloud: [], volumes: [LeafVolumeCard(volume)],
+            noResults: false, user: nil, meta: await PageMeta.make(req)))
       }
-      try await app.testing().test(.GET, "test-home") { res in
+      try await app.testing().test(.GET, "test-browse") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76"))
         #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
@@ -763,7 +766,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
+            statCards: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       return try await test(app)
@@ -804,7 +807,7 @@ struct AppTests {
       try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:\(port)") { app in
         try await app.testing().test(.GET, "test-home") { res in
           #expect(res.status == .ok)
-          #expect(res.body.string.contains("Vol. count"))
+          #expect(res.body.string.contains("Catalog Summary"))
         }
       }
     }
@@ -815,7 +818,7 @@ struct AppTests {
     try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:1") { app in
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("Vol. count"))
+        #expect(res.body.string.contains("Catalog Summary"))
       }
     }
   }

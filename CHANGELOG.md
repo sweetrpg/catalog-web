@@ -1,4 +1,21 @@
 
+## 0.31.0 - 2026-08-19
+
+### Added
+- Per-entity-type summary cards, replacing the volumes grid
+
+
+
+## 0.30.0 - 2026-08-19
+
+### Added
+- Add app switcher grid next to avatar menu
+
+
+
+## 0.29.0 - 2026-08-19
+
+
 ## 0.29.0 - 2026-08-19
 
 ### Added
