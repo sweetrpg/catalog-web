@@ -25,6 +25,12 @@ public func configure(_ app: Application) async throws {
 
   app.views.use(.leaf)
 
+  // Vapor's default (16kb) is well under a full license edit submission - the form posts every
+  // field together, including deed/legal_code, and a real license's full legal text alone can
+  // run well past 16kb. Raised to 1mb, generous headroom over any legal text this app has seen
+  // while still bounding the worst case.
+  app.routes.defaultMaxBodySize = "1mb"
+
   // English only for now (this app's first consumer, no prior platform pattern to extend) -
   // real CLDR-style plural rules via Resources/Localizations/*.json, not hand-rolled
   // "append an s" string logic. Add a locale by dropping another <code>.json file in that
