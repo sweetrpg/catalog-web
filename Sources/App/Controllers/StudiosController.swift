@@ -117,21 +117,59 @@ struct StudiosController: RouteCollection {
     try await withSpan("studios-edit-form") { _ in
       guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
       guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-      guard let studio = try await req.catalogAPI.fetchStudio(id: id) else {
+      guard var studio = try await req.catalogAPI.fetchStudio(id: id) else {
         throw Abort(.notFound)
       }
+      studio.volumes = try await req.catalogAPI.fetchStudioVolumes(id: id)
+      let allVolumes = try await req.catalogAPI.fetchVolumes().map { ($0.id, $0.title) }
+
+      let base = makeEditContext(
+        id: id, basePath: "/studios", fields: studioFields,
+        values: fieldValues(studio), user: user, meta: await PageMeta.make(req))
 
       return try await req.view.render(
         "studios/edit",
-        makeEditContext(
-          id: id, basePath: "/studios", fields: studioFields,
-          values: fieldValues(studio), user: user, meta: await PageMeta.make(req)))
+        EntityEditWithVolumesContext(
+          base: base, canManageVolumes: canReview(user.roles), selectedVolumes: studio.volumes,
+          allVolumes: allVolumes))
     }
   }
 
   @Sendable
   func submitStudioEdit(req: Request) async throws -> Response {
-    try await submitEdit(req: req, path: "/studios", fields: studioFields)
+    try await withSpan("submit-studio-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+
+      let input = try req.content.decode([String: String].self)
+      let known = Set(studioFields.map(\.key))
+      let filtered = input.filter { known.contains($0.key) }
+
+      let result = try await req.catalogAPI.patchEntity(
+        path: "/studios", id: id, token: user.accessToken, fields: filtered)
+
+      // Volume association is editor/admin-direct (no review workflow, see
+      // sweetrpg/catalog-api#220) - a submitter's session never renders the volumes picker
+      // (canEdit gates the whole page, but only editor/admin get review rights), so this simply
+      // does nothing when the field is absent from the submission. Mirrors LicensesController's
+      // submitLicenseEdit.
+      if let volumeIdsRaw = input["volumeIds"] {
+        let volumeIds = volumeIdsRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        if canReview(user.roles) {
+          try await req.catalogAPI.patchEntityVolumes(
+            path: "/studios", id: id, token: user.accessToken, volumeIds: volumeIds)
+        }
+      }
+
+      let basePath = "\(req.basePath)/studios/\(id)"
+      switch result {
+      case .applied:
+        await req.catalogAPI.invalidateEntityListCache(path: "/studios")
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    }
   }
 
   @Sendable
