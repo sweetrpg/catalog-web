@@ -13,6 +13,21 @@
 	<form class="nav-search" action="#(meta.basePath)/browse" method="get">
 		<input class="input" type="text" name="q" placeholder="Search titles...">
 	</form>
+	<div class="app-switcher">
+		<button type="button" class="app-switcher-trigger" aria-label="Switch app">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>
+				<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+				<circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
+			</svg>
+		</button>
+		<div class="app-switcher-panel" hidden>
+			<a class="app-switcher-item" href="/">Main</a>
+			<a class="app-switcher-item" href="/catalog">Catalog</a>
+			<a class="app-switcher-item" href="/shelf">Shelf</a>
+			<a class="app-switcher-item" href="/initiative">Initiative</a>
+		</div>
+	</div>
 	<div class="avatar-menu">
 		<button type="button" class="avatar-menu-trigger">
 			#if(user):
