@@ -271,7 +271,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -294,7 +294,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -317,7 +317,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -341,7 +341,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -368,7 +368,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
         )
@@ -397,8 +397,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: true, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -420,8 +421,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -455,7 +457,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: true,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: true,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -480,7 +482,7 @@ struct AppTests {
           DetailContext(
             // canEdit: true (submitter can propose), but review stays nil - only
             // CatalogController decides to populate it, gated on canReview, not canEdit.
-            volume: LeafVolumeDetail(volume), canEdit: true,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: true,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -505,7 +507,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -538,7 +540,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -563,7 +565,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
       }
@@ -586,7 +588,7 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: LeafVolumeDetail(volume), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -608,8 +610,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -634,8 +637,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -868,7 +872,8 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(volume: volume, session: session, userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester", req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -892,8 +897,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               publisherOptions: [("pub-1", "Existing Co"), ("pub-2", "Other Publisher")],
               studioOptions: [("studio-1", "Some Studio")]),
             canUploadCover: false, submitError: nil, user: nil,
@@ -927,8 +933,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               publisherOptions: [("pub-1", "Existing Co")], studioOptions: []),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -955,8 +962,8 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: session, userSub: "auth0-tester",
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester", req: req,
               publisherOptions: [("pub-1", "Live Publisher"), ("pub-2", "Session Publisher")],
               studioOptions: []),
             canUploadCover: false, submitError: nil, user: nil,
@@ -982,8 +989,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false,
             submitError: "You have 25 pending submissions, at your cap of 25.", user: nil,
             meta: await PageMeta.make(req)))
@@ -1049,8 +1057,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               personOptions: [("person-1", "Gary Gygax")],
               contributionTypeOptions: ["Author", "Illustrator"], canAddContributionType: true),
             canUploadCover: false, submitError: nil, user: nil,
@@ -1078,8 +1087,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               contributionTypeOptions: ["Author"], canAddContributionType: true),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -1104,8 +1114,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               contributionTypeOptions: ["Author"], canAddContributionType: false),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -1133,8 +1144,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -1158,8 +1170,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               personOptions: [("person-1", "Gary Gygax")], canAddContributionType: true),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -1187,8 +1200,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               propertyNameOptions: ["Page count", "Weight"], canAddPropertyName: true),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -1214,8 +1228,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               propertyNameOptions: ["Page count"], canAddPropertyName: true),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -1239,8 +1254,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req,
               propertyNameOptions: ["Page count"], canAddPropertyName: false),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
@@ -1268,8 +1284,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -1295,8 +1312,8 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: session, userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester", req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -1305,92 +1322,6 @@ struct AppTests {
         #expect(res.body.string.contains(#"data-name="Weight""#))
         #expect(res.body.string.contains("1.2kg"))
         #expect(!res.body.string.contains(#"data-name="Page count""#))
-      }
-    }
-  }
-
-  // MARK: - durable-volume-editing task 10 (format selector)
-
-  @Test("edit page shows the format selector, pre-filled, for an editor/admin session")
-  func editPageShowsFormatSelectorForEditor() async throws {
-    var volume = VolumeViewModel(
-      id: "1", title: "Rusthaven", description: "", notes: "",
-      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.format = "Hardcover"
-    try await withApp { app in
-      app.views.use(.leaf)
-      app.get("test-edit") { req async throws -> View in
-        try await req.view.render(
-          "edit",
-          EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
-              formatOptions: ["Hardcover", "Paperback"], canSetFormat: true),
-            canUploadCover: false, submitError: nil, user: nil,
-            meta: await PageMeta.make(req)))
-      }
-      try await app.testing().test(.GET, "test-edit") { res in
-        #expect(res.status == .ok)
-        #expect(res.body.string.contains(#"data-selected-format="Hardcover""#))
-        #expect(res.body.string.contains("Paperback"))
-        #expect(res.body.string.contains(#"data-value="Hardcover""#))
-        #expect(res.body.string.contains("/volumes/1/edit/session/format"))
-        #expect(res.body.string.contains("/volumes/1/edit/vocabulary/format"))
-      }
-    }
-  }
-
-  @Test("edit page hides the format selector entirely for a submitter session")
-  func editPageHidesFormatSelectorForSubmitter() async throws {
-    var volume = VolumeViewModel(
-      id: "1", title: "Rusthaven", description: "", notes: "",
-      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.format = "Hardcover"
-    try await withApp { app in
-      app.views.use(.leaf)
-      app.get("test-edit") { req async throws -> View in
-        try await req.view.render(
-          "edit",
-          EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
-            canUploadCover: false, submitError: nil, user: nil,
-            meta: await PageMeta.make(req)))
-      }
-      try await app.testing().test(.GET, "test-edit") { res in
-        #expect(res.status == .ok)
-        // Not just the add-new affordance - the entire selector, including the live format
-        // value itself, is absent for a submitter session (per volume-format-selector's spec).
-        #expect(!res.body.string.contains(#"id="format-field""#))
-        #expect(!res.body.string.contains(">Format<"))
-        #expect(!res.body.string.contains("Hardcover"))
-      }
-    }
-  }
-
-  @Test("edit page prefers a session's pending format selection over the volume's live one")
-  func editPageShowsSessionFormatSelectionOverLiveOne() async throws {
-    var volume = VolumeViewModel(
-      id: "1", title: "Rusthaven", description: "", notes: "",
-      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.format = "Hardcover"
-    var session = testEditSession(for: volume)
-    session.fields["format"] = .string("Paperback")
-    try await withApp { app in
-      app.views.use(.leaf)
-      app.get("test-edit") { req async throws -> View in
-        try await req.view.render(
-          "edit",
-          EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: session, userSub: "auth0-tester",
-              formatOptions: ["Hardcover", "Paperback"], canSetFormat: true),
-            canUploadCover: false, submitError: nil, user: nil,
-            meta: await PageMeta.make(req)))
-      }
-      try await app.testing().test(.GET, "test-edit") { res in
-        #expect(res.status == .ok)
-        #expect(res.body.string.contains(#"data-selected-format="Paperback""#))
       }
     }
   }
@@ -1409,8 +1340,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -1439,8 +1371,8 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: session, userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: session, userSub: "auth0-tester", req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -1468,8 +1400,9 @@ struct AppTests {
         try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
-              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester"),
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req),
             canUploadCover: false, submitError: nil, user: nil,
             meta: await PageMeta.make(req)))
       }
@@ -1680,5 +1613,42 @@ struct AppTests {
     #expect(resolveBrowseSortOrder("") == .asc)
     #expect(resolveBrowseSortOrder("sideways") == .asc)
     #expect(resolveBrowseSortOrder("desc") == .desc)
+  }
+
+  @Test("normalizePropertyKey lowercases and collapses spaces to single dashes")
+  func normalizePropertyKeyLowercasesAndDashes() {
+    #expect(normalizePropertyKey("Page Count") == "page-count")
+    #expect(normalizePropertyKey("  ISBN 13  ") == "isbn-13")
+    #expect(normalizePropertyKey("format") == "format")
+    #expect(normalizePropertyKey("Multiple   Spaces") == "multiple-spaces")
+  }
+
+  @Test("propertyDisplayLabel humanizes a key with no localization entry")
+  func propertyDisplayLabelHumanizesUnknownKey() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-label") { req async throws -> String in
+        try propertyDisplayLabel("page-count", req: req)
+      }
+      try await app.testing().test(.GET, "test-label") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string == "Page Count")
+      }
+    }
+  }
+
+  @Test("propertyDisplayLabel prefers a localization over humanizing")
+  func propertyDisplayLabelPrefersLocalization() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-label") { req async throws -> String in
+        try propertyDisplayLabel("format", req: req)
+      }
+      try await app.testing().test(.GET, "test-label") { res in
+        #expect(res.status == .ok)
+        // Resources/Localizations/en.json defines catalog.property.format.
+        #expect(res.body.string == "Format")
+      }
+    }
   }
 }

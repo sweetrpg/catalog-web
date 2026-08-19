@@ -22,7 +22,6 @@ struct VolumesController: RouteCollection {
     routes.post("volumes", ":volumeID", "edit", "session", "credits", use: autosaveSessionCredits)
     routes.post(
       "volumes", ":volumeID", "edit", "session", "properties", use: autosaveSessionProperties)
-    routes.post("volumes", ":volumeID", "edit", "session", "format", use: autosaveSessionFormat)
     routes.post("volumes", ":volumeID", "edit", "session", "samples", use: autosaveSessionSamples)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
@@ -86,7 +85,7 @@ struct VolumesController: RouteCollection {
       return try await req.view.render(
         "detail",
         DetailContext(
-          volume: LeafVolumeDetail(volume),
+          volume: try LeafVolumeDetail(volume, req: req),
           canEdit: canEdit(roles),
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: proposalReview,
@@ -287,13 +286,6 @@ struct VolumesController: RouteCollection {
       async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
         type: "property-name", token: user.accessToken)
       async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
-      // Only fetched for editor/admin - a submitter's token gets a 403 from
-      // GET /vocabularies/format itself (see `volume-format-selector`'s spec), so this must not
-      // even attempt the call for a submitter session.
-      let canSetFormat = canCreateVocabularyValue(user.roles)
-      let formatOptions =
-        canSetFormat
-        ? try await req.catalogAPI.fetchVocabulary(type: "format", token: user.accessToken) : []
 
       var volumeWithCredits = volume
       volumeWithCredits.credits = try await existingCredits
@@ -303,15 +295,15 @@ struct VolumesController: RouteCollection {
       return try await req.view.render(
         "edit",
         EditContext(
-          volume: LeafVolumeEditForm(
+          volume: try LeafVolumeEditForm(
             volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+            req: req,
             publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
             personOptions: try await personOptions,
             contributionTypeOptions: try await contributionTypeOptions,
             canAddContributionType: canCreateVocabularyValue(user.roles),
             propertyNameOptions: try await propertyNameOptions,
-            canAddPropertyName: canCreateVocabularyValue(user.roles),
-            formatOptions: formatOptions, canSetFormat: canSetFormat),
+            canAddPropertyName: canCreateVocabularyValue(user.roles)),
           canUploadCover: canUploadCover(user.roles),
           submitError: nil,
           user: LeafUser(user),
@@ -381,10 +373,6 @@ struct VolumesController: RouteCollection {
         async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
           type: "property-name", token: user.accessToken)
         async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
-        let canSetFormat = canCreateVocabularyValue(user.roles)
-        let formatOptions =
-          canSetFormat
-          ? try await req.catalogAPI.fetchVocabulary(type: "format", token: user.accessToken) : []
 
         var volumeWithCredits = volume
         volumeWithCredits.credits = try await existingCredits
@@ -392,15 +380,15 @@ struct VolumesController: RouteCollection {
         return try await req.view.render(
           "edit",
           EditContext(
-            volume: LeafVolumeEditForm(
+            volume: try LeafVolumeEditForm(
               volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+              req: req,
               publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
               personOptions: try await personOptions,
               contributionTypeOptions: try await contributionTypeOptions,
               canAddContributionType: canCreateVocabularyValue(user.roles),
               propertyNameOptions: try await propertyNameOptions,
-              canAddPropertyName: canCreateVocabularyValue(user.roles),
-              formatOptions: formatOptions, canSetFormat: canSetFormat),
+              canAddPropertyName: canCreateVocabularyValue(user.roles)),
             canUploadCover: canUploadCover(user.roles),
             submitError: error.message ?? "Unable to save your changes. Try again.",
             user: LeafUser(user),
@@ -559,40 +547,6 @@ struct VolumesController: RouteCollection {
       let input = try req.content.decode(AutosavePropertiesInput.self)
       session.fields["properties"] = .objectArray(
         input.properties.map { ["name": $0.name, "value": $0.value] })
-      session.updatedAt = Date()
-      try await req.editSessions.set(
-        userID: user.sub, recordType: recordTypeVolume, session: session)
-
-      return Response(status: .noContent)
-    }
-  }
-
-  /// Format selection (task 10.1) - editor/admin only, gated here (not just hidden client-side)
-  /// so a crafted request from a submitter session can't set it either, per
-  /// `volume-format-selector`'s spec: the whole field, not just growing its vocabulary, is
-  /// editor/admin-only.
-  private struct AutosaveFormatInput: Content {
-    let format: String
-  }
-
-  @Sendable
-  func autosaveSessionFormat(req: Request) async throws -> Response {
-    try await withSpan("volume-autosave-session-format") { _ in
-      guard let volumeID = req.parameters.get("volumeID") else {
-        throw Abort(.badRequest)
-      }
-      guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
-        throw Abort(.forbidden)
-      }
-      guard
-        var session = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume),
-        session.recordId == volumeID
-      else {
-        throw Abort(.notFound)
-      }
-
-      let input = try req.content.decode(AutosaveFormatInput.self)
-      session.fields["format"] = .string(input.format)
       session.updatedAt = Date()
       try await req.editSessions.set(
         userID: user.sub, recordType: recordTypeVolume, session: session)

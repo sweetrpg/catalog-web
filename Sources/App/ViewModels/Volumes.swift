@@ -46,7 +46,7 @@ struct LeafVolumeDetail: Content {
   let samplePaths: [String]
   let hasSamples: Bool
 
-  init(_ volume: VolumeViewModel) {
+  init(_ volume: VolumeViewModel, req: Request) throws {
     self.id = volume.id
     self.title = volume.title
     self.description = volume.description
@@ -67,7 +67,10 @@ struct LeafVolumeDetail: Content {
     self.licenseRefs = volume.licenseRefs.map(LeafEntityRef.init)
     self.credits = volume.credits.map(LeafCredit.init)
     self.hasCredits = !volume.credits.isEmpty
-    self.properties = volume.properties.map(LeafProperty.init)
+    self.properties = try volume.properties.map {
+      LeafProperty(
+        name: $0.name, value: $0.value, displayLabel: try propertyDisplayLabel($0.name, req: req))
+    }
     self.hasProperties = !volume.properties.isEmpty
     self.reviews = volume.reviews.map(LeafReview.init)
     self.hasReviews = !volume.reviews.isEmpty
@@ -125,17 +128,6 @@ struct LeafVolumeEditForm: Content {
   let canAddPropertyName: Bool
   let selectedProperties: [LeafProperty]
   let hasSelectedProperties: Bool
-  /// Every format value in use, JSON-encoded (plain strings). Only ever fetched/populated for
-  /// an editor/admin caller - a submitter's token can't even list this vocabulary (see
-  /// `volume-format-selector`'s spec, unlike contribution-type/property-name which submitters
-  /// can read).
-  let formatOptionsJSON: String
-  /// `true` for editor/admin sessions only - gates the *entire* format selector, not just an
-  /// add-new affordance within it (the one field where the whole control, not just growing its
-  /// vocabulary, is editor/admin-only).
-  let canSetFormat: Bool
-  let selectedFormat: String
-  let hasSelectedFormat: Bool
   /// The volume's existing live samples - shown read-only for context; this page has no way to
   /// remove or reorder them individually (see `edit.leaf`'s note to the user: uploading any new
   /// sample below replaces this entire set on save, matching `finalize-session`'s actual
@@ -149,17 +141,15 @@ struct LeafVolumeEditForm: Content {
   let hasStagedSamples: Bool
 
   init(
-    volume: VolumeViewModel, session: EditSession, userSub: String,
+    volume: VolumeViewModel, session: EditSession, userSub: String, req: Request,
     publisherOptions: [(id: String, name: String)] = [],
     studioOptions: [(id: String, name: String)] = [],
     personOptions: [(id: String, name: String)] = [],
     contributionTypeOptions: [String] = [],
     canAddContributionType: Bool = false,
     propertyNameOptions: [String] = [],
-    canAddPropertyName: Bool = false,
-    formatOptions: [String] = [],
-    canSetFormat: Bool = false
-  ) {
+    canAddPropertyName: Bool = false
+  ) throws {
     self.id = volume.id
     self.title = session.stringField("title") ?? volume.title
     self.description = session.stringField("description") ?? volume.description
@@ -224,21 +214,19 @@ struct LeafVolumeEditForm: Content {
     self.canAddPropertyName = canAddPropertyName
 
     if let sessionProperties = session.objectArrayField("properties") {
-      self.selectedProperties = sessionProperties.compactMap { entry in
+      self.selectedProperties = try sessionProperties.compactMap { entry in
         guard let name = entry["name"], let value = entry["value"] else { return nil }
-        return LeafProperty((name: name, value: value))
+        return LeafProperty(
+          name: name, value: value, displayLabel: try propertyDisplayLabel(name, req: req))
       }
     } else {
-      self.selectedProperties = volume.properties.map(LeafProperty.init)
+      self.selectedProperties = try volume.properties.map {
+        LeafProperty(
+          name: $0.name, value: $0.value,
+          displayLabel: try propertyDisplayLabel($0.name, req: req))
+      }
     }
     self.hasSelectedProperties = !self.selectedProperties.isEmpty
-
-    self.formatOptionsJSON =
-      (try? JSONEncoder().encode(formatOptions)).flatMap { String(data: $0, encoding: .utf8) }
-      ?? "[]"
-    self.canSetFormat = canSetFormat
-    self.selectedFormat = session.stringField("format") ?? volume.format
-    self.hasSelectedFormat = !self.selectedFormat.isEmpty
 
     self.livingSamplePaths = volume.samplePaths
     self.hasLivingSamples = !volume.samplePaths.isEmpty

@@ -119,7 +119,7 @@ struct LicensesController: RouteCollection {
       return try await req.view.render(
         "licenses/detail",
         EntityDetailContext(
-          license: LeafLicenseDetail(license),
+          license: try LeafLicenseDetail(license, req: req),
           canEdit: canEdit(sessionUser?.roles ?? []),
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,

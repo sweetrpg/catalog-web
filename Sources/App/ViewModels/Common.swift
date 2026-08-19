@@ -3,15 +3,13 @@ import Crypto
 import Foundation
 import Vapor
 
-/// One free-form name/value property on a volume's detail page.
+/// One free-form name/value property on a volume's detail page. `name` is always the raw,
+/// normalized storage key (lowercase, dashes) - `displayLabel` is what templates render, via
+/// `propertyDisplayLabel` (a localization if one exists for `name`, otherwise a humanized form).
 struct LeafProperty: Content {
   let name: String
   let value: String
-
-  init(_ property: (name: String, value: String)) {
-    self.name = property.name
-    self.value = property.value
-  }
+  let displayLabel: String
 }
 
 struct LeafEntityRef: Content {
