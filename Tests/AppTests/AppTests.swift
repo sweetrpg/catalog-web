@@ -1681,4 +1681,26 @@ struct AppTests {
     #expect(resolveBrowseSortOrder("sideways") == .asc)
     #expect(resolveBrowseSortOrder("desc") == .desc)
   }
+
+  // Regression: localizationsDir must resolve under Resources/ (where the Dockerfile actually
+  // copies the JSON files, and where they live in this checkout) - LingoVapor resolves it
+  // relative to the working directory, not app.directory.resourcesDirectory, so a bare
+  // "Localizations" silently 500s every browse card that calls volumeCountLabel in production
+  // while still building and passing every other test. No full `configure(_:)` here (that's
+  // reserved for statusPing - see the comment above adminClientDisabledByDefault): just enough
+  // app setup for req.application.lingoVapor to work.
+  @Test("volumeCountLabel resolves the real Localizations directory")
+  func volumeCountLabelResolvesRealLocalizationsDirectory() async throws {
+    try await withApp { app in
+      app.lingoVapor.configuration = .init(
+        defaultLocale: "en", localizationsDir: "Resources/Localizations")
+      app.get("test-volume-count") { req async throws -> String in
+        try await volumeCountLabel(3, req: req)
+      }
+      try await app.testing().test(.GET, "test-volume-count") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("3"))
+      }
+    }
+  }
 }
