@@ -53,7 +53,7 @@
 				<span class="section-label">Browse by Tag</span>
 				<div class="tag-cloud">
 					#for(tag in tagCloud):
-						<a class="tag tag-outline" href="/browse?tag=#(tag.name)">#(tag.name)</a>
+						<a class="tag tag-outline" href="#(meta.basePath)/browse?tag=#(tag.name)">#(tag.name)</a>
 					#endfor
 				</div>
 			</section>
