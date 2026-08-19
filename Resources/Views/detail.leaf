@@ -99,7 +99,7 @@
 							<tbody>
 								#for(property in volume.properties):
 									<tr>
-										<td>#(property.name)</td>
+										<td>#(property.displayLabel)</td>
 										<td>#(property.value)</td>
 									</tr>
 								#endfor

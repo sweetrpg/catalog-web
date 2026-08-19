@@ -152,7 +152,7 @@
 					#endif
 
 					#for(property in license.properties):
-						<span class="license-meta-label">#(property.name)</span>
+						<span class="license-meta-label">#(property.displayLabel)</span>
 						<span class="license-meta-value">#(property.value)</span>
 					#endfor
 

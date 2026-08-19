@@ -2,5 +2,8 @@
   "catalog.volume_count": {
     "one": "%{count} volume",
     "other": "%{count} volumes"
-  }
+  },
+  "catalog.property.format": "Format",
+  "catalog.property.isbn": "ISBN",
+  "catalog.property.isbn-13": "ISBN-13"
 }
