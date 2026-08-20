@@ -46,6 +46,8 @@ spec:
                       - secretRef:
                             name: web-cache
                       - secretRef:
+                            name: web-misc
+                      - secretRef:
                             name: web-shared-session
                       - secretRef:
                             name: web-edit-session
