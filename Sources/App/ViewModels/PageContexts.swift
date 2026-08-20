@@ -35,8 +35,13 @@ struct LeafTypeStatsCard: Content {
   let mostRecentID: String
   let mostRecentName: String
   let lastUpdatedLabel: String
+  /// The type's own browse page (e.g. "/publishers") - the whole card links here via a
+  /// stretched-link overlay, distinct from detailPathPrefix (the "most recent" item's own
+  /// link). `nil` for a type with no browse page (systems).
+  let hasBrowseLink: Bool
+  let browsePath: String
 
-  init(label: String, detailPathPrefix: String?, stats: TypeStats) {
+  init(label: String, detailPathPrefix: String?, browsePath: String?, stats: TypeStats) {
     self.label = label
     self.count = stats.count
     self.hasDetailLink = detailPathPrefix != nil
@@ -45,6 +50,8 @@ struct LeafTypeStatsCard: Content {
     self.mostRecentID = stats.mostRecent?.id ?? ""
     self.mostRecentName = stats.mostRecent?.name ?? ""
     self.lastUpdatedLabel = stats.lastUpdated.map(formatDateShort) ?? ""
+    self.hasBrowseLink = browsePath != nil
+    self.browsePath = browsePath ?? ""
   }
 }
 
