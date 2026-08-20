@@ -7,6 +7,9 @@ struct PersonViewModel {
   let notes: String
   let tags: [String]
   var volumes: [VolumeSummary] = []
+  /// Volume ID -> the role this person was credited under on that volume - see
+  /// CatalogAPIClientService.fetchPersonContributionRoles.
+  var contributionRoles: [String: String] = [:]
 
   init(id: String, attributes: PersonAttributes) {
     self.id = id

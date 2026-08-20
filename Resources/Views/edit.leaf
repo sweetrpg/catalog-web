@@ -16,9 +16,7 @@
 		    outline: 2px solid var(--accent, #6366f1);
 		    outline-offset: -2px;
 		  }
-		  #edit-form .btn, .contributor-dialog .btn {
-		    border-radius: 999px;
-		  }
+		  /* Button shape is app-wide now (catalog/theme.css's .btn), no local override needed. */
 		  #edit-form > div {
 		    margin-top: 1.25rem;
 		    padding-top: 1.25rem;
@@ -33,14 +31,20 @@
 		    border-radius: 0.75rem;
 		  }
 
+		  /* Cover + samples share the grid's first column as one flow-stacked unit - grid-column
+		     on .samples-field alone used to put it in a second grid row, which under CSS Grid's
+		     sparse auto-placement also pushed the form column (title, description, ...) down to
+		     that same row instead of aligning with the cover's top. */
+		  .detail-cover-column {
+		    display: flex;
+		    flex-direction: column;
+		    gap: 40px;
+		  }
 		  .card-cover.detail-cover {
 		    aspect-ratio: unset;
 		    flex-direction: column;
 		    align-items: stretch;
 		    justify-content: flex-start;
-		  }
-		  .samples-field {
-		    grid-column: 1;
 		  }
 		  .cover-image-wrap {
 		    position: relative;
@@ -294,6 +298,12 @@
 		    flex: 1;
 		    min-width: 0;
 		  }
+		  .property-add-row .icon-btn,
+		  .property-add-name .icon-btn {
+		    flex-shrink: 0;
+		    width: 2rem;
+		    height: 2rem;
+		  }
 		  .field-actions .icon-btn {
 		    width: 1.75rem;
 		    height: 1.75rem;
@@ -325,13 +335,14 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; #(volume.title)</a>
 
 		#if(hasSubmitError):
 			<p class="form-error">#(submitError)</p>
 		#endif
 
 		<div class="detail-layout">
+			<div class="detail-cover-column">
 			<div class="card-cover detail-cover">
 				<div class="cover-image-wrap">
 					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
@@ -371,6 +382,7 @@
 				<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
 				<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
 				<p class="form-error" id="sample-upload-error" hidden></p>
+			</div>
 			</div>
 
 			<div>
@@ -518,13 +530,17 @@
 								<option value="">Select a property&hellip;</option>
 							</select>
 							<input type="text" class="input" id="property-value-input" placeholder="Value">
-							<button type="button" class="btn btn-ghost" id="property-add-trigger" disabled>Add</button>
+							<button type="button" class="icon-btn" id="property-add-trigger" title="Add" disabled>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Add">
+							</button>
 						</div>
 
 						#if(volume.canAddPropertyName):
 							<div class="property-add-name">
 								<input type="text" class="input" id="property-new-name" placeholder="Add a new property name...">
-								<button type="button" class="btn btn-ghost" id="property-add-name-trigger">Add name</button>
+								<button type="button" class="icon-btn" id="property-add-name-trigger" title="Add a new property name">
+									<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Add name">
+								</button>
 								<p class="form-error" id="property-add-name-error" hidden></p>
 							</div>
 						#endif

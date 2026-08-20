@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; Volume</a>
 
 		<div class="empty-state">
 			<h1>You're already editing something else</h1>

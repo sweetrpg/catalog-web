@@ -11,6 +11,7 @@ resources:
   - middlewares/strip.yaml
   - pod-monitor.yaml
   - secrets/cache.yaml
+  - secrets/misc.yaml
   - secrets/edit-session.yaml
   - secrets/shared-session.yaml
 

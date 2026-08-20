@@ -21,15 +21,25 @@ struct CatalogController: RouteCollection {
       let stats = try await req.catalogAPI.fetchCatalogStats()
 
       let statCards = [
-        LeafTypeStatsCard(label: "Volumes", detailPathPrefix: "/volumes", stats: stats.volumes),
         LeafTypeStatsCard(
-          label: "Publishers", detailPathPrefix: "/publishers", stats: stats.publishers),
-        LeafTypeStatsCard(label: "Studios", detailPathPrefix: "/studios", stats: stats.studios),
-        LeafTypeStatsCard(label: "Persons", detailPathPrefix: "/persons", stats: stats.persons),
-        LeafTypeStatsCard(label: "Licenses", detailPathPrefix: "/licenses", stats: stats.licenses),
-        // No /systems/:id page exists in catalog-web today - nil renders "most recent" as plain
-        // text instead of a dead link.
-        LeafTypeStatsCard(label: "Systems", detailPathPrefix: nil, stats: stats.systems),
+          label: "Volumes", detailPathPrefix: "/volumes", browsePath: "/browse",
+          stats: stats.volumes),
+        LeafTypeStatsCard(
+          label: "Publishers", detailPathPrefix: "/publishers", browsePath: "/publishers",
+          stats: stats.publishers),
+        LeafTypeStatsCard(
+          label: "Studios", detailPathPrefix: "/studios", browsePath: "/studios",
+          stats: stats.studios),
+        LeafTypeStatsCard(
+          label: "Persons", detailPathPrefix: "/persons", browsePath: "/persons",
+          stats: stats.persons),
+        LeafTypeStatsCard(
+          label: "Licenses", detailPathPrefix: "/licenses", browsePath: "/licenses",
+          stats: stats.licenses),
+        // No /systems/:id page or /systems browse page exists in catalog-web today - nil
+        // renders both as plain text instead of a dead link.
+        LeafTypeStatsCard(
+          label: "Systems", detailPathPrefix: nil, browsePath: nil, stats: stats.systems),
       ]
 
       return try await req.view.render(

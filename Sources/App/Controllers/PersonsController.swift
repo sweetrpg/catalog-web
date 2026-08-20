@@ -170,6 +170,9 @@ struct PersonsController: RouteCollection {
         throw Abort(.notFound)
       }
       person.volumes = try await req.catalogAPI.fetchPersonVolumes(id: id)
+      person.contributionRoles =
+        (try? await req.catalogAPI.fetchPersonContributionRoles(
+          personID: id)) ?? [:]
       let sessionUser = await req.currentUser
       let review: LeafEntityVersionReview? = await buildReview(
         req: req, path: "/persons", recordID: id, fieldSpecs: personFields,

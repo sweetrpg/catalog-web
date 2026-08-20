@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/publishers">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/publishers">&larr; Publishers</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>

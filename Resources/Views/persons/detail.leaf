@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/persons">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/persons">&larr; Persons</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
@@ -100,19 +100,20 @@
 			#endif
 
 			<div class="detail-block">
-				<span class="section-label">Volumes</span>
-				#if(person.hasVolumes):
+				<span class="section-label">Contributed to</span>
+				#if(person.hasContributions):
 					<div class="card-grid">
-						#for(volume in person.volumes):
-							<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
+						#for(contribution in person.contributions):
+							<a class="card" href="#(meta.basePath)/volumes/#(contribution.id)">
 								<div class="card-body">
-									<div class="card-title">#(volume.title)</div>
+									<div class="card-title">#(contribution.title)</div>
+									<div class="card-meta">#(contribution.role)</div>
 								</div>
 							</a>
 						#endfor
 					</div>
 				#else:
-					<p class="empty-state-inline">No volumes associated with this person yet.</p>
+					<p class="empty-state-inline">No contributions on file yet for this person.</p>
 				#endif
 			</div>
 		</div>

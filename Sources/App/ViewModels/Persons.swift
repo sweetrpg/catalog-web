@@ -49,14 +49,20 @@ struct PersonsBrowseContext: Content {
   let meta: PageMeta
 }
 
+struct LeafPersonContribution: Content {
+  let id: String
+  let title: String
+  let role: String
+}
+
 struct LeafPersonDetail: Content {
   let id: String
   let name: String
   let notes: String
   let hasNotes: Bool
   let tags: [String]
-  let volumes: [LeafVolumeSummary]
-  let hasVolumes: Bool
+  let contributions: [LeafPersonContribution]
+  let hasContributions: Bool
 
   init(_ person: PersonViewModel) {
     self.id = person.id
@@ -64,7 +70,11 @@ struct LeafPersonDetail: Content {
     self.notes = person.notes
     self.hasNotes = !person.notes.isEmpty
     self.tags = person.tags
-    self.volumes = person.volumes.map(LeafVolumeSummary.init)
-    self.hasVolumes = !person.volumes.isEmpty
+    self.contributions = person.volumes.map { volume in
+      LeafPersonContribution(
+        id: volume.id, title: volume.title,
+        role: person.contributionRoles[volume.id] ?? "Contributor")
+    }
+    self.hasContributions = !person.volumes.isEmpty
   }
 }

@@ -1,4 +1,20 @@
 
+## 0.34.0 - 2026-08-20
+
+### Added
+- Make each summary tile clickable to its browse page
+- Add web-misc secret to deployment and dev overlay
+- Rename Volumes to Contributed to, show role per volume
+- Add Volumes picker to the edit page
+
+
+### Fixed
+- Align title with cover top, Properties Add buttons as icons
+- Volumes sits beside form fields, not below them
+- Back links say where they go, not generic 'Back'
+
+
+
 ## 0.33.0 - 2026-08-20
 
 ### Added

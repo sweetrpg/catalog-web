@@ -88,16 +88,35 @@
 		  .picker-results li:hover {
 		    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 		  }
+		  /* Volumes sits beside the field grid, not below it in the form's own document flow -
+		     .form-actions is re-scoped here since the shared .form-actions { grid-column: 2 }
+		     rule assumes it's still a direct child of .form's 2-column grid, which it no longer
+		     is once Volumes becomes a sibling column. */
+		  .form-with-sidebar {
+		    display: grid;
+		    grid-template-columns: minmax(0, 640px) minmax(0, 320px);
+		    gap: 40px;
+		    align-items: start;
+		  }
+		  .form-with-sidebar > .form-actions {
+		    grid-column: 1 / -1;
+		  }
+		  @media (max-width: 800px) {
+		    .form-with-sidebar {
+		      grid-template-columns: 1fr;
+		    }
+		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; License</a>
 
 		<section class="page-header">
 			<span class="section-label">Edit</span>
 			<h2>License</h2>
 		</section>
 
-		<form class="form" id="edit-form" action="#(meta.basePath)#(submitPath)" method="post">
+		<form class="form-with-sidebar" id="edit-form" action="#(meta.basePath)#(submitPath)" method="post">
+			<div class="form">
 			#for(field in fields):
 				<label class="form-label" for="#(field.key)">#(field.label)</label>
 				#if(field.isTextarea):
@@ -128,6 +147,7 @@
 				</div>
 				<input type="hidden" name="tags" id="tags-input">
 				<script type="application/json" class="picker-options">#(tagOptionsJSON)</script>
+			</div>
 			</div>
 
 			#if(canManageVolumes):
