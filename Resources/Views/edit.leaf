@@ -16,9 +16,7 @@
 		    outline: 2px solid var(--accent, #6366f1);
 		    outline-offset: -2px;
 		  }
-		  #edit-form .btn, .contributor-dialog .btn {
-		    border-radius: 999px;
-		  }
+		  /* Button shape is app-wide now (catalog/theme.css's .btn), no local override needed. */
 		  #edit-form > div {
 		    margin-top: 1.25rem;
 		    padding-top: 1.25rem;
