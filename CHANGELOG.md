@@ -1,4 +1,29 @@
 
+## 0.32.0 - 2026-08-20
+
+### Added
+- Tags autocomplete picker, wider edit form
+- Add volume-association picker to studio edit page
+- Add game system association to volume edit page
+- Bulk-add persons page and API client, gated to editor/admin
+- Wire bulk-add button and post-submit result banner
+
+
+### Fixed
+- Prefix tag-cloud links with basePath
+- Show credit person name before contribution type
+- Render submitter/reviewer sub as a readable label
+- Open Deed by default, only divider Deed from Legal code
+- Put Add-X button on the same row as search/sort
+- Invalidate entity list-cache on create/edit
+- Update license-edit and version-detail tests for prior commits
+- Contributor dialog layout, icon buttons, and type pre-fill
+- Invalidate the volumes list cache after a live edit
+- Merge browse links into hero row, 3-col responsive stat grid
+- Rename bulk_created/bulk_failed/bulk_errors query fields to camelCase
+
+
+
 ## 0.31.0 - 2026-08-19
 
 ### Added
