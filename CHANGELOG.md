@@ -1,4 +1,11 @@
 
+## 0.33.0 - 2026-08-20
+
+### Added
+- Admin-only delete/restore UI, reference-degradation labeling
+
+
+
 ## 0.32.0 - 2026-08-20
 
 ### Added
