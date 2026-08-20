@@ -44,9 +44,9 @@ struct PersonsController: RouteCollection {
     let order: String?
     // Set by submitBulkAddPersons' redirect - see PersonsBrowseContext's own doc comment for why
     // this rides on persons/browse rather than a separate results page.
-    let bulk_created: Int?
-    let bulk_failed: Int?
-    let bulk_errors: String?
+    let bulkCreated: Int?
+    let bulkFailed: Int?
+    let bulkErrors: String?
   }
 
   @Sendable
@@ -60,7 +60,7 @@ struct PersonsController: RouteCollection {
       let roles = (await req.currentUser)?.roles ?? []
 
       var bulkFailures: [LeafBulkAddFailure] = []
-      if let errorsJSON = query.bulk_errors, let data = errorsJSON.data(using: .utf8) {
+      if let errorsJSON = query.bulkErrors, let data = errorsJSON.data(using: .utf8) {
         bulkFailures = (try? JSONDecoder().decode([LeafBulkAddFailure].self, from: data)) ?? []
       }
 
@@ -74,9 +74,9 @@ struct PersonsController: RouteCollection {
           orderIsDesc: order == .desc,
           canEdit: canEdit(roles),
           canBulkAdd: canBulkAddPersons(roles),
-          hasBulkResult: query.bulk_created != nil || query.bulk_failed != nil,
-          bulkCreatedCount: query.bulk_created ?? 0,
-          bulkFailedCount: query.bulk_failed ?? 0,
+          hasBulkResult: query.bulkCreated != nil || query.bulkFailed != nil,
+          bulkCreatedCount: query.bulkCreated ?? 0,
+          bulkFailedCount: query.bulkFailed ?? 0,
           bulkFailures: bulkFailures,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
@@ -131,13 +131,13 @@ struct PersonsController: RouteCollection {
 
       var components = URLComponents()
       components.queryItems = [
-        URLQueryItem(name: "bulk_created", value: String(createdCount)),
-        URLQueryItem(name: "bulk_failed", value: String(failures.count)),
+        URLQueryItem(name: "bulkCreated", value: String(createdCount)),
+        URLQueryItem(name: "bulkFailed", value: String(failures.count)),
       ]
       if !failures.isEmpty, let encoded = try? JSONEncoder().encode(failures),
         let json = String(data: encoded, encoding: .utf8)
       {
-        components.queryItems?.append(URLQueryItem(name: "bulk_errors", value: json))
+        components.queryItems?.append(URLQueryItem(name: "bulkErrors", value: json))
       }
 
       return req.redirect(to: "\(req.basePath)/persons?\(components.percentEncodedQuery ?? "")")
