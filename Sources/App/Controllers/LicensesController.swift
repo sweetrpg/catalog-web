@@ -64,6 +64,8 @@ struct LicensesController: RouteCollection {
     routes.post(
       "licenses", ":id", "versions", ":version", "reject",
       use: rejectLicenseVersion)
+    routes.post("licenses", ":id", "delete", use: deleteLicense)
+    routes.post("licenses", ":id", "undelete", use: restoreLicense)
   }
 
   private struct BrowseQuery: Content {
@@ -136,12 +138,15 @@ struct LicensesController: RouteCollection {
         req: req, path: "/licenses", recordID: id, fieldSpecs: licenseFields,
         currentValues: fieldValues(license), sessionUser: sessionUser,
         versionFieldValues: { (v: LicenseVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/licenses/\(id)")
 
       return try await req.view.render(
         "licenses/detail",
         EntityDetailContext(
           license: try LeafLicenseDetail(license, req: req),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -226,6 +231,34 @@ struct LicensesController: RouteCollection {
   @Sendable
   func rejectLicenseVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/licenses")
+  }
+
+  /// Soft-deletes a license - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deleteLicense(req: Request) async throws -> Response {
+    try await withSpan("license-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/licenses/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/licenses")
+      return req.redirect(to: "\(req.basePath)/licenses/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted license - admin only.
+  @Sendable
+  func restoreLicense(req: Request) async throws -> Response {
+    try await withSpan("license-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/licenses/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/licenses")
+      return req.redirect(to: "\(req.basePath)/licenses/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

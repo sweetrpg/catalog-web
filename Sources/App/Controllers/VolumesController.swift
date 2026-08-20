@@ -33,6 +33,8 @@ struct VolumesController: RouteCollection {
     routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
     routes.post(
       "volumes", ":volumeID", "versions", ":version", "restore", use: restoreVersion)
+    routes.post("volumes", ":volumeID", "delete", use: deleteVolume)
+    routes.post("volumes", ":volumeID", "undelete", use: restoreDeletedVolume)
   }
 
   private struct BrowseQuery: Content {
@@ -52,9 +54,11 @@ struct VolumesController: RouteCollection {
       }
       volume.credits = try await req.catalogAPI.fetchCredits(volumeID: volumeID)
       volume.reviews = try await req.catalogAPI.fetchReviews(volumeID: volumeID)
+      volume = await req.catalogAPI.resolveDeletedReferences(volume)
 
       let sessionUser = await req.currentUser
       let roles = sessionUser?.roles ?? []
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/volumes/\(volumeID)")
 
       var proposalReview: LeafVersionReview?
       if canReview(roles), let token = sessionUser?.accessToken {
@@ -87,6 +91,8 @@ struct VolumesController: RouteCollection {
         DetailContext(
           volume: try LeafVolumeDetail(volume, req: req),
           canEdit: canEdit(roles),
+          canDelete: canDelete(roles),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: proposalReview,
           conflicts: conflicts,
@@ -197,6 +203,38 @@ struct VolumesController: RouteCollection {
     }
   }
 
+  /// Soft-deletes a volume - admin only, enforced both here and by catalog-api itself. A
+  /// client-side confirm (`detail.leaf`) gates the request firing, since delete is destructive-
+  /// looking even though reversible (design.md's decision).
+  @Sendable
+  func deleteVolume(req: Request) async throws -> Response {
+    try await withSpan("volume-delete") { _ in
+      guard let volumeID = req.parameters.get("volumeID") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(
+        path: "/volumes/\(volumeID)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/volumes")
+      return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
+    }
+  }
+
+  /// Restores a soft-deleted volume - admin only.
+  @Sendable
+  func restoreDeletedVolume(req: Request) async throws -> Response {
+    try await withSpan("volume-restore-deleted") { _ in
+      guard let volumeID = req.parameters.get("volumeID") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(
+        path: "/volumes/\(volumeID)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/volumes")
+      return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
+    }
+  }
+
   /// Loads (or starts) the caller's durable edit session for `volumeID`. Three outcomes:
   /// - no session existed - one is created here, seeded from the volume's live values
   /// - a session already exists for this same volume - resumed as-is (a page reload mid-edit
@@ -248,10 +286,11 @@ struct VolumesController: RouteCollection {
         throw Abort(.forbidden)
       }
       let volumes = try await req.catalogAPI.fetchVolumes()  // TODO: fix this travesty
-      guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
         req.logger.error("editForm: volume \(volumeID) not found")
         throw Abort(.notFound)
       }
+      volume = await req.catalogAPI.resolveDeletedReferences(volume)
 
       guard let session = try await loadOrStartSession(req: req, userSub: user.sub, volume: volume)
       else {
@@ -366,10 +405,11 @@ struct VolumesController: RouteCollection {
         // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
         // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
         let volumes = try await req.catalogAPI.fetchVolumes()
-        guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
+        guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
         else {
           throw Abort(.notFound)
         }
+        volume = await req.catalogAPI.resolveDeletedReferences(volume)
         async let systemOptions = req.catalogAPI.fetchSystemOptions()
         async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
         async let studioOptions = req.catalogAPI.fetchStudioOptions()

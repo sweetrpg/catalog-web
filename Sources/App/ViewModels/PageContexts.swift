@@ -70,6 +70,11 @@ struct DetailContext: Content {
   /// `true` when the signed-in session's roles include submitter/editor/admin - gates the
   /// "Edit" action. `false` (including for an anonymous visitor) hides it entirely.
   let canEdit: Bool
+  /// `true` only for admin - gates the "Delete"/"Restore" actions (task 3.1/3.2).
+  let canDelete: Bool
+  /// `true` when this volume is currently soft-deleted - swaps the "Delete" action for
+  /// "Restore" and shows a deleted-state indicator.
+  let isDeleted: Bool
   /// `true` right after a submitter's edit was stored as a proposed change rather than applied
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
@@ -290,6 +295,11 @@ struct EntityDetailContext: Content {
   var person: LeafPersonDetail?
   var license: LeafLicenseDetail?
   let canEdit: Bool
+  /// `true` only for admin - gates the "Delete"/"Restore" actions (task 3.1/3.2).
+  let canDelete: Bool
+  /// `true` when this record is currently soft-deleted - swaps the "Delete" action for
+  /// "Restore" and shows a deleted-state indicator.
+  let isDeleted: Bool
   let justProposed: Bool
   let review: LeafEntityVersionReview?
   let conflicts: [String]
@@ -299,7 +309,8 @@ struct EntityDetailContext: Content {
   init(
     publisher: LeafPublisherDetail? = nil, studio: LeafStudioDetail? = nil,
     person: LeafPersonDetail? = nil, license: LeafLicenseDetail? = nil,
-    canEdit: Bool, justProposed: Bool, review: LeafEntityVersionReview?, conflicts: [String],
+    canEdit: Bool, canDelete: Bool, isDeleted: Bool, justProposed: Bool,
+    review: LeafEntityVersionReview?, conflicts: [String],
     user: LeafUser?, meta: PageMeta
   ) {
     self.publisher = publisher
@@ -307,6 +318,8 @@ struct EntityDetailContext: Content {
     self.person = person
     self.license = license
     self.canEdit = canEdit
+    self.canDelete = canDelete
+    self.isDeleted = isDeleted
     self.justProposed = justProposed
     self.review = review
     self.conflicts = conflicts

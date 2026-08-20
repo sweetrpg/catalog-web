@@ -7,4 +7,9 @@ import Foundation
 struct EntityRef {
   let id: String
   let name: String
+  /// `true` when this reference was resolved via the unfiltered per-id fallback fetch because
+  /// the referenced record no longer appears in the live (non-deleted) name map - see
+  /// `CatalogAPIClientService.resolveDeletedReferences`. Lets a still-referenced-but-deleted
+  /// entity render labeled ("Acme Press (deleted)") instead of silently vanishing.
+  var isDeleted: Bool = false
 }

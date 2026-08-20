@@ -46,6 +46,10 @@
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
+		#if(isDeleted):
+			<p class="form-error">This volume is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
+		#endif
+
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
 				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
@@ -64,6 +68,21 @@
 						<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/versions" title="Version History">
 							<img src="#(meta.sharedURL)/static/img/icons/history.svg" alt="Version History">
 						</a>
+						#if(canDelete):
+							#if(isDeleted):
+								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/undelete">
+									<button type="submit" class="icon-btn" title="Restore">
+										<img src="#(meta.sharedURL)/static/img/icons/restore.svg" alt="Restore" onerror="this.replaceWith('↺')">
+									</button>
+								</form>
+							#else:
+								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('Delete this volume? It will be hidden from browse and pickers, but can be restored later.')">
+									<button type="submit" class="icon-btn" title="Delete">
+										<img src="#(meta.sharedURL)/static/img/icons/delete.svg" alt="Delete" onerror="this.replaceWith('×')">
+									</button>
+								</form>
+							#endif
+						#endif
 					</span>
 				</div>
 				<div class="tag-cloud">
@@ -98,7 +117,7 @@
 						<span class="section-label">Publisher</span>
 						<div class="tag-cloud">
 							#for(ref in volume.publisherRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -109,7 +128,7 @@
 						<span class="section-label">Studio</span>
 						<div class="tag-cloud">
 							#for(ref in volume.studioRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -120,7 +139,7 @@
 						<span class="section-label">License</span>
 						<div class="tag-cloud">
 							#for(ref in volume.licenseRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
 							#endfor
 						</div>
 					</div>
