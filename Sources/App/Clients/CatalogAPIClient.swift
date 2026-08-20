@@ -139,6 +139,24 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// Volume ID -> role for every contribution this person is credited on - `fetchPersonVolumes`
+  /// already gives the volume list (id/title/cover) but catalog-api's own handler drops role
+  /// when deduping contributions into that response, so the person detail page's "Contributed
+  /// to" section needs this separate lookup to show what each credit was for.
+  func fetchPersonContributionRoles(personID: String) async throws -> [String: String] {
+    try await withSpan("sdk-fetch-person-contribution-roles") { _ in
+      let doc = try await getCached("catalog:contributions") { try await sdk.fetchContributions() }
+      var roles: [String: String] = [:]
+      for resource in doc.data {
+        guard let pID = resource.relationships?["person"]?.data?.ids.first, pID == personID,
+          let volID = resource.relationships?["volume"]?.data?.ids.first
+        else { continue }
+        roles[volID] = resource.attributes.roles?.first ?? "Contributor"
+      }
+      return roles
+    }
+  }
+
   func fetchReviews(volumeID: String) async throws -> [(author: String, rating: Int, text: String)]
   {
     try await withSpan("sdk-fetch-reviews") { _ in
