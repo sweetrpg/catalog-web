@@ -251,16 +251,34 @@
 		  .contributor-dialog[hidden] {
 		    display: none;
 		  }
+		  .contributor-dialog-row {
+		    display: flex;
+		    align-items: flex-end;
+		    gap: 0.6rem;
+		  }
+		  .contributor-dialog-row .contributor-dialog-label {
+		    flex: 1;
+		    min-width: 0;
+		  }
+		  .contributor-dialog-row .icon-btn {
+		    flex-shrink: 0;
+		    width: 2rem;
+		    height: 2rem;
+		  }
 		  .contributor-add-type {
 		    display: flex;
 		    align-items: center;
 		    gap: 0.4rem;
 		    margin-top: 0.3rem;
 		  }
-		  .contributor-add-type select,
 		  .contributor-add-type input {
 		    flex: 1;
 		    min-width: 0;
+		  }
+		  .contributor-add-type .icon-btn {
+		    flex-shrink: 0;
+		    width: 2rem;
+		    height: 2rem;
 		  }
 		  .property-add-row,
 		  .property-add-name {
@@ -453,33 +471,36 @@
 						<script type="application/json" id="contributor-type-options">#unsafeHTML(volume.contributionTypeOptionsJSON)</script>
 
 						<div class="contributor-dialog" id="contributor-dialog" hidden>
-							<label class="contributor-dialog-label">
-								Person
-								<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
-								<ul class="picker-results" id="contributor-person-results" hidden></ul>
-							</label>
-							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
-
-							<label class="contributor-dialog-label">
-								Contribution type
-								<div class="contributor-add-type">
+							<div class="contributor-dialog-row">
+								<label class="contributor-dialog-label">
+									Person
+									<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
+									<ul class="picker-results" id="contributor-person-results" hidden></ul>
+								</label>
+								<label class="contributor-dialog-label">
+									Contribution type
 									<select class="input" id="contributor-type-select">
 										<option value="">Select a type&hellip;</option>
 									</select>
-									#if(volume.canAddContributionType):
-										<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
-										<button type="button" class="btn btn-ghost" id="contributor-add-type-trigger">Add type</button>
-									#endif
-								</div>
-							</label>
+								</label>
+								<button type="button" class="icon-btn" id="contributor-confirm-trigger" title="Add" disabled>
+									<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Confirm">
+								</button>
+								<button type="button" class="icon-btn" id="contributor-cancel-trigger" title="Cancel">
+									<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+								</button>
+							</div>
+							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
+
 							#if(volume.canAddContributionType):
+								<div class="contributor-add-type">
+									<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
+									<button type="button" class="icon-btn" id="contributor-add-type-trigger" title="Add a new contribution type">
+										<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Add type">
+									</button>
+								</div>
 								<p class="form-error" id="contributor-add-type-error" hidden></p>
 							#endif
-
-							<div class="contributor-dialog-actions">
-								<button type="button" class="btn btn-primary" id="contributor-confirm-trigger" disabled>Add</button>
-								<button type="button" class="btn btn-ghost" id="contributor-cancel-trigger">Cancel</button>
-							</div>
 						</div>
 					</div>
 
@@ -920,10 +941,20 @@
 		      selectedPerson = { id: editingChip.dataset.personId, name: editingChip.dataset.personName };
 		      selectedPersonLabel.textContent = 'Selected: ' + selectedPerson.name;
 		      selectedPersonLabel.hidden = false;
-		      typeSelect.value = editingChip.dataset.contributionType;
+		      var existingType = editingChip.dataset.contributionType;
+		      // A chip's stored type can predate the current vocabulary (or come from a stale
+		      // default like "Contributor") - inject it as a selectable option rather than let
+		      // the select silently fall back to blank when it doesn't match any <option>.
+		      if (existingType && !typeOptions.includes(existingType)) {
+		        var extra = document.createElement('option');
+		        extra.value = existingType;
+		        extra.textContent = existingType;
+		        typeSelect.appendChild(extra);
+		      }
+		      typeSelect.value = existingType;
 		      updateConfirmEnabled();
 		    }
-		    confirmBtn.textContent = editingChip ? 'Update' : 'Add';
+		    confirmBtn.title = editingChip ? 'Update' : 'Add';
 		    dialog.hidden = false;
 		  }
 
