@@ -180,7 +180,9 @@ struct LeafVolumeEditForm: Content {
     let selectedSystemIds = session.stringArrayField("systemIds") ?? volume.systemIds
     self.selectedSystems = selectedSystemIds.map { id in
       if let name = systemByID[id] { return LeafNamedOption(id: id, name: name) }
-      if let name = deletedSystemByID[id] { return LeafNamedOption(id: id, name: "\(name) (deleted)") }
+      if let name = deletedSystemByID[id] {
+        return LeafNamedOption(id: id, name: "\(name) (deleted)")
+      }
       return LeafNamedOption(id: id, name: "Unknown system")
     }
     self.hasSelectedSystems = !self.selectedSystems.isEmpty
