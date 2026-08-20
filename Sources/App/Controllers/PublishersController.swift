@@ -42,6 +42,8 @@ struct PublishersController: RouteCollection {
     routes.post(
       "publishers", ":id", "versions", ":version", "reject",
       use: rejectPublisherVersion)
+    routes.post("publishers", ":id", "delete", use: deletePublisher)
+    routes.post("publishers", ":id", "undelete", use: restorePublisher)
   }
 
   private struct BrowseQuery: Content {
@@ -113,12 +115,15 @@ struct PublishersController: RouteCollection {
         req: req, path: "/publishers", recordID: id, fieldSpecs: publisherFields,
         currentValues: fieldValues(publisher), sessionUser: sessionUser,
         versionFieldValues: { (v: PublisherVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/publishers/\(id)")
 
       return try await req.view.render(
         "publishers/detail",
         EntityDetailContext(
           publisher: LeafPublisherDetail(publisher),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -159,6 +164,34 @@ struct PublishersController: RouteCollection {
   @Sendable
   func rejectPublisherVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/publishers")
+  }
+
+  /// Soft-deletes a publisher - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deletePublisher(req: Request) async throws -> Response {
+    try await withSpan("publisher-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/publishers/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/publishers")
+      return req.redirect(to: "\(req.basePath)/publishers/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted publisher - admin only.
+  @Sendable
+  func restorePublisher(req: Request) async throws -> Response {
+    try await withSpan("publisher-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/publishers/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/publishers")
+      return req.redirect(to: "\(req.basePath)/publishers/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

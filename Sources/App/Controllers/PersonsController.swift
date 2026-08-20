@@ -37,6 +37,8 @@ struct PersonsController: RouteCollection {
       "persons", ":id", "versions", ":version", "accept", use: acceptPersonVersion)
     routes.post(
       "persons", ":id", "versions", ":version", "reject", use: rejectPersonVersion)
+    routes.post("persons", ":id", "delete", use: deletePerson)
+    routes.post("persons", ":id", "undelete", use: restorePerson)
   }
 
   private struct BrowseQuery: Content {
@@ -173,12 +175,15 @@ struct PersonsController: RouteCollection {
         req: req, path: "/persons", recordID: id, fieldSpecs: personFields,
         currentValues: fieldValues(person), sessionUser: sessionUser,
         versionFieldValues: { (v: PersonVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/persons/\(id)")
 
       return try await req.view.render(
         "persons/detail",
         EntityDetailContext(
           person: LeafPersonDetail(person),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -219,6 +224,34 @@ struct PersonsController: RouteCollection {
   @Sendable
   func rejectPersonVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/persons")
+  }
+
+  /// Soft-deletes a person - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deletePerson(req: Request) async throws -> Response {
+    try await withSpan("person-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/persons/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/persons")
+      return req.redirect(to: "\(req.basePath)/persons/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted person - admin only.
+  @Sendable
+  func restorePerson(req: Request) async throws -> Response {
+    try await withSpan("person-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/persons/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/persons")
+      return req.redirect(to: "\(req.basePath)/persons/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

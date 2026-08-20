@@ -36,6 +36,8 @@ struct StudiosController: RouteCollection {
       "studios", ":id", "versions", ":version", "accept", use: acceptStudioVersion)
     routes.post(
       "studios", ":id", "versions", ":version", "reject", use: rejectStudioVersion)
+    routes.post("studios", ":id", "delete", use: deleteStudio)
+    routes.post("studios", ":id", "undelete", use: restoreStudio)
   }
 
   private struct BrowseQuery: Content {
@@ -96,12 +98,15 @@ struct StudiosController: RouteCollection {
         req: req, path: "/studios", recordID: id, fieldSpecs: studioFields,
         currentValues: fieldValues(studio), sessionUser: sessionUser,
         versionFieldValues: { (v: StudioVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/studios/\(id)")
 
       return try await req.view.render(
         "studios/detail",
         EntityDetailContext(
           studio: LeafStudioDetail(studio),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -180,6 +185,34 @@ struct StudiosController: RouteCollection {
   @Sendable
   func rejectStudioVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/studios")
+  }
+
+  /// Soft-deletes a studio - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deleteStudio(req: Request) async throws -> Response {
+    try await withSpan("studio-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/studios/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/studios")
+      return req.redirect(to: "\(req.basePath)/studios/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted studio - admin only.
+  @Sendable
+  func restoreStudio(req: Request) async throws -> Response {
+    try await withSpan("studio-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/studios/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/studios")
+      return req.redirect(to: "\(req.basePath)/studios/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same
