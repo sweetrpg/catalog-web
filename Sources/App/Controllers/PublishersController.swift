@@ -139,21 +139,57 @@ struct PublishersController: RouteCollection {
     try await withSpan("publishers-edit") { _ in
       guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
       guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-      guard let publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
+      guard var publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
         throw Abort(.notFound)
       }
+      publisher.volumes = try await req.catalogAPI.fetchPublisherVolumes(id: id)
+      let allVolumes = try await req.catalogAPI.fetchVolumes().map { ($0.id, $0.title) }
+
+      let base = makeEditContext(
+        id: id, basePath: "/publishers", fields: publisherFields,
+        values: fieldValues(publisher), user: user, meta: await PageMeta.make(req))
 
       return try await req.view.render(
         "publishers/edit",
-        makeEditContext(
-          id: id, basePath: "/publishers", fields: publisherFields,
-          values: fieldValues(publisher), user: user, meta: await PageMeta.make(req)))
+        EntityEditWithVolumesContext(
+          base: base, canManageVolumes: canReview(user.roles), selectedVolumes: publisher.volumes,
+          allVolumes: allVolumes))
     }
   }
 
   @Sendable
   func submitPublisherEdit(req: Request) async throws -> Response {
-    try await submitEdit(req: req, path: "/publishers", fields: publisherFields)
+    try await withSpan("submit-publisher-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+
+      let input = try req.content.decode([String: String].self)
+      let known = Set(publisherFields.map(\.key))
+      let filtered = input.filter { known.contains($0.key) }
+
+      let result = try await req.catalogAPI.patchEntity(
+        path: "/publishers", id: id, token: user.accessToken, fields: filtered)
+
+      // Volume association is editor/admin-direct (no review workflow, see
+      // sweetrpg/catalog-api#220) - mirrors StudiosController.submitStudioEdit/
+      // LicensesController.submitLicenseEdit.
+      if let volumeIdsRaw = input["volumeIds"] {
+        let volumeIds = volumeIdsRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        if canReview(user.roles) {
+          try await req.catalogAPI.patchEntityVolumes(
+            path: "/publishers", id: id, token: user.accessToken, volumeIds: volumeIds)
+        }
+      }
+
+      let basePath = "\(req.basePath)/publishers/\(id)"
+      switch result {
+      case .applied:
+        await req.catalogAPI.invalidateEntityListCache(path: "/publishers")
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    }
   }
 
   @Sendable
