@@ -518,6 +518,7 @@ struct CatalogAPIClientService {
     "/publishers": ["catalog:publishers", "catalog:/publishers"],
     "/studios": ["catalog:studios", "catalog:/studios"],
     "/licenses": ["catalog:licenses-list"],
+    "/volumes": ["catalog:volumes"],
   ]
 
   func invalidateEntityListCache(path: String) async {

@@ -355,6 +355,9 @@ struct VolumesController: RouteCollection {
         let result = try await req.catalogAPI.finalizeSession(id: volumeID, token: user.accessToken)
         switch result {
         case .applied:
+          // Only .applied changes the live record - a .proposed submitter edit hasn't touched
+          // it yet, so the cached volumes list is still accurate.
+          await req.catalogAPI.invalidateEntityListCache(path: "/volumes")
           return req.redirect(to: basePath)
         case .proposed:
           return req.redirect(to: "\(basePath)?proposed=1")
@@ -686,6 +689,7 @@ struct VolumesController: RouteCollection {
 
       let result = try await req.catalogAPI.acceptVolumeVersion(
         volumeID: volumeID, version: version, token: user.accessToken, fields: fields)
+      await req.catalogAPI.invalidateEntityListCache(path: "/volumes")
 
       var redirectPath = "\(req.basePath)/volumes/\(volumeID)"
       if let conflicts = result.conflicts, !conflicts.isEmpty {
