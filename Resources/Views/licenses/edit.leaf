@@ -90,7 +90,7 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; License</a>
 
 		<section class="page-header">
 			<span class="section-label">Edit</span>

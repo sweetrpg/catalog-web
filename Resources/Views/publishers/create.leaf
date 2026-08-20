@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Publishers</a>
 
 		<section class="page-header">
 			<span class="section-label">New</span>
