@@ -51,6 +51,7 @@ struct CatalogAPIClientService {
           notes: resource.attributes.notes ?? "",
           tags: (resource.attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
           systemNames: names("system", from: systemNames),
+          systemIds: ids("system"),
           publisherNames: names("publisher", from: publisherNames),
           publisherIds: ids("publisher"),
           studioNames: names("studio", from: studioNames),
@@ -59,6 +60,7 @@ struct CatalogAPIClientService {
           properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
           format: resource.attributes.format ?? "",
           sampleAssetIds: resource.attributes.sampleAssetIds ?? [],
+          systemRefs: refs("system", from: systemNames),
           publisherRefs: refs("publisher", from: publisherNames),
           studioRefs: refs("studio", from: studioNames),
           licenseRefs: refs("license", from: licenseNames)
@@ -85,6 +87,19 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-fetch-studio-options") { _ in
       let doc = try await getCached("catalog:/studios") {
         try await sdk.fetchNamed(path: "/studios")
+      }
+      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+    }
+  }
+
+  /// Every game system, sorted by name - same rationale as `fetchPublisherOptions`. Backs the
+  /// volume edit page's system picker (previously missing entirely - unlike publisher/studio,
+  /// the volume edit form never wired one up despite catalog-api's Volume record already
+  /// carrying a `Systems` relation).
+  func fetchSystemOptions() async throws -> [(id: String, name: String)] {
+    try await withSpan("sdk-fetch-system-options") { _ in
+      let doc = try await getCached("catalog:/systems") {
+        try await sdk.fetchNamed(path: "/systems")
       }
       return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
     }
@@ -117,9 +132,7 @@ struct CatalogAPIClientService {
           volID == volumeID
         else { return nil }
         guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
-        let role =
-          resource.attributes.role ?? resource.attributes.credit ?? resource.attributes.title
-          ?? "Contributor"
+        let role = resource.attributes.roles?.first ?? "Contributor"
         return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
       }
     }
@@ -402,6 +415,38 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// One entry's outcome in a bulk-create response - success/id for a created record, or an
+  /// error message, never both (matches catalog-api's bulkCreateResult).
+  struct BulkCreateResult: Content {
+    let success: Bool
+    let id: String?
+    let error: String?
+  }
+
+  private struct BulkCreateResponse: Content {
+    let results: [BulkCreateResult]
+  }
+
+  /// Bulk-creates N persons from a single request (catalog-entity-bulk-add) - each entry
+  /// succeeds or fails independently, so a caller gets back one result per input entry rather
+  /// than an all-or-nothing outcome. Same raw-`req.client` rationale as `createEntity` above -
+  /// no `catalog-api-client.swift` SDK method exists for this yet.
+  func bulkCreatePersons(fields: [[String: String]], token: String) async throws
+    -> [BulkCreateResult]
+  {
+    try await withSpan("bulk-create-persons") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + "/persons/bulk")
+      let response = try await req.client.post(uri) { clientReq in
+        clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+        try clientReq.content.encode(fields, as: .json)
+      }
+      guard response.status == .ok else {
+        throw Abort(response.status, reason: "catalog-api bulk create failed")
+      }
+      return try response.content.decode(BulkCreateResponse.self).results
+    }
+  }
+
   /// Edits a license's string fields and (optionally) its `tags` array in one PATCH - the
   /// license-specific counterpart of `patchEntity`, which only encodes a `[String: String]` body
   /// and so can't carry `tags` (catalog-api's one array-valued entity field, sweetrpg/
@@ -437,18 +482,22 @@ struct CatalogAPIClientService {
     }
   }
 
-  /// Sets the full list of volumes a license is associated with (full-replace) - catalog-api's
-  /// `PATCH /licenses/:id/volumes` (sweetrpg/catalog-api#220), editor/admin only. Same raw-
-  /// `req.client` rationale as `createEntity` above.
-  func patchLicenseVolumes(id: String, token: String, volumeIds: [String]) async throws {
-    try await withSpan("patch-license-volumes") { _ in
-      let uri = URI(string: req.backendConfig.catalogAPIURL + "/licenses/\(id)/volumes")
+  /// Sets the full list of volumes an entity is associated with (full-replace) - catalog-api's
+  /// `PATCH <path>/:id/volumes` (sweetrpg/catalog-api#220), editor/admin only. Generic over
+  /// `path` (`/licenses`, `/studios`, ...) since the route shape and semantics are identical
+  /// per entity type - only which volume field it writes differs, and that's catalog-api's
+  /// concern, not this client's. Same raw-`req.client` rationale as `createEntity` above.
+  func patchEntityVolumes(path: String, id: String, token: String, volumeIds: [String])
+    async throws
+  {
+    try await withSpan("patch-entity-volumes") { _ in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + "\(path)/\(id)/volumes")
       let response = try await req.client.patch(uri) { clientReq in
         clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
         try clientReq.content.encode(["volumeIds": volumeIds], as: .json)
       }
       guard response.status == .ok else {
-        throw Abort(response.status, reason: "catalog-api license volumes update failed")
+        throw Abort(response.status, reason: "catalog-api \(path) volumes update failed")
       }
     }
   }
@@ -481,6 +530,23 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-cache-get-or-set") { _ in
       try await cache.getOrSet(cacheKey, ttlSeconds: 60, fetch: fetch)
     }
+  }
+
+  /// Every cache key that can hold a list/name-map of the entity type at `path` - not a fully
+  /// consistent naming scheme (some keys carry the leading slash, some don't, "persons" also has
+  /// a "-list" variant), so this enumerates the actual keys in use rather than deriving them.
+  /// Called after create/edit so a newly added or renamed publisher/studio/person shows up in
+  /// pickers immediately instead of waiting out the 60s TTL - see submitCreate/submitEdit.
+  private static let entityListCacheKeys: [String: [String]] = [
+    "/persons": ["catalog:persons", "catalog:persons-list"],
+    "/publishers": ["catalog:publishers", "catalog:/publishers"],
+    "/studios": ["catalog:studios", "catalog:/studios"],
+    "/licenses": ["catalog:licenses-list"],
+    "/volumes": ["catalog:volumes"],
+  ]
+
+  func invalidateEntityListCache(path: String) async {
+    await cache.delete(Self.entityListCacheKeys[path] ?? [])
   }
 }
 

@@ -57,6 +57,7 @@ struct LicensesController: RouteCollection {
     routes.get("licenses", ":id", use: detailLicense)
     routes.get("licenses", ":id", "edit", use: editLicenseForm)
     routes.post("licenses", ":id", "edit", use: submitLicenseEdit)
+    routes.post("licenses", ":id", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
       "licenses", ":id", "versions", ":version", "accept",
       use: acceptLicenseVersion)
@@ -161,6 +162,8 @@ struct LicensesController: RouteCollection {
       }
       license.volumes = try await req.catalogAPI.fetchLicenseVolumes(id: id)
       let allVolumes = try await req.catalogAPI.fetchVolumes().map { ($0.id, $0.title) }
+      let tagOptions =
+        (try? await req.catalogAPI.fetchVocabulary(type: "tag", token: user.accessToken)) ?? []
 
       let base = makeEditContext(
         id: id, basePath: "/licenses", fields: licenseFields,
@@ -169,7 +172,8 @@ struct LicensesController: RouteCollection {
       return try await req.view.render(
         "licenses/edit",
         LicenseEditContext(
-          base: base, tags: license.tags, canManageVolumes: canReview(user.roles),
+          base: base, tags: license.tags, tagOptions: tagOptions,
+          canAddTag: canCreateVocabularyValue(user.roles), canManageVolumes: canReview(user.roles),
           selectedVolumes: license.volumes, allVolumes: allVolumes))
     }
   }
@@ -199,8 +203,8 @@ struct LicensesController: RouteCollection {
       if let volumeIdsRaw = input["volumeIds"] {
         let volumeIds = volumeIdsRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
         if canReview(user.roles) {
-          try await req.catalogAPI.patchLicenseVolumes(
-            id: id, token: user.accessToken, volumeIds: volumeIds)
+          try await req.catalogAPI.patchEntityVolumes(
+            path: "/licenses", id: id, token: user.accessToken, volumeIds: volumeIds)
         }
       }
 

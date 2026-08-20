@@ -87,10 +87,14 @@ struct LicenseEditContext: Content {
   let backPath: String
   let submitPath: String
   let fields: [LeafEntityFieldInput]
-  /// Comma-joined for a plain text input - license tags are free-text labels (no shared
-  /// vocabulary to pick from, unlike publisher/studio on the volume edit page), so a
-  /// type-to-filter picker would have nothing to filter against.
-  let tagsValue: String
+  let tags: [LeafNamedOption]
+  /// The `tag` shared vocabulary's known values, embedded as JSON for the chip picker's
+  /// type-to-filter autocomplete (see the `contribution-type`/`property-name` pickers on the
+  /// volume edit page for the same pattern).
+  let tagOptionsJSON: String
+  /// Editor/admin only, per `canCreateVocabularyValue` - a submitter can attach an existing tag
+  /// but never grow the shared vocabulary.
+  let canAddTag: Bool
   /// The volumes picker writes directly to volume records with no review step (see
   /// sweetrpg/catalog-api#220), so it's only shown to a session with review rights - a
   /// submitter still gets the rest of this form (tags included, which does go through the
@@ -102,14 +106,18 @@ struct LicenseEditContext: Content {
   let meta: PageMeta
 
   init(
-    base: EntityEditContext, tags: [String], canManageVolumes: Bool,
-    selectedVolumes: [VolumeSummary], allVolumes: [(id: String, title: String)]
+    base: EntityEditContext, tags: [String], tagOptions: [String], canAddTag: Bool,
+    canManageVolumes: Bool, selectedVolumes: [VolumeSummary],
+    allVolumes: [(id: String, title: String)]
   ) {
     self.id = base.id
     self.backPath = base.backPath
     self.submitPath = base.submitPath
     self.fields = base.fields
-    self.tagsValue = tags.joined(separator: ", ")
+    self.tags = tags.map { LeafNamedOption(id: $0, name: $0) }
+    self.tagOptionsJSON =
+      (try? JSONEncoder().encode(tagOptions)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+    self.canAddTag = canAddTag
     self.canManageVolumes = canManageVolumes
     self.selectedVolumes = selectedVolumes.map { LeafNamedOption(id: $0.id, name: $0.title) }
     let options = allVolumes.map { LeafNamedOption(id: $0.id, name: $0.title) }

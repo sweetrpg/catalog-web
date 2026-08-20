@@ -25,7 +25,7 @@
 		    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 		  }
 		  .detail-description {
-		    max-height: 40vh;
+		    max-height: 20vh;
 		    overflow-y: auto;
 		  }
 		  .detail-description :first-child {
@@ -130,7 +130,7 @@
 					<div class="detail-block">
 						<span class="section-label">Credits</span>
 						#for(credit in volume.credits):
-							<p><strong>#(credit.role)</strong> &mdash; #(credit.person)</p>
+							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
 						#endfor
 					</div>
 				#endif
