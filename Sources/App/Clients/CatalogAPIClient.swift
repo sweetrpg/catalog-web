@@ -132,15 +132,7 @@ struct CatalogAPIClientService {
           volID == volumeID
         else { return nil }
         guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
-        // TODO(sweetrpg/catalog-api-client.swift): ContributionAttributes.role/credit/title
-        // never matched a real JSON:API attribute (the actual field is `roles`, a string array) -
-        // every credit's role silently fell back to this generic placeholder. Fixed in that SDK
-        // repo's own Contribution.swift (roles: [String]?) but not yet released/bumped here -
-        // swap to `resource.attributes.roles?.first ?? "Contributor"` once catalog-web's
-        // Package.swift pins a release containing that fix.
-        let role =
-          resource.attributes.role ?? resource.attributes.credit ?? resource.attributes.title
-          ?? "Contributor"
+        let role = resource.attributes.roles?.first ?? "Contributor"
         return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
       }
     }
