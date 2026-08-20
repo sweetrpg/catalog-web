@@ -20,10 +20,31 @@
 		    }
 		  }
 		  .stat-card {
+		    position: relative;
 		    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
 		    border: 1px solid var(--color-neutral-300);
 		    border-radius: 8px;
 		    padding: 16px;
+		  }
+		  .stat-card:has(.stat-card-browse-link:hover) {
+		    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+		  }
+		  /* Stretched-link: covers the whole card so it's clickable anywhere, but sits behind
+		     (z-index) the "most recent" link so that nested link keeps its own click target. */
+		  .stat-card-browse-link {
+		    position: absolute;
+		    inset: 0;
+		    z-index: 1;
+		  }
+		  .stat-card-label,
+		  .stat-card-count {
+		    position: relative;
+		    z-index: 0;
+		    pointer-events: none;
+		  }
+		  .stat-card-recent a {
+		    position: relative;
+		    z-index: 2;
 		  }
 		  .stat-card-label {
 		    font-size: 13px;
@@ -70,6 +91,9 @@
 			<div class="stat-card-grid">
 				#for(card in statCards):
 					<div class="stat-card">
+						#if(card.hasBrowseLink):
+							<a class="stat-card-browse-link" href="#(meta.basePath)#(card.browsePath)" aria-label="Browse #(card.label)"></a>
+						#endif
 						<div class="stat-card-label">#(card.label)</div>
 						<div class="stat-card-count">#(card.count)</div>
 						#if(card.hasMostRecent):
