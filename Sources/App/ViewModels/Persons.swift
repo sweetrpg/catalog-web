@@ -45,6 +45,7 @@ struct PersonsBrowseContext: Content {
   let bulkCreatedCount: Int
   let bulkFailedCount: Int
   let bulkFailures: [LeafBulkAddFailure]
+  let pagination: LeafPagination
   let user: LeafUser?
   let meta: PageMeta
 }
