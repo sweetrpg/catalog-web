@@ -52,15 +52,20 @@ func fieldValues(_ l: LicenseVersionAttributes) -> [String: String] {
 struct LicensesController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("licenses", use: browseLicenses)
+    routes.get("licenses", "new", use: newLicenseForm)
+    routes.post("licenses", "new", use: submitLicenseCreate)
     routes.get("licenses", ":id", use: detailLicense)
     routes.get("licenses", ":id", "edit", use: editLicenseForm)
     routes.post("licenses", ":id", "edit", use: submitLicenseEdit)
+    routes.post("licenses", ":id", "edit", "vocabulary", ":type", use: addVocabularyValue)
     routes.post(
       "licenses", ":id", "versions", ":version", "accept",
       use: acceptLicenseVersion)
     routes.post(
       "licenses", ":id", "versions", ":version", "reject",
       use: rejectLicenseVersion)
+    routes.post("licenses", ":id", "delete", use: deleteLicense)
+    routes.post("licenses", ":id", "undelete", use: restoreLicense)
   }
 
   private struct BrowseQuery: Content {
@@ -96,10 +101,28 @@ struct LicensesController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newLicenseForm(req: Request) async throws -> View {
+    try await withSpan("licenses-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "licenses/create",
+        makeCreateContext(
+          basePath: "/licenses", fields: licenseFields, user: user, meta: await PageMeta.make(req))
+      )
+    }
+  }
+
+  @Sendable
+  func submitLicenseCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/licenses", fields: licenseFields)
   }
 
   @Sendable
@@ -115,12 +138,15 @@ struct LicensesController: RouteCollection {
         req: req, path: "/licenses", recordID: id, fieldSpecs: licenseFields,
         currentValues: fieldValues(license), sessionUser: sessionUser,
         versionFieldValues: { (v: LicenseVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/licenses/\(id)")
 
       return try await req.view.render(
         "licenses/detail",
         EntityDetailContext(
           license: try LeafLicenseDetail(license, req: req),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -136,21 +162,65 @@ struct LicensesController: RouteCollection {
     try await withSpan("licenses-edit") { _ in
       guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
       guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-      guard let license = try await req.catalogAPI.fetchLicense(id: id) else {
+      guard var license = try await req.catalogAPI.fetchLicense(id: id) else {
         throw Abort(.notFound)
       }
+      license.volumes = try await req.catalogAPI.fetchLicenseVolumes(id: id)
+      let allVolumes = try await req.catalogAPI.fetchVolumes().map { ($0.id, $0.title) }
+      let tagOptions =
+        (try? await req.catalogAPI.fetchVocabulary(type: "tag", token: user.accessToken)) ?? []
+
+      let base = makeEditContext(
+        id: id, basePath: "/licenses", fields: licenseFields,
+        values: fieldValues(license), user: user, meta: await PageMeta.make(req))
 
       return try await req.view.render(
         "licenses/edit",
-        makeEditContext(
-          id: id, basePath: "/licenses", fields: licenseFields,
-          values: fieldValues(license), user: user, meta: await PageMeta.make(req)))
+        LicenseEditContext(
+          base: base, tags: license.tags, tagOptions: tagOptions,
+          canAddTag: canCreateVocabularyValue(user.roles), canManageVolumes: canReview(user.roles),
+          selectedVolumes: license.volumes, allVolumes: allVolumes))
     }
   }
 
   @Sendable
   func submitLicenseEdit(req: Request) async throws -> Response {
-    try await submitEdit(req: req, path: "/licenses", fields: licenseFields)
+    try await withSpan("submit-license-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+
+      let input = try req.content.decode([String: String].self)
+      let known = Set(licenseFields.map(\.key))
+      let filtered = input.filter { known.contains($0.key) }
+      let tags = input["tags"].map {
+        $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter {
+          !$0.isEmpty
+        }
+      }
+
+      let result = try await req.catalogAPI.patchLicenseFields(
+        id: id, token: user.accessToken, fields: filtered, tags: tags)
+
+      // Volume association is editor/admin-direct (no review workflow, see
+      // sweetrpg/catalog-api#220) - a submitter's session never renders the volumes picker
+      // (canEdit gates the whole page, but only editor/admin get review rights), so this simply
+      // does nothing when the field is absent from the submission.
+      if let volumeIdsRaw = input["volumeIds"] {
+        let volumeIds = volumeIdsRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        if canReview(user.roles) {
+          try await req.catalogAPI.patchEntityVolumes(
+            path: "/licenses", id: id, token: user.accessToken, volumeIds: volumeIds)
+        }
+      }
+
+      let basePath = "\(req.basePath)/licenses/\(id)"
+      switch result {
+      case .applied:
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    }
   }
 
   @Sendable
@@ -161,6 +231,34 @@ struct LicensesController: RouteCollection {
   @Sendable
   func rejectLicenseVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/licenses")
+  }
+
+  /// Soft-deletes a license - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deleteLicense(req: Request) async throws -> Response {
+    try await withSpan("license-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/licenses/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/licenses")
+      return req.redirect(to: "\(req.basePath)/licenses/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted license - admin only.
+  @Sendable
+  func restoreLicense(req: Request) async throws -> Response {
+    try await withSpan("license-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/licenses/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/licenses")
+      return req.redirect(to: "\(req.basePath)/licenses/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

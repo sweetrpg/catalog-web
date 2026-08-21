@@ -10,12 +10,14 @@ struct VolumeViewModel {
   let description: String
   let notes: String
   let tags: [String]
-  let systemNames: [String]
+  var systemNames: [String]
+  var systemIds: [String] = []
   let publisherNames: [String]
   var publisherIds: [String] = []
   let studioNames: [String]
   var studioIds: [String] = []
   let licenseNames: [String]
+  var licenseIds: [String] = []
   var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
   var properties: [(name: String, value: String)] = []
@@ -26,6 +28,7 @@ struct VolumeViewModel {
   /// The volume's live sample-image ids (e.g. `["vol-1-0", "vol-1-1"]`) - empty until a session
   /// with staged samples has been finalized at least once (see `volume-sample-pages`'s spec).
   var sampleAssetIds: [String] = []
+  var systemRefs: [EntityRef] = []
   var publisherRefs: [EntityRef] = []
   var studioRefs: [EntityRef] = []
   var licenseRefs: [EntityRef] = []

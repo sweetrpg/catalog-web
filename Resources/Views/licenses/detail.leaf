@@ -30,7 +30,7 @@
 		  .license-volumes-panel {
 		    margin-top: 12px;
 		  }
-		  .license-text-panel details {
+		  .license-text-panel details + details {
 		    margin-top: 12px;
 		    border-top: 1px solid var(--color-divider);
 		    padding-top: 12px;
@@ -45,7 +45,10 @@
 		    line-height: 1.6;
 		    max-height: 60vh;
 		    overflow-y: auto;
-		    margin-top: 8px;
+		    /* A <p>'s UA-stylesheet margin (~1em top/bottom) was adding visible blank space above
+		       and below the text inside this scroll container - reset both, keep only the
+		       deliberate gap below the <summary> toggle. */
+		    margin: 8px 0 0;
 		  }
 		  .license-text-body[data-mode="preview"] {
 		    white-space: normal;
@@ -69,7 +72,7 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)/licenses">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/licenses">&larr; Licenses</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
@@ -79,12 +82,28 @@
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
+		#if(isDeleted):
+			<p class="form-error">This license is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
+		#endif
+
 		<div>
 			<span class="section-label">License</span>
 			<h1>#(license.title)</h1>
 
 			#if(canEdit):
 				<a class="btn btn-ghost" href="#(meta.basePath)/licenses/#(license.id)/edit">Edit</a>
+			#endif
+
+			#if(canDelete):
+				#if(isDeleted):
+					<form method="post" action="#(meta.basePath)/licenses/#(license.id)/undelete">
+						<button type="submit" class="btn btn-ghost">Restore</button>
+					</form>
+				#else:
+					<form method="post" action="#(meta.basePath)/licenses/#(license.id)/delete" onsubmit="return confirm('Delete this license? It will be hidden from browse and pickers, but can be restored later.')">
+						<button type="submit" class="btn btn-ghost">Delete</button>
+					</form>
+				#endif
 			#endif
 
 			#if(review):

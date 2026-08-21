@@ -1,22 +1,281 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+		<style>
+		  /* Volumes picker (mirrors the volume edit page's publisher/studio tag-cloud-field, but
+		     submits as part of this page's single full-form POST rather than autosaving to a
+		     session - this page has no edit-session concept). Same copy as licenses/edit.leaf's -
+		     not yet worth promoting to shared-web given only two consumers. */
+		  .tag-cloud-field .chip-list {
+		    display: flex;
+		    flex-wrap: wrap;
+		    align-items: center;
+		    gap: 0.4rem;
+		  }
+		  .tag-cloud-field .chip {
+		    cursor: pointer;
+		  }
+		  .chip-add-trigger {
+		    border: none;
+		    background: rgba(127, 127, 127, 0.15);
+		    border-radius: 999px;
+		    width: 1.6rem;
+		    height: 1.6rem;
+		    line-height: 1;
+		    cursor: pointer;
+		    font-size: 1rem;
+		  }
+		  .tag-picker {
+		    display: flex;
+		    align-items: center;
+		    gap: 0.4rem;
+		    margin-top: 0.4rem;
+		    position: relative;
+		  }
+		  .tag-picker[hidden] {
+		    display: none;
+		  }
+		  .tag-picker .picker-filter {
+		    flex: 1;
+		  }
+		  .tag-picker-cancel {
+		    border: none;
+		    background: transparent;
+		    border-radius: 50%;
+		    width: 1.6rem;
+		    height: 1.6rem;
+		    line-height: 1;
+		    cursor: pointer;
+		  }
+		  .chip-remove {
+		    display: inline-flex;
+		    align-items: center;
+		    justify-content: center;
+		    border: none;
+		    background: transparent;
+		    border-radius: 50%;
+		    width: 1.1rem;
+		    height: 1.1rem;
+		    min-width: 1.1rem;
+		    padding: 0;
+		    margin-left: 0.35rem;
+		    line-height: 1;
+		    font-size: 0.9rem;
+		    cursor: pointer;
+		  }
+		  .picker-results {
+		    position: absolute;
+		    top: 100%;
+		    left: 0;
+		    right: 0;
+		    z-index: 10;
+		    margin: 0.25rem 0 0;
+		    max-height: 220px;
+		    overflow-y: auto;
+		    list-style: none;
+		    padding: 0.25rem;
+		    background: var(--color-surface);
+		    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		  }
+		  .picker-results li {
+		    padding: 0.4rem 0.6rem;
+		    border-radius: var(--radius-md);
+		    cursor: pointer;
+		  }
+		  .picker-results li:hover {
+		    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+		  }
+		  /* Volumes sits beside the field grid, not below it in the form's own document flow -
+		     .form-actions is re-scoped here since the shared .form-actions { grid-column: 2 }
+		     rule assumes it's still a direct child of .form's 2-column grid, which it no longer
+		     is once Volumes becomes a sibling column. */
+		  .form-with-sidebar {
+		    display: grid;
+		    grid-template-columns: minmax(0, 640px) minmax(0, 320px);
+		    gap: 40px;
+		    align-items: start;
+		  }
+		  .form-with-sidebar > .form-actions {
+		    grid-column: 1 / -1;
+		  }
+		  @media (max-width: 800px) {
+		    .form-with-sidebar {
+		      grid-template-columns: 1fr;
+		    }
+		  }
+		</style>
+
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Studio</a>
 
 		<section class="page-header">
 			<span class="section-label">Edit</span>
 			<h2>Studio</h2>
 		</section>
 
-		<form class="form" action="#(meta.basePath)#(submitPath)" method="post">
-			#for(field in fields):
-				<label class="form-label" for="#(field.key)">#(field.label)</label>
-				<input class="input" type="text" id="#(field.key)" name="#(field.key)" value="#(field.value)">
-			#endfor
+		<form class="form-with-sidebar" id="edit-form" action="#(meta.basePath)#(submitPath)" method="post">
+			<div class="form">
+				#for(field in fields):
+					<label class="form-label" for="#(field.key)">#(field.label)</label>
+					<input class="input" type="text" id="#(field.key)" name="#(field.key)" value="#(field.value)">
+				#endfor
+			</div>
+
+			#if(canManageVolumes):
+				<div class="picker-field tag-cloud-field" id="volumes-field">
+					<h3>Volumes</h3>
+					<div class="chip-list" data-chip-list>
+						#for(volume in selectedVolumes):
+							<span class="chip" data-id="#(volume.id)" data-name="#(volume.name)"><span class="chip-label">#(volume.name)</span><button type="button" class="chip-remove" title="Remove #(volume.name)">&times;</button></span>
+						#endfor
+						<button type="button" class="chip-add-trigger" title="Add a volume">+</button>
+					</div>
+					<div class="tag-picker" hidden>
+						<input type="text" class="input picker-filter" placeholder="Search volumes..." autocomplete="off">
+						<ul class="picker-results" hidden></ul>
+						<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+					</div>
+					<input type="hidden" name="volumeIds" id="volume-ids-input">
+					<script type="application/json" class="picker-options">#unsafeHTML(volumeOptionsJSON)</script>
+				</div>
+			#endif
 
 			<div class="form-actions">
 				<button type="submit" class="btn btn-primary">Save changes</button>
 				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
 			</div>
 		</form>
+
+		#if(canManageVolumes):
+			<script>
+			(function () {
+			  // Volumes picker: type-to-filter against the full volume list embedded as JSON at
+			  // page load (same "existing entities only, no create-new" rationale the volume edit
+			  // page's own publisher/studio pickers use) - unlike that page, this has no edit
+			  // session to autosave into, so chip state just syncs into a hidden input and rides
+			  // along with the rest of this form's normal POST. Same script as licenses/edit.leaf's.
+			  var field = document.getElementById('volumes-field');
+			  if (!field) return;
+
+			  var chipList = field.querySelector('[data-chip-list]');
+			  var addTrigger = field.querySelector('.chip-add-trigger');
+			  var pickerRow = field.querySelector('.tag-picker');
+			  var input = field.querySelector('.picker-filter');
+			  var results = field.querySelector('.picker-results');
+			  var cancelBtn = field.querySelector('.tag-picker-cancel');
+			  var hiddenInput = document.getElementById('volume-ids-input');
+			  var options = [];
+			  try { options = JSON.parse(field.querySelector('.picker-options').textContent); } catch (e) {}
+
+			  function syncHiddenInput() {
+			    var ids = Array.prototype.map.call(
+			      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+			    hiddenInput.value = ids.join(',');
+			  }
+
+			  function selectedIds() {
+			    return Array.prototype.map.call(
+			      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.id; });
+			  }
+
+			  function bindChip(chip) {
+			    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
+			      e.stopPropagation();
+			      chip.remove();
+			      syncHiddenInput();
+			    });
+			  }
+
+			  function addChip(option) {
+			    var chip = document.createElement('span');
+			    chip.className = 'chip';
+			    chip.dataset.id = option.id;
+			    chip.dataset.name = option.name;
+			    var label = document.createElement('span');
+			    label.className = 'chip-label';
+			    label.textContent = option.name;
+			    chip.appendChild(label);
+			    var removeBtn = document.createElement('button');
+			    removeBtn.type = 'button';
+			    removeBtn.className = 'chip-remove';
+			    removeBtn.title = 'Remove ' + option.name;
+			    removeBtn.textContent = '×';
+			    chip.appendChild(removeBtn);
+			    bindChip(chip);
+			    chipList.insertBefore(chip, addTrigger);
+			  }
+
+			  chipList.querySelectorAll('.chip').forEach(bindChip);
+			  syncHiddenInput();
+
+			  function openPicker() {
+			    addTrigger.hidden = true;
+			    pickerRow.hidden = false;
+			    input.value = '';
+			    input.focus();
+			    renderResults('');
+			  }
+
+			  function closePicker() {
+			    pickerRow.hidden = true;
+			    addTrigger.hidden = false;
+			    input.value = '';
+			    results.hidden = true;
+			  }
+
+			  var currentMatches = [];
+
+			  function renderResults(query) {
+			    results.innerHTML = '';
+			    currentMatches = [];
+			    if (!query) {
+			      results.hidden = true;
+			      return;
+			    }
+			    var selected = selectedIds();
+			    var needle = query.toLowerCase();
+			    var matches = options.filter(function (option) {
+			      return selected.indexOf(option.id) === -1
+			        && option.name.toLowerCase().indexOf(needle) !== -1;
+			    }).slice(0, 8);
+			    currentMatches = matches;
+
+			    if (matches.length === 0) {
+			      results.hidden = true;
+			      return;
+			    }
+			    matches.forEach(function (option) {
+			      var item = document.createElement('li');
+			      item.textContent = option.name;
+			      item.addEventListener('click', function () {
+			        addChip(option);
+			        syncHiddenInput();
+			        closePicker();
+			      });
+			      results.appendChild(item);
+			    });
+			    results.hidden = false;
+			  }
+
+			  addTrigger.addEventListener('click', openPicker);
+			  cancelBtn.addEventListener('click', closePicker);
+			  input.addEventListener('input', function () { renderResults(input.value.trim()); });
+			  input.addEventListener('keydown', function (e) {
+			    if (e.key === 'Enter') {
+			      e.preventDefault();
+			      if (currentMatches.length === 1) {
+			        addChip(currentMatches[0]);
+			        syncHiddenInput();
+			        closePicker();
+			      }
+			    } else if (e.key === 'Escape') {
+			      e.preventDefault();
+			      closePicker();
+			    }
+			  });
+			  input.addEventListener('blur', function () {
+			    setTimeout(function () { results.hidden = true; }, 150);
+			  });
+			})();
+			</script>
+		#endif
 	#endexport
 #endextend

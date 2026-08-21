@@ -10,7 +10,9 @@ resources:
   - middlewares/errors.yaml
   - middlewares/strip.yaml
   - pod-monitor.yaml
+  - password.yaml
   - secrets/cache.yaml
+  - secrets/misc.yaml
   - secrets/edit-session.yaml
   - secrets/shared-session.yaml
 

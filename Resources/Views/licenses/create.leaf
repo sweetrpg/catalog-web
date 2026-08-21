@@ -1,0 +1,32 @@
+#extend("base"):
+	#export("body"):
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Licenses</a>
+
+		<section class="page-header">
+			<span class="section-label">New</span>
+			<h2>License</h2>
+		</section>
+
+		<form class="form" action="#(meta.basePath)#(submitPath)" method="post">
+			#for(field in fields):
+				<label class="form-label" for="#(field.key)">#(field.label)</label>
+				#if(field.isTextarea):
+					<textarea class="input" id="#(field.key)" name="#(field.key)" rows="8">#(field.value)</textarea>
+				#elseif(field.isSelect):
+					<select class="input" id="#(field.key)" name="#(field.key)">
+						#for(option in field.selectOptions):
+							<option value="#(option.value)" #if(option.isSelected): selected #endif>#(option.value)</option>
+						#endfor
+					</select>
+				#else:
+					<input class="input" type="text" id="#(field.key)" name="#(field.key)" value="#(field.value)">
+				#endif
+			#endfor
+
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">Create</button>
+				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
+			</div>
+		</form>
+	#endexport
+#endextend

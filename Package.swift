@@ -30,16 +30,21 @@ let package = Package(
         .package(url: "https://github.com/sweetrpg/admin-api-client.swift.git", from: "0.0.1"),
         // 📚 Shared catalog-api client (JSON:API fetch/decoding) - replaces this app's own
         // hand-rolled CatalogAPIClient, see sweetrpg/platform's api-client-sdks change.
-        // v0.2.0 adds `LicenseAttributes.properties` the license detail page reads - pre-1.0
-        // SemVer rules treat a 0.x minor bump as a major bump, so `from: "0.1.0"` would never
-        // resolve past 0.1.x; bump the floor whenever a 0.x minor is required.
+        // v0.4.0 replaced CatalogStats' volume-only shape with a per-entity-type TypeStats card
+        // (catalog-landing-page-summary) - pre-1.0 SemVer rules treat a 0.x minor bump as a
+        // major bump, so `from: "0.3.0"` would never resolve past 0.3.x; bump the floor whenever
+        // a 0.x minor is required.
         .package(
             url: "https://github.com/sweetrpg/catalog-api-client.swift.git",
-            from: "0.2.0"),
+            from: "0.4.0"),
         // 🌍 Localization - real CLDR-style plural rules ("one"/"other" JSON keys), not
         // hand-rolled "append an s" string logic. First consumer of this pattern on the
         // platform (no prior Swift/Vapor precedent) - see Resources/Localizations/en.json.
         .package(url: "https://github.com/vapor-community/Lingo-Vapor.git", from: "4.2.0"),
+        // 📝 Markdown-to-HTML for volume descriptions (line breaks, emphasis, lists) - a plain
+        // parser+renderer with no AST-walking of our own to write, unlike apple/swift-markdown
+        // (parse-tree only, no built-in HTML output).
+        .package(url: "https://github.com/JohnSundell/Ink.git", from: "0.6.0"),
     ],
     targets: [
         .executableTarget(
@@ -56,6 +61,7 @@ let package = Package(
                 .product(name: "AdminAPIClient", package: "admin-api-client.swift"),
                 .product(name: "CatalogAPIClient", package: "catalog-api-client.swift"),
                 .product(name: "LingoVapor", package: "Lingo-Vapor"),
+                .product(name: "Ink", package: "Ink"),
             ],
             // Resources/ and the top-level Public/ are shipped as plain directories next to the
             // built binary (see Dockerfile), not via SwiftPM resource bundling - Vapor's default

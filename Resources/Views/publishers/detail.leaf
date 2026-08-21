@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/publishers">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/publishers">&larr; Publishers</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
@@ -8,6 +8,10 @@
 
 		#if(count(conflicts) > 0):
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+		#endif
+
+		#if(isDeleted):
+			<p class="form-error">This publisher is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
 		#endif
 
 		<div>
@@ -20,6 +24,18 @@
 
 			#if(canEdit):
 				<a class="btn btn-ghost" href="#(meta.basePath)/publishers/#(publisher.id)/edit">Edit</a>
+			#endif
+
+			#if(canDelete):
+				#if(isDeleted):
+					<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/undelete">
+						<button type="submit" class="btn btn-ghost">Restore</button>
+					</form>
+				#else:
+					<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/delete" onsubmit="return confirm('Delete this publisher? It will be hidden from browse and pickers, but can be restored later.')">
+						<button type="submit" class="btn btn-ghost">Delete</button>
+					</form>
+				#endif
 			#endif
 
 			#if(publisher.hasAddress):

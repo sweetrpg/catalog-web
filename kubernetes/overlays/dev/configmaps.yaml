@@ -8,7 +8,7 @@ metadata:
 data:
   ENV: dev
   PORT: "8080"
-  REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  REDIS_HOST: cache.sweetrpg-catalog.svc.cluster.local
   REDIS_PORT: "6379"
   # Separate logical DB from catalog-api on the same shared Redis instance - see the comment
   # next to RedisConfiguration in configure.swift.
@@ -16,10 +16,10 @@ data:
   # auth-web's own dedicated Redis instance in sweetrpg-auth - the shared session store this app
   # reads (never writes). Unset means every visitor reads as logged-out, not a startup failure.
   # Not the same instance as REDIS_HOST above. Host/DB must match auth-web's own
-  # REDIS_HOST/REDIS_DB exactly (fullnameOverride "redis" in support/common/cache's Helm chart) -
-  # a mismatch here fails open the same way an unreachable host does, silently, with no startup
-  # error.
-  SHARED_SESSION_REDIS_HOST: redis.sweetrpg-auth.svc.cluster.local
+  # REDIS_HOST/REDIS_DB exactly (fullnameOverride "cache" in support/infrastructure/auth/cache's
+  # Helm chart) - a mismatch here fails open the same way an unreachable host does, silently,
+  # with no startup error.
+  SHARED_SESSION_REDIS_HOST: cache.sweetrpg-auth.svc.cluster.local
   SHARED_SESSION_REDIS_PORT: "6379"
   SHARED_SESSION_REDIS_DB: "0"
   # Same instance as REDIS_HOST above (catalog-api's own Redis in sweetrpg-catalog), a third
@@ -27,7 +27,7 @@ data:
   # a session) and, indirectly via catalog-api's finalize-session endpoint, has read at commit
   # time. Must match catalog-api's own edit-session DB index exactly - see
   # docs/frontend-conventions.md's edit-session schema and Redis registry in sweetrpg/platform.
-  EDIT_SESSION_REDIS_HOST: redis.sweetrpg-catalog.svc.cluster.local
+  EDIT_SESSION_REDIS_HOST: cache.sweetrpg-catalog.svc.cluster.local
   EDIT_SESSION_REDIS_PORT: "6379"
   EDIT_SESSION_REDIS_DB: "2"
   # Server-to-server backend URLs, called directly Service-to-Service - no ingress in the path,

@@ -12,12 +12,54 @@ import Vapor
 /// `req.view.render`, which requires a real `Encodable` context type.
 
 struct HomeContext: Content {
-  let volumeCount: Int
-  let lastUpdated: String
-  let trending: [LeafVolumeCard]
+  let statCards: [LeafTypeStatsCard]
   let tagCloud: [LeafTag]
   let user: LeafUser?
   let meta: PageMeta
+}
+
+/// One entity type's landing-page-summary card (catalog-landing-page-summary): total count plus
+/// a link to the most recently added/updated entity, or an empty-state when the type has zero
+/// records - see spec's "degrades gracefully for an empty entity type" requirement.
+///
+/// `detailPathPrefix` is `nil` for a type with no catalog-web detail page of its own (systems -
+/// relations onto a volume only, no `/systems/:id` route exists, matching this app's existing
+/// "systems have no dedicated pages" scoping elsewhere) - `hasDetailLink` gates the template
+/// between a link and plain text for "most recent" so this doesn't render a dead link.
+struct LeafTypeStatsCard: Content {
+  let label: String
+  let count: Int
+  let hasDetailLink: Bool
+  let detailPathPrefix: String
+  let hasMostRecent: Bool
+  let mostRecentID: String
+  let mostRecentName: String
+  let lastUpdatedLabel: String
+  /// The type's own browse page (e.g. "/publishers") - the whole card links here via a
+  /// stretched-link overlay, distinct from detailPathPrefix (the "most recent" item's own
+  /// link). `nil` for a type with no browse page (systems).
+  let hasBrowseLink: Bool
+  let browsePath: String
+
+  init(label: String, detailPathPrefix: String?, browsePath: String?, stats: TypeStats) {
+    self.label = label
+    self.count = stats.count
+    self.hasDetailLink = detailPathPrefix != nil
+    self.detailPathPrefix = detailPathPrefix ?? ""
+    self.hasMostRecent = stats.mostRecent != nil
+    self.mostRecentID = stats.mostRecent?.id ?? ""
+    self.mostRecentName = stats.mostRecent?.name ?? ""
+    self.lastUpdatedLabel = stats.lastUpdated.map(formatDateShort) ?? ""
+    self.hasBrowseLink = browsePath != nil
+    self.browsePath = browsePath ?? ""
+  }
+}
+
+func formatDateShort(_ date: Date) -> String {
+  let formatter = DateFormatter()
+  formatter.dateStyle = .medium
+  formatter.timeStyle = .none
+  return formatter.string(from: date)
 }
 
 struct BrowseContext: Content {
@@ -35,6 +77,11 @@ struct DetailContext: Content {
   /// `true` when the signed-in session's roles include submitter/editor/admin - gates the
   /// "Edit" action. `false` (including for an anonymous visitor) hides it entirely.
   let canEdit: Bool
+  /// `true` only for admin - gates the "Delete"/"Restore" actions (task 3.1/3.2).
+  let canDelete: Bool
+  /// `true` when this volume is currently soft-deleted - swaps the "Delete" action for
+  /// "Restore" and shows a deleted-state indicator.
+  let isDeleted: Bool
   /// `true` right after a submitter's edit was stored as a proposed change rather than applied
   /// (the `?proposed=1` redirect query param) - shows a "pending review" banner instead of the
   /// change appearing to silently have no effect.
@@ -110,9 +157,9 @@ struct LeafVersionSummary: Content {
     self.version = attributes.version
     self.state = attributes.state
     self.isLive = attributes.state == "live"
-    self.submittedBy = attributes.submittedBy
+    self.submittedBy = humanizeSubmitterID(attributes.submittedBy)
     self.submittedAtLabel = LeafVersionSummary.format(attributes.submittedAt)
-    self.reviewedBy = attributes.reviewedBy ?? ""
+    self.reviewedBy = attributes.reviewedBy.map(humanizeSubmitterID) ?? ""
     self.hasReviewedBy = attributes.reviewedBy != nil
     self.reviewNote = attributes.reviewNote ?? ""
     self.hasReviewNote = attributes.reviewNote != nil
@@ -154,9 +201,9 @@ struct LeafVersionDetail: Content {
     self.notes = attributes.notes
     self.hasNotes = !attributes.notes.isEmpty
     self.format = attributes.format
-    self.submittedBy = attributes.submittedBy
+    self.submittedBy = humanizeSubmitterID(attributes.submittedBy)
     self.submittedAtLabel = LeafVersionDetail.format(attributes.submittedAt)
-    self.reviewedBy = attributes.reviewedBy ?? ""
+    self.reviewedBy = attributes.reviewedBy.map(humanizeSubmitterID) ?? ""
     self.hasReviewedBy = attributes.reviewedBy != nil
     self.reviewNote = attributes.reviewNote ?? ""
     self.hasReviewNote = attributes.reviewNote != nil
@@ -242,6 +289,7 @@ struct EntityBrowseContext<Item: Content>: Content {
   let noResults: Bool
   let orderIsAsc: Bool
   let orderIsDesc: Bool
+  let canEdit: Bool
   let user: LeafUser?
   let meta: PageMeta
 }
@@ -254,6 +302,11 @@ struct EntityDetailContext: Content {
   var person: LeafPersonDetail?
   var license: LeafLicenseDetail?
   let canEdit: Bool
+  /// `true` only for admin - gates the "Delete"/"Restore" actions (task 3.1/3.2).
+  let canDelete: Bool
+  /// `true` when this record is currently soft-deleted - swaps the "Delete" action for
+  /// "Restore" and shows a deleted-state indicator.
+  let isDeleted: Bool
   let justProposed: Bool
   let review: LeafEntityVersionReview?
   let conflicts: [String]
@@ -263,7 +316,8 @@ struct EntityDetailContext: Content {
   init(
     publisher: LeafPublisherDetail? = nil, studio: LeafStudioDetail? = nil,
     person: LeafPersonDetail? = nil, license: LeafLicenseDetail? = nil,
-    canEdit: Bool, justProposed: Bool, review: LeafEntityVersionReview?, conflicts: [String],
+    canEdit: Bool, canDelete: Bool, isDeleted: Bool, justProposed: Bool,
+    review: LeafEntityVersionReview?, conflicts: [String],
     user: LeafUser?, meta: PageMeta
   ) {
     self.publisher = publisher
@@ -271,6 +325,8 @@ struct EntityDetailContext: Content {
     self.person = person
     self.license = license
     self.canEdit = canEdit
+    self.canDelete = canDelete
+    self.isDeleted = isDeleted
     self.justProposed = justProposed
     self.review = review
     self.conflicts = conflicts
@@ -305,13 +361,13 @@ struct LeafEntityVersionReview: Content {
     self.options = pending.map { version in
       LeafEntityVersionOption(
         version: version.version,
-        submittedBy: version.submittedBy,
+        submittedBy: humanizeSubmitterID(version.submittedBy),
         submittedAtLabel: Self.format(version.submittedAt),
         isSelected: version.version == selected.version
       )
     }
     self.selectedVersion = selected.version
-    self.submittedBy = selected.submittedBy
+    self.submittedBy = humanizeSubmitterID(selected.submittedBy)
     self.submittedAtLabel = Self.format(selected.submittedAt)
     let submittedValues = versionFieldValues(selected)
     self.fields = fieldSpecs.compactMap { field in

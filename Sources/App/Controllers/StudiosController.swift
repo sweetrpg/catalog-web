@@ -27,6 +27,8 @@ func fieldValues(_ s: StudioVersionAttributes) -> [String: String] {
 struct StudiosController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("studios", use: browseStudios)
+    routes.get("studios", "new", use: newStudioForm)
+    routes.post("studios", "new", use: submitStudioCreate)
     routes.get("studios", ":id", use: detailStudio)
     routes.get("studios", ":id", "edit", use: editStudioForm)
     routes.post("studios", ":id", "edit", use: submitStudioEdit)
@@ -34,6 +36,8 @@ struct StudiosController: RouteCollection {
       "studios", ":id", "versions", ":version", "accept", use: acceptStudioVersion)
     routes.post(
       "studios", ":id", "versions", ":version", "reject", use: rejectStudioVersion)
+    routes.post("studios", ":id", "delete", use: deleteStudio)
+    routes.post("studios", ":id", "undelete", use: restoreStudio)
   }
 
   private struct BrowseQuery: Content {
@@ -58,10 +62,27 @@ struct StudiosController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newStudioForm(req: Request) async throws -> View {
+    try await withSpan("studios-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "studios/create",
+        makeCreateContext(
+          basePath: "/studios", fields: studioFields, user: user, meta: await PageMeta.make(req)))
+    }
+  }
+
+  @Sendable
+  func submitStudioCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/studios", fields: studioFields)
   }
 
   @Sendable
@@ -77,12 +98,15 @@ struct StudiosController: RouteCollection {
         req: req, path: "/studios", recordID: id, fieldSpecs: studioFields,
         currentValues: fieldValues(studio), sessionUser: sessionUser,
         versionFieldValues: { (v: StudioVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/studios/\(id)")
 
       return try await req.view.render(
         "studios/detail",
         EntityDetailContext(
           studio: LeafStudioDetail(studio),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -98,21 +122,59 @@ struct StudiosController: RouteCollection {
     try await withSpan("studios-edit-form") { _ in
       guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
       guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-      guard let studio = try await req.catalogAPI.fetchStudio(id: id) else {
+      guard var studio = try await req.catalogAPI.fetchStudio(id: id) else {
         throw Abort(.notFound)
       }
+      studio.volumes = try await req.catalogAPI.fetchStudioVolumes(id: id)
+      let allVolumes = try await req.catalogAPI.fetchVolumes().map { ($0.id, $0.title) }
+
+      let base = makeEditContext(
+        id: id, basePath: "/studios", fields: studioFields,
+        values: fieldValues(studio), user: user, meta: await PageMeta.make(req))
 
       return try await req.view.render(
         "studios/edit",
-        makeEditContext(
-          id: id, basePath: "/studios", fields: studioFields,
-          values: fieldValues(studio), user: user, meta: await PageMeta.make(req)))
+        EntityEditWithVolumesContext(
+          base: base, canManageVolumes: canReview(user.roles), selectedVolumes: studio.volumes,
+          allVolumes: allVolumes))
     }
   }
 
   @Sendable
   func submitStudioEdit(req: Request) async throws -> Response {
-    try await submitEdit(req: req, path: "/studios", fields: studioFields)
+    try await withSpan("submit-studio-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+
+      let input = try req.content.decode([String: String].self)
+      let known = Set(studioFields.map(\.key))
+      let filtered = input.filter { known.contains($0.key) }
+
+      let result = try await req.catalogAPI.patchEntity(
+        path: "/studios", id: id, token: user.accessToken, fields: filtered)
+
+      // Volume association is editor/admin-direct (no review workflow, see
+      // sweetrpg/catalog-api#220) - a submitter's session never renders the volumes picker
+      // (canEdit gates the whole page, but only editor/admin get review rights), so this simply
+      // does nothing when the field is absent from the submission. Mirrors LicensesController's
+      // submitLicenseEdit.
+      if let volumeIdsRaw = input["volumeIds"] {
+        let volumeIds = volumeIdsRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        if canReview(user.roles) {
+          try await req.catalogAPI.patchEntityVolumes(
+            path: "/studios", id: id, token: user.accessToken, volumeIds: volumeIds)
+        }
+      }
+
+      let basePath = "\(req.basePath)/studios/\(id)"
+      switch result {
+      case .applied:
+        await req.catalogAPI.invalidateEntityListCache(path: "/studios")
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    }
   }
 
   @Sendable
@@ -123,6 +185,34 @@ struct StudiosController: RouteCollection {
   @Sendable
   func rejectStudioVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/studios")
+  }
+
+  /// Soft-deletes a studio - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deleteStudio(req: Request) async throws -> Response {
+    try await withSpan("studio-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/studios/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/studios")
+      return req.redirect(to: "\(req.basePath)/studios/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted studio - admin only.
+  @Sendable
+  func restoreStudio(req: Request) async throws -> Response {
+    try await withSpan("studio-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/studios/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/studios")
+      return req.redirect(to: "\(req.basePath)/studios/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

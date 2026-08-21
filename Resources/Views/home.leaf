@@ -1,50 +1,115 @@
 #extend("base"):
 	#export("body"):
+		<style>
+		  /* Page-specific: the landing page's per-entity-type summary grid
+		     (catalog-landing-page-summary) - no shared-web equivalent to reuse. */
+		  .stat-card-grid {
+		    display: grid;
+		    grid-template-columns: repeat(3, 1fr);
+		    gap: 16px;
+		    margin-top: 12px;
+		  }
+		  @media (max-width: 720px) {
+		    .stat-card-grid {
+		      grid-template-columns: repeat(2, 1fr);
+		    }
+		  }
+		  @media (max-width: 480px) {
+		    .stat-card-grid {
+		      grid-template-columns: 1fr;
+		    }
+		  }
+		  .stat-card {
+		    position: relative;
+		    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+		    border: 1px solid var(--color-neutral-300);
+		    border-radius: 8px;
+		    padding: 16px;
+		  }
+		  .stat-card:has(.stat-card-browse-link:hover) {
+		    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+		  }
+		  /* Stretched-link: covers the whole card so it's clickable anywhere, but sits behind
+		     (z-index) the "most recent" link so that nested link keeps its own click target. */
+		  .stat-card-browse-link {
+		    position: absolute;
+		    inset: 0;
+		    z-index: 1;
+		  }
+		  .stat-card-label,
+		  .stat-card-count {
+		    position: relative;
+		    z-index: 0;
+		    pointer-events: none;
+		  }
+		  .stat-card-recent a {
+		    position: relative;
+		    z-index: 2;
+		  }
+		  .stat-card-label {
+		    font-size: 13px;
+		    letter-spacing: 0.04em;
+		    text-transform: uppercase;
+		    opacity: 0.6;
+		  }
+		  .stat-card-count {
+		    font-size: 32px;
+		    font-weight: 700;
+		    margin: 4px 0 10px;
+		  }
+		  .stat-card-recent {
+		    display: flex;
+		    flex-direction: column;
+		    gap: 2px;
+		    font-size: 14px;
+		  }
+		  .stat-card-empty {
+		    opacity: 0.55;
+		    font-style: italic;
+		  }
+		  .stat-card-updated {
+		    font-size: 12px;
+		    opacity: 0.55;
+		  }
+		</style>
+
 		<section class="hero">
 			<h1>Catalogue</h1>
 			<p class="hero-tagline">Every rulebook, supplement and setting guide - rated, reviewed and shelved by the table that played them.</p>
 			<div class="hero-actions">
 				<a class="btn btn-primary" href="#(meta.basePath)/browse">Browse the stacks</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/shelves">My shelves</a>
-			</div>
-		</section>
-
-		<section class="stats-bar">
-			<span>Vol. count #(volumeCount)</span>
-			<span>Last updated: #(lastUpdated)</span>
-		</section>
-
-		#if(count(trending) > 0):
-			<section>
-				<span class="section-label">Recently Catalogued</span>
-				<div class="card-grid">
-					#for(volume in trending):
-						<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
-							<div class="card-cover">
-								<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
-								<span class="card-cover-fallback">Cover pending</span>
-							</div>
-							<div class="card-body">
-								<div class="card-title">#(volume.title)</div>
-								<div class="card-meta">
-									#for(tag in volume.tagChips):
-										<span class="tag tag-neutral">#(tag)</span>
-									#endfor
-								</div>
-							</div>
-						</a>
-					#endfor
-				</div>
-			</section>
-		#endif
-
-		<section>
-			<span class="section-label">Browse the Catalog</span>
-			<div class="hero-actions">
 				<a class="btn btn-ghost" href="#(meta.basePath)/publishers">Publishers</a>
 				<a class="btn btn-ghost" href="#(meta.basePath)/studios">Studios</a>
 				<a class="btn btn-ghost" href="#(meta.basePath)/persons">Persons</a>
 				<a class="btn btn-ghost" href="#(meta.basePath)/licenses">Licenses</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/shelves">My shelves</a>
+			</div>
+		</section>
+
+		<section>
+			<span class="section-label">Catalog Summary</span>
+			<div class="stat-card-grid">
+				#for(card in statCards):
+					<div class="stat-card">
+						#if(card.hasBrowseLink):
+							<a class="stat-card-browse-link" href="#(meta.basePath)#(card.browsePath)" aria-label="Browse #(card.label)"></a>
+						#endif
+						<div class="stat-card-label">#(card.label)</div>
+						<div class="stat-card-count">#(card.count)</div>
+						#if(card.hasMostRecent):
+							<div class="stat-card-recent">
+								#if(card.hasDetailLink):
+									<a href="#(meta.basePath)#(card.detailPathPrefix)/#(card.mostRecentID)">#(card.mostRecentName)</a>
+								#else:
+									<span>#(card.mostRecentName)</span>
+								#endif
+								<span class="stat-card-updated">Last updated: #(card.lastUpdatedLabel)</span>
+							</div>
+						#else:
+							<div class="stat-card-recent stat-card-empty">No entries yet</div>
+						#endif
+					</div>
+				#endfor
 			</div>
 		</section>
 
@@ -53,7 +118,7 @@
 				<span class="section-label">Browse by Tag</span>
 				<div class="tag-cloud">
 					#for(tag in tagCloud):
-						<a class="tag tag-outline" href="/browse?tag=#(tag.name)">#(tag.name)</a>
+						<a class="tag tag-outline" href="#(meta.basePath)/browse?tag=#(tag.name)">#(tag.name)</a>
 					#endfor
 				</div>
 			</section>

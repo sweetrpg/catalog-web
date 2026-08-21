@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/persons">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/persons">&larr; Persons</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
@@ -8,6 +8,10 @@
 
 		#if(count(conflicts) > 0):
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+		#endif
+
+		#if(isDeleted):
+			<p class="form-error">This person is deleted. They're hidden from browse, search, and pickers, but stay reachable here directly.</p>
 		#endif
 
 		<div>
@@ -20,6 +24,18 @@
 
 			#if(canEdit):
 				<a class="btn btn-ghost" href="#(meta.basePath)/persons/#(person.id)/edit">Edit</a>
+			#endif
+
+			#if(canDelete):
+				#if(isDeleted):
+					<form method="post" action="#(meta.basePath)/persons/#(person.id)/undelete">
+						<button type="submit" class="btn btn-ghost">Restore</button>
+					</form>
+				#else:
+					<form method="post" action="#(meta.basePath)/persons/#(person.id)/delete" onsubmit="return confirm('Delete this person? They will be hidden from browse and pickers, but can be restored later.')">
+						<button type="submit" class="btn btn-ghost">Delete</button>
+					</form>
+				#endif
 			#endif
 
 			#if(person.hasNotes):
@@ -84,19 +100,20 @@
 			#endif
 
 			<div class="detail-block">
-				<span class="section-label">Volumes</span>
-				#if(person.hasVolumes):
+				<span class="section-label">Contributed to</span>
+				#if(person.hasContributions):
 					<div class="card-grid">
-						#for(volume in person.volumes):
-							<a class="card" href="#(meta.basePath)/volumes/#(volume.id)">
+						#for(contribution in person.contributions):
+							<a class="card" href="#(meta.basePath)/volumes/#(contribution.id)">
 								<div class="card-body">
-									<div class="card-title">#(volume.title)</div>
+									<div class="card-title">#(contribution.title)</div>
+									<div class="card-meta">#(contribution.role)</div>
 								</div>
 							</a>
 						#endfor
 					</div>
 				#else:
-					<p class="empty-state-inline">No volumes associated with this person yet.</p>
+					<p class="empty-state-inline">No contributions on file yet for this person.</p>
 				#endif
 			</div>
 		</div>

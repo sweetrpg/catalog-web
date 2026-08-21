@@ -1,6 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/studios">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/studios">&larr; Studios</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
@@ -8,6 +8,10 @@
 
 		#if(count(conflicts) > 0):
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+		#endif
+
+		#if(isDeleted):
+			<p class="form-error">This studio is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
 		#endif
 
 		<div>
@@ -20,6 +24,18 @@
 
 			#if(canEdit):
 				<a class="btn btn-ghost" href="#(meta.basePath)/studios/#(studio.id)/edit">Edit</a>
+			#endif
+
+			#if(canDelete):
+				#if(isDeleted):
+					<form method="post" action="#(meta.basePath)/studios/#(studio.id)/undelete">
+						<button type="submit" class="btn btn-ghost">Restore</button>
+					</form>
+				#else:
+					<form method="post" action="#(meta.basePath)/studios/#(studio.id)/delete" onsubmit="return confirm('Delete this studio? It will be hidden from browse and pickers, but can be restored later.')">
+						<button type="submit" class="btn btn-ghost">Delete</button>
+					</form>
+				#endif
 			#endif
 
 			#if(studio.hasWebsite):

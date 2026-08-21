@@ -26,6 +26,10 @@ func fieldValues(_ p: PersonVersionAttributes) -> [String: String] {
 struct PersonsController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("persons", use: browsePersons)
+    routes.get("persons", "new", use: newPersonForm)
+    routes.post("persons", "new", use: submitPersonCreate)
+    routes.get("persons", "bulk-add", use: bulkAddPersonsForm)
+    routes.post("persons", "bulk-add", use: submitBulkAddPersons)
     routes.get("persons", ":id", use: detailPerson)
     routes.get("persons", ":id", "edit", use: editPersonForm)
     routes.post("persons", ":id", "edit", use: submitPersonEdit)
@@ -33,11 +37,18 @@ struct PersonsController: RouteCollection {
       "persons", ":id", "versions", ":version", "accept", use: acceptPersonVersion)
     routes.post(
       "persons", ":id", "versions", ":version", "reject", use: rejectPersonVersion)
+    routes.post("persons", ":id", "delete", use: deletePerson)
+    routes.post("persons", ":id", "undelete", use: restorePerson)
   }
 
   private struct BrowseQuery: Content {
     let q: String?
     let order: String?
+    // Set by submitBulkAddPersons' redirect - see PersonsBrowseContext's own doc comment for why
+    // this rides on persons/browse rather than a separate results page.
+    let bulkCreated: Int?
+    let bulkFailed: Int?
+    let bulkErrors: String?
   }
 
   @Sendable
@@ -48,19 +59,107 @@ struct PersonsController: RouteCollection {
       let persons = try await req.catalogAPI.fetchPersonsCatalog()
       let filtered = filterByName(persons, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
+      let roles = (await req.currentUser)?.roles ?? []
+
+      var bulkFailures: [LeafBulkAddFailure] = []
+      if let errorsJSON = query.bulkErrors, let data = errorsJSON.data(using: .utf8) {
+        bulkFailures = (try? JSONDecoder().decode([LeafBulkAddFailure].self, from: data)) ?? []
+      }
 
       return try await req.view.render(
         "persons/browse",
-        EntityBrowseContext(
+        PersonsBrowseContext(
           query: query.q ?? "",
           items: sorted.map { LeafPersonCard($0) },
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit(roles),
+          canBulkAdd: canBulkAddPersons(roles),
+          hasBulkResult: query.bulkCreated != nil || query.bulkFailed != nil,
+          bulkCreatedCount: query.bulkCreated ?? 0,
+          bulkFailedCount: query.bulkFailed ?? 0,
+          bulkFailures: bulkFailures,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func bulkAddPersonsForm(req: Request) async throws -> View {
+    try await withSpan("persons-bulk-add-form") { _ in
+      guard let user = await req.currentUser, canBulkAddPersons(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      return try await req.view.render(
+        "persons/bulk-add",
+        BulkAddPersonsContext(
+          backPath: "/persons", submitPath: "/persons/bulk-add",
+          user: LeafUser(user), meta: await PageMeta.make(req)))
+    }
+  }
+
+  private struct BulkAddInput: Content {
+    let names: String
+  }
+
+  @Sendable
+  func submitBulkAddPersons(req: Request) async throws -> Response {
+    try await withSpan("submit-bulk-add-persons") { _ in
+      guard let user = await req.currentUser, canBulkAddPersons(user.roles) else {
+        throw Abort(.forbidden)
+      }
+
+      let input = try req.content.decode(BulkAddInput.self)
+      let names =
+        input.names
+        .split(separator: "\n")
+        .map { $0.trimmingCharacters(in: .whitespaces) }
+        .filter { !$0.isEmpty }
+
+      let results = try await req.catalogAPI.bulkCreatePersons(
+        fields: names.map { ["name": $0] }, token: user.accessToken)
+
+      let createdCount = results.filter(\.success).count
+      let failures = zip(names, results).compactMap { name, result -> LeafBulkAddFailure? in
+        guard !result.success else { return nil }
+        return LeafBulkAddFailure(name: name, error: result.error ?? "unknown error")
+      }
+
+      if createdCount > 0 {
+        await req.catalogAPI.invalidateEntityListCache(path: "/persons")
+      }
+
+      var components = URLComponents()
+      components.queryItems = [
+        URLQueryItem(name: "bulkCreated", value: String(createdCount)),
+        URLQueryItem(name: "bulkFailed", value: String(failures.count)),
+      ]
+      if !failures.isEmpty, let encoded = try? JSONEncoder().encode(failures),
+        let json = String(data: encoded, encoding: .utf8)
+      {
+        components.queryItems?.append(URLQueryItem(name: "bulkErrors", value: json))
+      }
+
+      return req.redirect(to: "\(req.basePath)/persons?\(components.percentEncodedQuery ?? "")")
+    }
+  }
+
+  @Sendable
+  func newPersonForm(req: Request) async throws -> View {
+    try await withSpan("persons-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "persons/create",
+        makeCreateContext(
+          basePath: "/persons", fields: personFields, user: user, meta: await PageMeta.make(req)))
+    }
+  }
+
+  @Sendable
+  func submitPersonCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/persons", fields: personFields)
   }
 
   @Sendable
@@ -71,17 +170,23 @@ struct PersonsController: RouteCollection {
         throw Abort(.notFound)
       }
       person.volumes = try await req.catalogAPI.fetchPersonVolumes(id: id)
+      person.contributionRoles =
+        (try? await req.catalogAPI.fetchPersonContributionRoles(
+          personID: id)) ?? [:]
       let sessionUser = await req.currentUser
       let review: LeafEntityVersionReview? = await buildReview(
         req: req, path: "/persons", recordID: id, fieldSpecs: personFields,
         currentValues: fieldValues(person), sessionUser: sessionUser,
         versionFieldValues: { (v: PersonVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/persons/\(id)")
 
       return try await req.view.render(
         "persons/detail",
         EntityDetailContext(
           person: LeafPersonDetail(person),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -122,6 +227,34 @@ struct PersonsController: RouteCollection {
   @Sendable
   func rejectPersonVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/persons")
+  }
+
+  /// Soft-deletes a person - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deletePerson(req: Request) async throws -> Response {
+    try await withSpan("person-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/persons/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/persons")
+      return req.redirect(to: "\(req.basePath)/persons/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted person - admin only.
+  @Sendable
+  func restorePerson(req: Request) async throws -> Response {
+    try await withSpan("person-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/persons/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/persons")
+      return req.redirect(to: "\(req.basePath)/persons/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

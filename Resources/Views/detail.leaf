@@ -1,6 +1,42 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/browse">&larr; Back</a>
+		<style>
+		  /* Page-specific: header action icons (upper-right of the title) and the description's
+		     Markdown-rendered, scrollable body - shared-web owns the global stylesheet, neither
+		     is common enough elsewhere to belong there. */
+		  .detail-header-row {
+		    display: flex;
+		    align-items: flex-start;
+		    justify-content: space-between;
+		    gap: 12px;
+		  }
+		  .detail-header-actions {
+		    display: flex;
+		    gap: 6px;
+		    flex-shrink: 0;
+		  }
+		  .detail-header-actions .icon-btn {
+		    width: 2rem;
+		    height: 2rem;
+		    border-radius: 50%;
+		    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+		  }
+		  .detail-header-actions .icon-btn:hover {
+		    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+		  }
+		  .detail-description {
+		    max-height: 20vh;
+		    overflow-y: auto;
+		  }
+		  .detail-description :first-child {
+		    margin-top: 0;
+		  }
+		  .detail-description :last-child {
+		    margin-bottom: 0;
+		  }
+		</style>
+
+		<a class="back-link" href="#(meta.basePath)/browse">&larr; Browse the stacks</a>
 
 		#if(justProposed):
 			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
@@ -10,6 +46,10 @@
 			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
+		#if(isDeleted):
+			<p class="form-error">This volume is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
+		#endif
+
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
 				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
@@ -17,20 +57,42 @@
 			</div>
 
 			<div>
-				<h1>#(volume.title)</h1>
+				<div class="detail-header-row">
+					<h1>#(volume.title)</h1>
+					<span class="detail-header-actions">
+						#if(canEdit):
+							<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/edit" title="Edit">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit">
+							</a>
+						#endif
+						<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/versions" title="Version History">
+							<img src="#(meta.sharedURL)/static/img/icons/history.svg" alt="Version History">
+						</a>
+						#if(canDelete):
+							#if(isDeleted):
+								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/undelete">
+									<button type="submit" class="icon-btn" title="Restore">
+										<img src="#(meta.sharedURL)/static/img/icons/restore.svg" alt="Restore" onerror="this.replaceWith('↺')">
+									</button>
+								</form>
+							#else:
+								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('Delete this volume? It will be hidden from browse and pickers, but can be restored later.')">
+									<button type="submit" class="icon-btn" title="Delete">
+										<img src="#(meta.sharedURL)/static/img/icons/delete.svg" alt="Delete" onerror="this.replaceWith('×')">
+									</button>
+								</form>
+							#endif
+						#endif
+					</span>
+				</div>
 				<div class="tag-cloud">
 					#for(tag in volume.tags):
 						<span class="tag tag-accent">#(tag)</span>
 					#endfor
 				</div>
 
-				#if(canEdit):
-					<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/edit">Edit</a>
-				#endif
-				<a class="btn btn-ghost" href="#(meta.basePath)/volumes/#(volume.id)/versions">Version History</a>
-
 				#if(volume.hasDescription):
-					<p class="detail-description">#(volume.description)</p>
+					<div class="detail-description">#unsafeHTML(volume.descriptionHTML)</div>
 				#else:
 					<p class="detail-description detail-description-empty">No description on file yet for this volume.</p>
 				#endif
@@ -55,7 +117,7 @@
 						<span class="section-label">Publisher</span>
 						<div class="tag-cloud">
 							#for(ref in volume.publisherRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -66,7 +128,7 @@
 						<span class="section-label">Studio</span>
 						<div class="tag-cloud">
 							#for(ref in volume.studioRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -77,7 +139,7 @@
 						<span class="section-label">License</span>
 						<div class="tag-cloud">
 							#for(ref in volume.licenseRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -87,7 +149,7 @@
 					<div class="detail-block">
 						<span class="section-label">Credits</span>
 						#for(credit in volume.credits):
-							<p><strong>#(credit.role)</strong> &mdash; #(credit.person)</p>
+							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
 						#endfor
 					</div>
 				#endif

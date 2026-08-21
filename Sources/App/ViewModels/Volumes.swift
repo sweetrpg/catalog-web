@@ -1,6 +1,7 @@
 import CatalogAPIClient
 import Crypto
 import Foundation
+import Ink
 import Vapor
 
 struct LeafVolumeCard: Content {
@@ -21,6 +22,9 @@ struct LeafVolumeDetail: Content {
   let id: String
   let title: String
   let description: String
+  /// The description rendered from Markdown (line breaks, emphasis, lists) - templates render
+  /// this via #unsafeHTML rather than the raw `description` field.
+  let descriptionHTML: String
   let hasDescription: Bool
   let notes: String
   let hasNotes: Bool
@@ -50,6 +54,7 @@ struct LeafVolumeDetail: Content {
     self.id = volume.id
     self.title = volume.title
     self.description = volume.description
+    self.descriptionHTML = MarkdownParser().html(from: volume.description)
     self.hasDescription = !volume.description.isEmpty
     self.notes = volume.notes
     self.hasNotes = !volume.notes.isEmpty
@@ -103,6 +108,9 @@ struct LeafVolumeEditForm: Content {
   let userSub: String
   /// The full publisher candidate list, JSON-encoded for the page's own JS to filter
   /// client-side (task 7.1) - no search endpoint, existing entities only, per design.md.
+  let systemOptionsJSON: String
+  let selectedSystems: [LeafNamedOption]
+  let hasSelectedSystems: Bool
   let publisherOptionsJSON: String
   let selectedPublishers: [LeafNamedOption]
   let hasSelectedPublishers: Bool
@@ -142,6 +150,7 @@ struct LeafVolumeEditForm: Content {
 
   init(
     volume: VolumeViewModel, session: EditSession, userSub: String, req: Request,
+    systemOptions: [(id: String, name: String)] = [],
     publisherOptions: [(id: String, name: String)] = [],
     studioOptions: [(id: String, name: String)] = [],
     personOptions: [(id: String, name: String)] = [],
@@ -165,19 +174,51 @@ struct LeafVolumeEditForm: Content {
     self.liveCoverPath = volume.coverAssetPath
     self.hasStagedCover = session.stagedCoverAssetId != nil
 
+    let systemByID = Dictionary(uniqueKeysWithValues: systemOptions)
+    let deletedSystemByID = Dictionary(
+      uniqueKeysWithValues: volume.systemRefs.filter(\.isDeleted).map { ($0.id, $0.name) })
+    let selectedSystemIds = session.stringArrayField("systemIds") ?? volume.systemIds
+    self.selectedSystems = selectedSystemIds.map { id in
+      if let name = systemByID[id] { return LeafNamedOption(id: id, name: name) }
+      if let name = deletedSystemByID[id] {
+        return LeafNamedOption(id: id, name: "\(name) (deleted)")
+      }
+      return LeafNamedOption(id: id, name: "Unknown system")
+    }
+    self.hasSelectedSystems = !self.selectedSystems.isEmpty
+    self.systemOptionsJSON =
+      Self.encodeOptions(systemOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
+
+    // Falls back to volume.publisherRefs/studioRefs/systemRefs (resolved via
+    // resolveDeletedReferences before this init is called) for a currently-selected id that's
+    // missing from publisherOptions/studioOptions/systemOptions because it's soft-deleted since
+    // the volume linked it - labels "(deleted)" instead of "Unknown publisher"/"Unknown studio"
+    // (task 4.1).
     let publisherByID = Dictionary(uniqueKeysWithValues: publisherOptions)
+    let deletedPublisherByID = Dictionary(
+      uniqueKeysWithValues: volume.publisherRefs.filter(\.isDeleted).map { ($0.id, $0.name) })
     let selectedPublisherIds = session.stringArrayField("publisherIds") ?? volume.publisherIds
-    self.selectedPublishers = selectedPublisherIds.map {
-      LeafNamedOption(id: $0, name: publisherByID[$0] ?? "Unknown publisher")
+    self.selectedPublishers = selectedPublisherIds.map { id in
+      if let name = publisherByID[id] { return LeafNamedOption(id: id, name: name) }
+      if let name = deletedPublisherByID[id] {
+        return LeafNamedOption(id: id, name: "\(name) (deleted)")
+      }
+      return LeafNamedOption(id: id, name: "Unknown publisher")
     }
     self.hasSelectedPublishers = !self.selectedPublishers.isEmpty
     self.publisherOptionsJSON =
       Self.encodeOptions(publisherOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
 
     let studioByID = Dictionary(uniqueKeysWithValues: studioOptions)
+    let deletedStudioByID = Dictionary(
+      uniqueKeysWithValues: volume.studioRefs.filter(\.isDeleted).map { ($0.id, $0.name) })
     let selectedStudioIds = session.stringArrayField("studioIds") ?? volume.studioIds
-    self.selectedStudios = selectedStudioIds.map {
-      LeafNamedOption(id: $0, name: studioByID[$0] ?? "Unknown studio")
+    self.selectedStudios = selectedStudioIds.map { id in
+      if let name = studioByID[id] { return LeafNamedOption(id: id, name: name) }
+      if let name = deletedStudioByID[id] {
+        return LeafNamedOption(id: id, name: "\(name) (deleted)")
+      }
+      return LeafNamedOption(id: id, name: "Unknown studio")
     }
     self.hasSelectedStudios = !self.selectedStudios.isEmpty
     self.studioOptionsJSON =

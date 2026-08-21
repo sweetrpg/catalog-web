@@ -31,6 +31,8 @@ func fieldValues(_ p: PublisherVersionAttributes) -> [String: String] {
 struct PublishersController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("publishers", use: browsePublishers)
+    routes.get("publishers", "new", use: newPublisherForm)
+    routes.post("publishers", "new", use: submitPublisherCreate)
     routes.get("publishers", ":id", use: detailPublisher)
     routes.get("publishers", ":id", "edit", use: editPublisherForm)
     routes.post("publishers", ":id", "edit", use: submitPublisherEdit)
@@ -40,6 +42,8 @@ struct PublishersController: RouteCollection {
     routes.post(
       "publishers", ":id", "versions", ":version", "reject",
       use: rejectPublisherVersion)
+    routes.post("publishers", ":id", "delete", use: deletePublisher)
+    routes.post("publishers", ":id", "undelete", use: restorePublisher)
   }
 
   private struct BrowseQuery: Content {
@@ -74,10 +78,28 @@ struct PublishersController: RouteCollection {
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
+          canEdit: canEdit((await req.currentUser)?.roles ?? []),
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
     }
+  }
+
+  @Sendable
+  func newPublisherForm(req: Request) async throws -> View {
+    try await withSpan("publishers-new-form") { _ in
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+      return try await req.view.render(
+        "publishers/create",
+        makeCreateContext(
+          basePath: "/publishers", fields: publisherFields, user: user,
+          meta: await PageMeta.make(req)))
+    }
+  }
+
+  @Sendable
+  func submitPublisherCreate(req: Request) async throws -> Response {
+    try await submitCreate(req: req, path: "/publishers", fields: publisherFields)
   }
 
   @Sendable
@@ -93,12 +115,15 @@ struct PublishersController: RouteCollection {
         req: req, path: "/publishers", recordID: id, fieldSpecs: publisherFields,
         currentValues: fieldValues(publisher), sessionUser: sessionUser,
         versionFieldValues: { (v: PublisherVersionAttributes) in fieldValues(v) })
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/publishers/\(id)")
 
       return try await req.view.render(
         "publishers/detail",
         EntityDetailContext(
           publisher: LeafPublisherDetail(publisher),
           canEdit: canEdit(sessionUser?.roles ?? []),
+          canDelete: canDelete(sessionUser?.roles ?? []),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: review,
           conflicts: (req.query[String.self, at: "conflicts"] ?? "")
@@ -114,21 +139,57 @@ struct PublishersController: RouteCollection {
     try await withSpan("publishers-edit") { _ in
       guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
       guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
-      guard let publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
+      guard var publisher = try await req.catalogAPI.fetchPublisher(id: id) else {
         throw Abort(.notFound)
       }
+      publisher.volumes = try await req.catalogAPI.fetchPublisherVolumes(id: id)
+      let allVolumes = try await req.catalogAPI.fetchVolumes().map { ($0.id, $0.title) }
+
+      let base = makeEditContext(
+        id: id, basePath: "/publishers", fields: publisherFields,
+        values: fieldValues(publisher), user: user, meta: await PageMeta.make(req))
 
       return try await req.view.render(
         "publishers/edit",
-        makeEditContext(
-          id: id, basePath: "/publishers", fields: publisherFields,
-          values: fieldValues(publisher), user: user, meta: await PageMeta.make(req)))
+        EntityEditWithVolumesContext(
+          base: base, canManageVolumes: canReview(user.roles), selectedVolumes: publisher.volumes,
+          allVolumes: allVolumes))
     }
   }
 
   @Sendable
   func submitPublisherEdit(req: Request) async throws -> Response {
-    try await submitEdit(req: req, path: "/publishers", fields: publisherFields)
+    try await withSpan("submit-publisher-edit") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canEdit(user.roles) else { throw Abort(.forbidden) }
+
+      let input = try req.content.decode([String: String].self)
+      let known = Set(publisherFields.map(\.key))
+      let filtered = input.filter { known.contains($0.key) }
+
+      let result = try await req.catalogAPI.patchEntity(
+        path: "/publishers", id: id, token: user.accessToken, fields: filtered)
+
+      // Volume association is editor/admin-direct (no review workflow, see
+      // sweetrpg/catalog-api#220) - mirrors StudiosController.submitStudioEdit/
+      // LicensesController.submitLicenseEdit.
+      if let volumeIdsRaw = input["volumeIds"] {
+        let volumeIds = volumeIdsRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        if canReview(user.roles) {
+          try await req.catalogAPI.patchEntityVolumes(
+            path: "/publishers", id: id, token: user.accessToken, volumeIds: volumeIds)
+        }
+      }
+
+      let basePath = "\(req.basePath)/publishers/\(id)"
+      switch result {
+      case .applied:
+        await req.catalogAPI.invalidateEntityListCache(path: "/publishers")
+        return req.redirect(to: basePath)
+      case .proposed:
+        return req.redirect(to: "\(basePath)?proposed=1")
+      }
+    }
   }
 
   @Sendable
@@ -139,6 +200,34 @@ struct PublishersController: RouteCollection {
   @Sendable
   func rejectPublisherVersion(req: Request) async throws -> Response {
     try await rejectVersionReview(req: req, path: "/publishers")
+  }
+
+  /// Soft-deletes a publisher - admin only, enforced both here and by catalog-api itself.
+  @Sendable
+  func deletePublisher(req: Request) async throws -> Response {
+    try await withSpan("publisher-delete") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(path: "/publishers/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/publishers")
+      return req.redirect(to: "\(req.basePath)/publishers/\(id)")
+    }
+  }
+
+  /// Restores a soft-deleted publisher - admin only.
+  @Sendable
+  func restorePublisher(req: Request) async throws -> Response {
+    try await withSpan("publisher-restore") { _ in
+      guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(path: "/publishers/\(id)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/publishers")
+      return req.redirect(to: "\(req.basePath)/publishers/\(id)")
+    }
   }
 
   /// Case-insensitive substring match against `nameOf` a browse page's search query - the same

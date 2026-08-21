@@ -120,7 +120,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
+            statCards: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-home") { res in
@@ -143,7 +143,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -161,6 +161,29 @@ struct AppTests {
     }
   }
 
+  @Test("header renders the app switcher with four destinations and no admin link")
+  func headerRendersAppSwitcher() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-home") { req async throws -> View in
+        try await req.view.render(
+          "home",
+          HomeContext(
+            statCards: [], tagCloud: [], user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-home") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("app-switcher-trigger"))
+        #expect(res.body.string.contains(#"href="/">Main"#))
+        #expect(res.body.string.contains(#"href="/catalog">Catalog"#))
+        #expect(res.body.string.contains(#"href="/shelf">Shelf"#))
+        #expect(res.body.string.contains(#"href="/initiative">Initiative"#))
+        #expect(!res.body.string.contains(#"app-switcher-item" href="/admin""#))
+      }
+    }
+  }
+
   @Test("header renders a Gravatar image with an onerror fallback when the session has an email")
   func headerRendersGravatarImageWhenEmailPresent() async throws {
     try await withApp { app in
@@ -169,7 +192,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: "alice@example.com", roles: [],
@@ -196,7 +219,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Alice", email: nil, roles: [], accessToken: "test-token",
@@ -219,7 +242,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [],
+            statCards: [], tagCloud: [],
             user: LeafUser(
               SessionUser(
                 sub: "abc", name: "Bob", email: nil, roles: ["admin"], accessToken: "test-token",
@@ -234,21 +257,24 @@ struct AppTests {
     }
   }
 
-  @Test("home page renders a volume card's cover image with an onerror fallback")
-  func homeRendersVolumeCoverWithFallback() async throws {
+  // The landing page's own "recently catalogued" volume grid was replaced by the
+  // catalog-landing-page-summary per-entity-type cards - this markup now lives only on the
+  // browse page, so the coverage moved there with it.
+  @Test("browse page renders a volume card's cover image with an onerror fallback")
+  func browseRendersVolumeCoverWithFallback() async throws {
     let volume = VolumeViewModel(
       id: "64c7cf96a3fc8ee7407f9b76", title: "A Glorious Death", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
     try await withApp { app in
       app.views.use(.leaf)
-      app.get("test-home") { req async throws -> View in
+      app.get("test-browse") { req async throws -> View in
         try await req.view.render(
-          "home",
-          HomeContext(
-            volumeCount: 1, lastUpdated: "", trending: [LeafVolumeCard(volume)], tagCloud: [],
-            user: nil, meta: await PageMeta.make(req)))
+          "browse",
+          BrowseContext(
+            query: "", noActiveTag: true, tagCloud: [], volumes: [LeafVolumeCard(volume)],
+            noResults: false, user: nil, meta: await PageMeta.make(req)))
       }
-      try await app.testing().test(.GET, "test-home") { res in
+      try await app.testing().test(.GET, "test-browse") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76"))
         #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
@@ -271,7 +297,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -294,7 +321,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -317,7 +345,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -341,7 +370,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -368,7 +398,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
         )
@@ -379,7 +410,7 @@ struct AppTests {
         #expect(res.body.string.contains("Schwalb Entertainment"))
         #expect(res.body.string.contains("OGL"))
         #expect(!res.body.string.contains(">Studio<"))
-        #expect(!res.body.string.contains(">Edit<"))
+        #expect(!res.body.string.contains(#"title="Edit""#))
       }
     }
   }
@@ -457,13 +488,14 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: true,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains(">Edit<"))
+        #expect(res.body.string.contains(#"title="Edit""#))
         #expect(res.body.string.contains("/volumes/1/edit"))
       }
     }
@@ -482,13 +514,39 @@ struct AppTests {
           DetailContext(
             // canEdit: true (submitter can propose), but review stays nil - only
             // CatalogController decides to populate it, gated on canReview, not canEdit.
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: true,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
         #expect(!res.body.string.contains("Pending Changes"))
+      }
+    }
+  }
+
+  @Test("detail page renders the description as Markdown, not raw text")
+  func detailRendersDescriptionAsMarkdown() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "**Bold** text.\n\nSecond paragraph.", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("<strong>Bold</strong>"))
+        #expect(res.body.string.contains("Second paragraph."))
+        #expect(!res.body.string.contains("**Bold**"))
       }
     }
   }
@@ -507,7 +565,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -540,7 +599,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: review,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -565,7 +625,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
       }
@@ -588,7 +649,8 @@ struct AppTests {
         try await req.view.render(
           "detail",
           DetailContext(
-            volume: try LeafVolumeDetail(volume, req: req), canEdit: false,
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
             justProposed: false, review: nil,
             conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
       }
@@ -716,7 +778,7 @@ struct AppTests {
         try await req.view.render(
           "home",
           HomeContext(
-            volumeCount: 0, lastUpdated: "", trending: [], tagCloud: [], user: nil,
+            statCards: [], tagCloud: [], user: nil,
             meta: await PageMeta.make(req)))
       }
       return try await test(app)
@@ -757,7 +819,7 @@ struct AppTests {
       try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:\(port)") { app in
         try await app.testing().test(.GET, "test-home") { res in
           #expect(res.status == .ok)
-          #expect(res.body.string.contains("Vol. count"))
+          #expect(res.body.string.contains("Catalog Summary"))
         }
       }
     }
@@ -768,7 +830,7 @@ struct AppTests {
     try await withMaintenanceModeApp(adminAPIURL: "http://127.0.0.1:1") { app in
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("Vol. count"))
+        #expect(res.body.string.contains("Catalog Summary"))
       }
     }
   }
@@ -1546,15 +1608,18 @@ struct AppTests {
         let user = SessionUser(
           sub: "abc", name: "Editor", email: nil, roles: ["editor"], accessToken: "test-token",
           expiry: Date().addingTimeInterval(3600))
+        let base = makeEditContext(
+          id: "1", basePath: "/licenses", fields: licenseFields,
+          values: [
+            "title": "CC BY 4.0", "status": "Accepted", "availability": "Released",
+            "deed": "Full deed text", "legal_code": "Full legal text",
+          ],
+          user: user, meta: await PageMeta.make(req))
         return try await req.view.render(
           "licenses/edit",
-          makeEditContext(
-            id: "1", basePath: "/licenses", fields: licenseFields,
-            values: [
-              "title": "CC BY 4.0", "status": "Accepted", "availability": "Released",
-              "deed": "Full deed text", "legal_code": "Full legal text",
-            ],
-            user: user, meta: await PageMeta.make(req)))
+          LicenseEditContext(
+            base: base, tags: [], tagOptions: [], canAddTag: false, canManageVolumes: false,
+            selectedVolumes: [], allVolumes: []))
       }
       try await app.testing().test(.GET, "test-license-edit") { res in
         #expect(res.status == .ok)
@@ -1593,8 +1658,9 @@ struct AppTests {
       }
       try await app.testing().test(.GET, "test-version-detail") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("auth0|submitter"))
-        #expect(res.body.string.contains("auth0|editor"))
+        // humanizeSubmitterID renders "auth0|x" as "auth0 #x" (no real display-name lookup yet).
+        #expect(res.body.string.contains("auth0 #submitter"))
+        #expect(res.body.string.contains("auth0 #editor"))
         #expect(res.body.string.contains("not needed"))
       }
     }

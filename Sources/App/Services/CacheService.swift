@@ -28,6 +28,16 @@ struct CacheService {
       return value
     }
   }
+
+  /// Evicts one or more cache keys immediately - used after a delete/restore so the affected
+  /// entity disappears from (or reappears in) browse/pickers right away, not after the normal
+  /// 60s TTL (task 3.4). A no-op if Redis isn't configured, matching `getOrSet`'s own fallback.
+  /// Best-effort - a delete failure just means the entry lives out its TTL, same
+  /// degraded-but-not-broken behavior as a cache miss.
+  func delete(_ keys: [String]) async {
+    guard request.application.redisConfigured, !keys.isEmpty else { return }
+    _ = try? await request.redis.delete(keys.map { RedisKey($0) }).get()
+  }
 }
 
 extension Request {

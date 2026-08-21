@@ -107,6 +107,43 @@ struct EntityEditContext: Content {
   let meta: PageMeta
 }
 
+/// `EntityEditContext` plus a volume-association picker - for entity types (studio today; see
+/// `LicenseEditContext` for the license variant, which additionally carries free-text tags) whose
+/// edit page needs the picker but not license's extra fields. Mirrors `LicenseEditContext`'s
+/// volumes-picker fields exactly so `studios/edit.leaf`'s picker markup/script can be a
+/// near-identical copy of `licenses/edit.leaf`'s.
+struct EntityEditWithVolumesContext: Content {
+  let id: String
+  let backPath: String
+  let submitPath: String
+  let fields: [LeafEntityFieldInput]
+  /// The volumes picker writes directly to volume records with no review step (see
+  /// sweetrpg/catalog-api#220), so it's only shown to a session with review rights - a
+  /// submitter still gets the rest of this form.
+  let canManageVolumes: Bool
+  let selectedVolumes: [LeafNamedOption]
+  let volumeOptionsJSON: String
+  let user: LeafUser?
+  let meta: PageMeta
+
+  init(
+    base: EntityEditContext, canManageVolumes: Bool, selectedVolumes: [VolumeSummary],
+    allVolumes: [(id: String, title: String)]
+  ) {
+    self.id = base.id
+    self.backPath = base.backPath
+    self.submitPath = base.submitPath
+    self.fields = base.fields
+    self.canManageVolumes = canManageVolumes
+    self.selectedVolumes = selectedVolumes.map { LeafNamedOption(id: $0.id, name: $0.title) }
+    let options = allVolumes.map { LeafNamedOption(id: $0.id, name: $0.title) }
+    self.volumeOptionsJSON =
+      (try? JSONEncoder().encode(options)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+    self.user = base.user
+    self.meta = base.meta
+  }
+}
+
 struct LeafEntityFieldInput: Content {
   let key: String
   let label: String

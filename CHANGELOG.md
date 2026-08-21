@@ -1,4 +1,91 @@
 
+## 0.34.0 - 2026-08-20
+
+### Added
+- Make each summary tile clickable to its browse page
+- Add web-misc secret to deployment and dev overlay
+- Rename Volumes to Contributed to, show role per volume
+- Add Volumes picker to the edit page
+
+
+### Fixed
+- Align title with cover top, Properties Add buttons as icons
+- Volumes sits beside form fields, not below them
+- Back links say where they go, not generic 'Back'
+
+
+
+## 0.33.0 - 2026-08-20
+
+### Added
+- Admin-only delete/restore UI, reference-degradation labeling
+
+
+
+## 0.32.0 - 2026-08-20
+
+### Added
+- Tags autocomplete picker, wider edit form
+- Add volume-association picker to studio edit page
+- Add game system association to volume edit page
+- Bulk-add persons page and API client, gated to editor/admin
+- Wire bulk-add button and post-submit result banner
+
+
+### Fixed
+- Prefix tag-cloud links with basePath
+- Show credit person name before contribution type
+- Render submitter/reviewer sub as a readable label
+- Open Deed by default, only divider Deed from Legal code
+- Put Add-X button on the same row as search/sort
+- Invalidate entity list-cache on create/edit
+- Update license-edit and version-detail tests for prior commits
+- Contributor dialog layout, icon buttons, and type pre-fill
+- Invalidate the volumes list cache after a live edit
+- Merge browse links into hero row, 3-col responsive stat grid
+- Rename bulk_created/bulk_failed/bulk_errors query fields to camelCase
+
+
+
+## 0.31.0 - 2026-08-19
+
+### Added
+- Per-entity-type summary cards, replacing the volumes grid
+
+
+
+## 0.30.0 - 2026-08-19
+
+### Added
+- Add app switcher grid next to avatar menu
+
+
+
+## 0.29.0 - 2026-08-19
+
+
+## 0.29.0 - 2026-08-19
+
+### Added
+- Add create-new forms for publisher/studio/license/person
+- Edit tags and associated volumes from the license edit page
+
+
+
+## 0.28.0 - 2026-08-19
+
+### Added
+- Wire up the real catalog stats endpoint
+- Render volume description as Markdown, bound its height, restyle header actions
+
+
+### Fixed
+- Remove extra blank space above/below license text
+- Raise body-size limit past 16kb, route 413 to the branded error page
+- Route 409 Conflict to the branded error page too
+
+
+
 ## 0.27.0 - 2026-08-19
 
 ### Added

@@ -1,0 +1,126 @@
+#extend("base"):
+	#export("body"):
+		<style>
+		  /* Page-specific: preview list for the parsed textarea lines (catalog-entity-bulk-add) -
+		     no shared-web equivalent to reuse. */
+		  .bulk-add-preview-list {
+		    list-style: none;
+		    padding: 0;
+		    margin: 8px 0 0;
+		    display: flex;
+		    flex-direction: column;
+		    gap: 4px;
+		  }
+		  .bulk-add-preview-item {
+		    display: flex;
+		    align-items: center;
+		    justify-content: space-between;
+		    gap: 8px;
+		    padding: 6px 10px;
+		    border-radius: var(--radius-md);
+		    background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+		  }
+		  .bulk-add-preview-empty {
+		    opacity: 0.6;
+		    font-style: italic;
+		    margin-top: 8px;
+		  }
+		</style>
+
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+
+		<section class="page-header">
+			<span class="section-label">Bulk add</span>
+			<h2>Persons</h2>
+		</section>
+
+		<form class="form" id="bulk-add-form" action="#(meta.basePath)#(submitPath)" method="post">
+			<label class="form-label" for="names-input">Names</label>
+			<div>
+				<textarea class="input" id="names-input" name="names" rows="10" placeholder="One name per line, e.g.&#10;Ann Leckie&#10;N.K. Jemisin"></textarea>
+
+				<div id="preview-panel" hidden>
+					<p class="form-label" style="text-align: left;">Preview - remove any line before adding</p>
+					<ul class="bulk-add-preview-list" id="preview-list"></ul>
+					<p class="bulk-add-preview-empty" id="preview-empty" hidden>No names left to add.</p>
+				</div>
+
+				<div class="form-actions">
+					<button type="button" class="btn btn-ghost" id="preview-trigger">Preview</button>
+					<button type="button" class="btn btn-ghost" id="edit-trigger" hidden>Edit</button>
+					<button type="submit" class="btn btn-primary" id="submit-trigger" hidden>Add all</button>
+					<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
+				</div>
+			</div>
+		</form>
+
+		<script>
+		(function () {
+		  // Preview step (catalog-entity-bulk-add's design.md): parse the textarea into one name
+		  // per line, show each as a removable row, and only then let the editor submit - the
+		  // textarea itself is disabled (not hidden) while previewing so its value keeps syncing to
+		  // what the preview list shows, without needing a separate hidden field to keep in sync.
+		  var textarea = document.getElementById('names-input');
+		  var previewPanel = document.getElementById('preview-panel');
+		  var previewList = document.getElementById('preview-list');
+		  var previewEmpty = document.getElementById('preview-empty');
+		  var previewTrigger = document.getElementById('preview-trigger');
+		  var editTrigger = document.getElementById('edit-trigger');
+		  var submitTrigger = document.getElementById('submit-trigger');
+
+		  function parseNames() {
+		    return textarea.value.split('\n')
+		      .map(function (line) { return line.trim(); })
+		      .filter(function (line) { return line.length > 0; });
+		  }
+
+		  function syncTextareaFromNames(names) {
+		    textarea.value = names.join('\n');
+		  }
+
+		  function renderPreview() {
+		    var names = parseNames();
+		    previewList.innerHTML = '';
+		    names.forEach(function (name) {
+		      var item = document.createElement('li');
+		      item.className = 'bulk-add-preview-item';
+		      var label = document.createElement('span');
+		      label.textContent = name;
+		      var removeBtn = document.createElement('button');
+		      removeBtn.type = 'button';
+		      removeBtn.className = 'chip-remove';
+		      removeBtn.title = 'Remove ' + name;
+		      removeBtn.textContent = '×';
+		      removeBtn.addEventListener('click', function () {
+		        var remaining = parseNames().filter(function (n) { return n !== name; });
+		        syncTextareaFromNames(remaining);
+		        renderPreview();
+		      });
+		      item.appendChild(label);
+		      item.appendChild(removeBtn);
+		      previewList.appendChild(item);
+		    });
+		    previewEmpty.hidden = names.length > 0;
+		    submitTrigger.disabled = names.length === 0;
+		  }
+
+		  previewTrigger.addEventListener('click', function () {
+		    renderPreview();
+		    textarea.disabled = true;
+		    previewPanel.hidden = false;
+		    previewTrigger.hidden = true;
+		    editTrigger.hidden = false;
+		    submitTrigger.hidden = false;
+		  });
+
+		  editTrigger.addEventListener('click', function () {
+		    textarea.disabled = false;
+		    previewPanel.hidden = true;
+		    previewTrigger.hidden = false;
+		    editTrigger.hidden = true;
+		    submitTrigger.hidden = true;
+		  });
+		})();
+		</script>
+	#endexport
+#endextend

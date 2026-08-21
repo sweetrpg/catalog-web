@@ -1,16 +1,62 @@
 #extend("base"):
 	#export("body"):
+		<style>
+		  /* Page-specific: the bulk-add result banner's failure list (catalog-entity-bulk-add) */
+		  .bulk-add-result-list {
+		    list-style: none;
+		    padding: 0;
+		    margin: 8px 0 0;
+		    display: flex;
+		    flex-direction: column;
+		    gap: 4px;
+		  }
+		  .bulk-add-result-item {
+		    display: flex;
+		    justify-content: space-between;
+		    gap: 8px;
+		    font-size: 0.9rem;
+		  }
+		</style>
+
 		<section class="page-header">
 			<span class="section-label">Browse</span>
 			<h2>Persons</h2>
-			<form class="nav-search" action="#(meta.basePath)/persons" method="get">
-				<input class="input" type="search" name="q" placeholder="Search persons" value="#(query)">
-				<select class="input" name="order" onchange="this.form.submit()">
-					<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
-					<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
-				</select>
-			</form>
+			<div class="page-header-toolbar">
+				<form class="nav-search" action="#(meta.basePath)/persons" method="get">
+					<input class="input" type="search" name="q" placeholder="Search persons" value="#(query)">
+					<select class="input" name="order" onchange="this.form.submit()">
+						<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
+						<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
+					</select>
+				</form>
+				#if(canEdit):
+					<a class="btn btn-primary" href="#(meta.basePath)/persons/new">Add person</a>
+				#endif
+				#if(canBulkAdd):
+					<a class="btn btn-ghost" href="#(meta.basePath)/persons/bulk-add">Bulk add</a>
+				#endif
+			</div>
 		</section>
+
+		#if(hasBulkResult):
+			#if(bulkFailedCount > 0):
+				<div class="banner banner-warning" role="status">
+					<p>Added #(bulkCreatedCount) person(s). #(bulkFailedCount) failed:</p>
+					<ul class="bulk-add-result-list">
+						#for(failure in bulkFailures):
+							<li class="bulk-add-result-item">
+								<span>#(failure.name)</span>
+								<span>#(failure.error)</span>
+							</li>
+						#endfor
+					</ul>
+				</div>
+			#else:
+				<div class="banner banner-info" role="status">
+					<p>Added #(bulkCreatedCount) person(s).</p>
+				</div>
+			#endif
+		#endif
 
 		#if(noResults):
 			<p class="empty-state">No persons match "#(query)".</p>

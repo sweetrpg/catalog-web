@@ -15,10 +15,12 @@ struct LeafProperty: Content {
 struct LeafEntityRef: Content {
   let id: String
   let name: String
+  let isDeleted: Bool
 
   init(_ ref: EntityRef) {
     self.id = ref.id
     self.name = ref.name
+    self.isDeleted = ref.isDeleted
   }
 }
 

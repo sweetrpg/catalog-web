@@ -16,9 +16,7 @@
 		    outline: 2px solid var(--accent, #6366f1);
 		    outline-offset: -2px;
 		  }
-		  #edit-form .btn, .contributor-dialog .btn {
-		    border-radius: 999px;
-		  }
+		  /* Button shape is app-wide now (catalog/theme.css's .btn), no local override needed. */
 		  #edit-form > div {
 		    margin-top: 1.25rem;
 		    padding-top: 1.25rem;
@@ -33,6 +31,15 @@
 		    border-radius: 0.75rem;
 		  }
 
+		  /* Cover + samples share the grid's first column as one flow-stacked unit - grid-column
+		     on .samples-field alone used to put it in a second grid row, which under CSS Grid's
+		     sparse auto-placement also pushed the form column (title, description, ...) down to
+		     that same row instead of aligning with the cover's top. */
+		  .detail-cover-column {
+		    display: flex;
+		    flex-direction: column;
+		    gap: 40px;
+		  }
 		  .card-cover.detail-cover {
 		    aspect-ratio: unset;
 		    flex-direction: column;
@@ -248,16 +255,34 @@
 		  .contributor-dialog[hidden] {
 		    display: none;
 		  }
+		  .contributor-dialog-row {
+		    display: flex;
+		    align-items: flex-end;
+		    gap: 0.6rem;
+		  }
+		  .contributor-dialog-row .contributor-dialog-label {
+		    flex: 1;
+		    min-width: 0;
+		  }
+		  .contributor-dialog-row .icon-btn {
+		    flex-shrink: 0;
+		    width: 2rem;
+		    height: 2rem;
+		  }
 		  .contributor-add-type {
 		    display: flex;
 		    align-items: center;
 		    gap: 0.4rem;
 		    margin-top: 0.3rem;
 		  }
-		  .contributor-add-type select,
 		  .contributor-add-type input {
 		    flex: 1;
 		    min-width: 0;
+		  }
+		  .contributor-add-type .icon-btn {
+		    flex-shrink: 0;
+		    width: 2rem;
+		    height: 2rem;
 		  }
 		  .property-add-row,
 		  .property-add-name {
@@ -272,6 +297,12 @@
 		  .property-add-name input {
 		    flex: 1;
 		    min-width: 0;
+		  }
+		  .property-add-row .icon-btn,
+		  .property-add-name .icon-btn {
+		    flex-shrink: 0;
+		    width: 2rem;
+		    height: 2rem;
 		  }
 		  .field-actions .icon-btn {
 		    width: 1.75rem;
@@ -304,13 +335,14 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; #(volume.title)</a>
 
 		#if(hasSubmitError):
 			<p class="form-error">#(submitError)</p>
 		#endif
 
 		<div class="detail-layout">
+			<div class="detail-cover-column">
 			<div class="card-cover detail-cover">
 				<div class="cover-image-wrap">
 					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
@@ -332,24 +364,25 @@
 				#if(canUploadCover):
 					<p class="form-error cover-upload-error" hidden></p>
 				#endif
+			</div>
 
-				<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
-					<div class="sample-thumbnails-row" id="sample-thumbnails-row">
-						#if(volume.hasLivingSamples):
-							#for(path in volume.livingSamplePaths):
-								<img class="sample-thumbnail-small" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
-							#endfor
-						#endif
-						<div class="chip-list chip-list-thumbnails" id="staged-sample-list" data-chip-list>
-							#for(sample in volume.stagedSamples):
-								<span class="chip chip-thumbnail-chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
-							#endfor
-						</div>
+			<div class="samples-field" id="samples-field" data-assets-url="#(meta.assetsURL)" data-user-sub="#(volume.userSub)" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/samples">
+				<div class="sample-thumbnails-row" id="sample-thumbnails-row">
+					#if(volume.hasLivingSamples):
+						#for(path in volume.livingSamplePaths):
+							<img class="sample-thumbnail-small" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
+						#endfor
+					#endif
+					<div class="chip-list chip-list-thumbnails" id="staged-sample-list" data-chip-list>
+						#for(sample in volume.stagedSamples):
+							<span class="chip chip-thumbnail-chip" data-id="#(sample.id)"><img class="chip-thumbnail" src="#(meta.assetsURL)/#(sample.path)" alt="Staged sample"><button type="button" class="chip-remove" title="Remove this sample">&times;</button></span>
+						#endfor
 					</div>
-					<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
-					<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
-					<p class="form-error" id="sample-upload-error" hidden></p>
 				</div>
+				<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
+				<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
+				<p class="form-error" id="sample-upload-error" hidden></p>
+			</div>
 			</div>
 
 			<div>
@@ -388,6 +421,22 @@
 								<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
 							</button>
 						</span>
+					</div>
+
+					<div class="picker-field tag-cloud-field" data-picker="system" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+						<h3>Game Systems</h3>
+						<div class="chip-list" data-chip-list>
+							#for(system in volume.selectedSystems):
+								<span class="chip" data-id="#(system.id)" data-name="#(system.name)"><span class="chip-label">#(system.name)</span><button type="button" class="chip-remove" title="Remove #(system.name)">&times;</button></span>
+							#endfor
+							<button type="button" class="chip-add-trigger" title="Add a game system">+</button>
+						</div>
+						<div class="tag-picker" hidden>
+							<input type="text" class="input picker-filter" placeholder="Search game systems..." autocomplete="off">
+							<ul class="picker-results" hidden></ul>
+							<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+						</div>
+						<script type="application/json" class="picker-options">#unsafeHTML(volume.systemOptionsJSON)</script>
 					</div>
 
 					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
@@ -434,33 +483,36 @@
 						<script type="application/json" id="contributor-type-options">#unsafeHTML(volume.contributionTypeOptionsJSON)</script>
 
 						<div class="contributor-dialog" id="contributor-dialog" hidden>
-							<label class="contributor-dialog-label">
-								Person
-								<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
-								<ul class="picker-results" id="contributor-person-results" hidden></ul>
-							</label>
-							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
-
-							<label class="contributor-dialog-label">
-								Contribution type
-								<div class="contributor-add-type">
+							<div class="contributor-dialog-row">
+								<label class="contributor-dialog-label">
+									Person
+									<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
+									<ul class="picker-results" id="contributor-person-results" hidden></ul>
+								</label>
+								<label class="contributor-dialog-label">
+									Contribution type
 									<select class="input" id="contributor-type-select">
 										<option value="">Select a type&hellip;</option>
 									</select>
-									#if(volume.canAddContributionType):
-										<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
-										<button type="button" class="btn btn-ghost" id="contributor-add-type-trigger">Add type</button>
-									#endif
-								</div>
-							</label>
+								</label>
+								<button type="button" class="icon-btn" id="contributor-confirm-trigger" title="Add" disabled>
+									<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Confirm">
+								</button>
+								<button type="button" class="icon-btn" id="contributor-cancel-trigger" title="Cancel">
+									<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+								</button>
+							</div>
+							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
+
 							#if(volume.canAddContributionType):
+								<div class="contributor-add-type">
+									<input type="text" class="input" id="contributor-new-type" placeholder="Add a new contribution type...">
+									<button type="button" class="icon-btn" id="contributor-add-type-trigger" title="Add a new contribution type">
+										<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Add type">
+									</button>
+								</div>
 								<p class="form-error" id="contributor-add-type-error" hidden></p>
 							#endif
-
-							<div class="contributor-dialog-actions">
-								<button type="button" class="btn btn-primary" id="contributor-confirm-trigger" disabled>Add</button>
-								<button type="button" class="btn btn-ghost" id="contributor-cancel-trigger">Cancel</button>
-							</div>
 						</div>
 					</div>
 
@@ -478,13 +530,17 @@
 								<option value="">Select a property&hellip;</option>
 							</select>
 							<input type="text" class="input" id="property-value-input" placeholder="Value">
-							<button type="button" class="btn btn-ghost" id="property-add-trigger" disabled>Add</button>
+							<button type="button" class="icon-btn" id="property-add-trigger" title="Add" disabled>
+								<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Add">
+							</button>
 						</div>
 
 						#if(volume.canAddPropertyName):
 							<div class="property-add-name">
 								<input type="text" class="input" id="property-new-name" placeholder="Add a new property name...">
-								<button type="button" class="btn btn-ghost" id="property-add-name-trigger">Add name</button>
+								<button type="button" class="icon-btn" id="property-add-name-trigger" title="Add a new property name">
+									<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Add name">
+								</button>
 								<p class="form-error" id="property-add-name-error" hidden></p>
 							</div>
 						#endif
@@ -901,10 +957,20 @@
 		      selectedPerson = { id: editingChip.dataset.personId, name: editingChip.dataset.personName };
 		      selectedPersonLabel.textContent = 'Selected: ' + selectedPerson.name;
 		      selectedPersonLabel.hidden = false;
-		      typeSelect.value = editingChip.dataset.contributionType;
+		      var existingType = editingChip.dataset.contributionType;
+		      // A chip's stored type can predate the current vocabulary (or come from a stale
+		      // default like "Contributor") - inject it as a selectable option rather than let
+		      // the select silently fall back to blank when it doesn't match any <option>.
+		      if (existingType && !typeOptions.includes(existingType)) {
+		        var extra = document.createElement('option');
+		        extra.value = existingType;
+		        extra.textContent = existingType;
+		        typeSelect.appendChild(extra);
+		      }
+		      typeSelect.value = existingType;
 		      updateConfirmEnabled();
 		    }
-		    confirmBtn.textContent = editingChip ? 'Update' : 'Add';
+		    confirmBtn.title = editingChip ? 'Update' : 'Add';
 		    dialog.hidden = false;
 		  }
 

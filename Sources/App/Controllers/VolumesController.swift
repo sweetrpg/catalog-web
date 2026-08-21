@@ -33,6 +33,8 @@ struct VolumesController: RouteCollection {
     routes.get("volumes", ":volumeID", "versions", ":version", use: versionDetail)
     routes.post(
       "volumes", ":volumeID", "versions", ":version", "restore", use: restoreVersion)
+    routes.post("volumes", ":volumeID", "delete", use: deleteVolume)
+    routes.post("volumes", ":volumeID", "undelete", use: restoreDeletedVolume)
   }
 
   private struct BrowseQuery: Content {
@@ -52,9 +54,11 @@ struct VolumesController: RouteCollection {
       }
       volume.credits = try await req.catalogAPI.fetchCredits(volumeID: volumeID)
       volume.reviews = try await req.catalogAPI.fetchReviews(volumeID: volumeID)
+      volume = await req.catalogAPI.resolveDeletedReferences(volume)
 
       let sessionUser = await req.currentUser
       let roles = sessionUser?.roles ?? []
+      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/volumes/\(volumeID)")
 
       var proposalReview: LeafVersionReview?
       if canReview(roles), let token = sessionUser?.accessToken {
@@ -87,6 +91,8 @@ struct VolumesController: RouteCollection {
         DetailContext(
           volume: try LeafVolumeDetail(volume, req: req),
           canEdit: canEdit(roles),
+          canDelete: canDelete(roles),
+          isDeleted: isDeleted,
           justProposed: req.query[String.self, at: "proposed"] == "1",
           review: proposalReview,
           conflicts: conflicts,
@@ -197,6 +203,38 @@ struct VolumesController: RouteCollection {
     }
   }
 
+  /// Soft-deletes a volume - admin only, enforced both here and by catalog-api itself. A
+  /// client-side confirm (`detail.leaf`) gates the request firing, since delete is destructive-
+  /// looking even though reversible (design.md's decision).
+  @Sendable
+  func deleteVolume(req: Request) async throws -> Response {
+    try await withSpan("volume-delete") { _ in
+      guard let volumeID = req.parameters.get("volumeID") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.deleteEntity(
+        path: "/volumes/\(volumeID)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/volumes")
+      return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
+    }
+  }
+
+  /// Restores a soft-deleted volume - admin only.
+  @Sendable
+  func restoreDeletedVolume(req: Request) async throws -> Response {
+    try await withSpan("volume-restore-deleted") { _ in
+      guard let volumeID = req.parameters.get("volumeID") else { throw Abort(.badRequest) }
+      guard let user = await req.currentUser, canDelete(user.roles) else {
+        throw Abort(.forbidden)
+      }
+      try await req.catalogAPI.restoreEntity(
+        path: "/volumes/\(volumeID)", token: user.accessToken)
+      await req.catalogAPI.invalidateListCache(path: "/volumes")
+      return req.redirect(to: "\(req.basePath)/volumes/\(volumeID)")
+    }
+  }
+
   /// Loads (or starts) the caller's durable edit session for `volumeID`. Three outcomes:
   /// - no session existed - one is created here, seeded from the volume's live values
   /// - a session already exists for this same volume - resumed as-is (a page reload mid-edit
@@ -248,10 +286,11 @@ struct VolumesController: RouteCollection {
         throw Abort(.forbidden)
       }
       let volumes = try await req.catalogAPI.fetchVolumes()  // TODO: fix this travesty
-      guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
         req.logger.error("editForm: volume \(volumeID) not found")
         throw Abort(.notFound)
       }
+      volume = await req.catalogAPI.resolveDeletedReferences(volume)
 
       guard let session = try await loadOrStartSession(req: req, userSub: user.sub, volume: volume)
       else {
@@ -278,6 +317,7 @@ struct VolumesController: RouteCollection {
           ))
       }
 
+      async let systemOptions = req.catalogAPI.fetchSystemOptions()
       async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
       async let studioOptions = req.catalogAPI.fetchStudioOptions()
       async let personOptions = req.catalogAPI.fetchPersonOptions()
@@ -298,6 +338,7 @@ struct VolumesController: RouteCollection {
           volume: try LeafVolumeEditForm(
             volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
             req: req,
+            systemOptions: try await systemOptions,
             publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
             personOptions: try await personOptions,
             contributionTypeOptions: try await contributionTypeOptions,
@@ -353,6 +394,9 @@ struct VolumesController: RouteCollection {
         let result = try await req.catalogAPI.finalizeSession(id: volumeID, token: user.accessToken)
         switch result {
         case .applied:
+          // Only .applied changes the live record - a .proposed submitter edit hasn't touched
+          // it yet, so the cached volumes list is still accurate.
+          await req.catalogAPI.invalidateEntityListCache(path: "/volumes")
           return req.redirect(to: basePath)
         case .proposed:
           return req.redirect(to: "\(basePath)?proposed=1")
@@ -361,10 +405,12 @@ struct VolumesController: RouteCollection {
         // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
         // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
         let volumes = try await req.catalogAPI.fetchVolumes()
-        guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
+        guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
         else {
           throw Abort(.notFound)
         }
+        volume = await req.catalogAPI.resolveDeletedReferences(volume)
+        async let systemOptions = req.catalogAPI.fetchSystemOptions()
         async let publisherOptions = req.catalogAPI.fetchPublisherOptions()
         async let studioOptions = req.catalogAPI.fetchStudioOptions()
         async let personOptions = req.catalogAPI.fetchPersonOptions()
@@ -383,6 +429,7 @@ struct VolumesController: RouteCollection {
             volume: try LeafVolumeEditForm(
               volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
               req: req,
+              systemOptions: try await systemOptions,
               publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
               personOptions: try await personOptions,
               contributionTypeOptions: try await contributionTypeOptions,
@@ -444,6 +491,7 @@ struct VolumesController: RouteCollection {
   /// list, same full-replace semantics `PATCH /volumes/:id` itself uses for these fields, so
   /// this never needs to diff against what's already in the session.
   private struct AutosaveAssociationsInput: Content {
+    let systemIds: [String]?
     let publisherIds: [String]?
     let studioIds: [String]?
   }
@@ -465,6 +513,7 @@ struct VolumesController: RouteCollection {
       }
 
       let input = try req.content.decode(AutosaveAssociationsInput.self)
+      if let systemIds = input.systemIds { session.fields["systemIds"] = .stringArray(systemIds) }
       if let publisherIds = input.publisherIds {
         session.fields["publisherIds"] = .stringArray(publisherIds)
       }
@@ -591,36 +640,6 @@ struct VolumesController: RouteCollection {
     }
   }
 
-  /// Adds a new shared-vocabulary value (contribution type today) on behalf of the editor/admin
-  /// contributor dialog's "add new" affordance (task 8.1/8.2) - a browser call can't carry the
-  /// bearer token itself, so this forwards it server-to-server and returns the vocabulary's
-  /// updated value list for the dialog's picker to pick up without a full page reload.
-  private struct AddVocabularyValueInput: Content {
-    let value: String
-  }
-
-  struct VocabularyValuesResponse: Content {
-    let values: [String]
-  }
-
-  @Sendable
-  func addVocabularyValue(req: Request) async throws -> VocabularyValuesResponse {
-    try await withSpan("volume-add-vocabulary-value") { _ in
-      guard let type = req.parameters.get("type") else {
-        throw Abort(.badRequest)
-      }
-      guard let user = await req.currentUser, canCreateVocabularyValue(user.roles) else {
-        throw Abort(.forbidden)
-      }
-
-      let input = try req.content.decode(AddVocabularyValueInput.self)
-      let values = try await req.catalogAPI.addVocabularyValue(
-        type: type, value: input.value, token: user.accessToken)
-
-      return VocabularyValuesResponse(values: values)
-    }
-  }
-
   /// Records that a cover was staged to `cover-staged/<sub>` on assets-web (the upload itself
   /// happens browser-direct, per task 6.4 - see `edit.leaf`'s script) - this just updates the
   /// session pointer so finalize/discard know a staged file exists.
@@ -710,6 +729,7 @@ struct VolumesController: RouteCollection {
 
       let result = try await req.catalogAPI.acceptVolumeVersion(
         volumeID: volumeID, version: version, token: user.accessToken, fields: fields)
+      await req.catalogAPI.invalidateEntityListCache(path: "/volumes")
 
       var redirectPath = "\(req.basePath)/volumes/\(volumeID)"
       if let conflicts = result.conflicts, !conflicts.isEmpty {

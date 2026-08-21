@@ -46,6 +46,8 @@ spec:
                       - secretRef:
                             name: web-cache
                       - secretRef:
+                            name: web-misc
+                      - secretRef:
                             name: web-shared-session
                       - secretRef:
                             name: web-edit-session
@@ -57,7 +59,7 @@ spec:
                           cpu: "20m"
                           memory: "55Mi"
                       limits:
-                          cpu: "1.0"
+                          cpu: "1"
                           memory: "512Mi"
                   livenessProbe:
                         httpGet:
