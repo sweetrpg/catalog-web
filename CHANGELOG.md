@@ -1,4 +1,13 @@
 
+## 0.37.1 - 2026-08-21
+
+### Fixed
+- Recolor delete/restore icons via CSS mask, not filter
+- Update template names for volumes/ leaf path rename
+- Leaf paths in tests
+
+
+
 ## 0.37.0 - 2026-08-21
 
 ### Added
