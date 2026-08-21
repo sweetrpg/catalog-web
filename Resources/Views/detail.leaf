@@ -52,8 +52,7 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
-				<span class="card-cover-fallback">Cover pending</span>
+				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onerror="this.onerror=null;this.src='#(meta.sharedURL)/static/img/catalog/cover-placeholder-detail.png'">
 			</div>
 
 			<div>
