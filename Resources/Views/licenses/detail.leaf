@@ -50,6 +50,26 @@
 		       deliberate gap below the <summary> toggle. */
 		    margin: 8px 0 0;
 		  }
+		  .license-text-body[data-mode="preview"] {
+		    white-space: normal;
+		  }
+		  .license-text-mode-toggle {
+		    display: inline-flex;
+		    gap: 4px;
+		    margin-left: 12px;
+		  }
+		  .license-text-mode-toggle button {
+		    border: none;
+		    background: rgba(127, 127, 127, 0.12);
+		    border-radius: 999px;
+		    padding: 2px 10px;
+		    font-size: 12px;
+		    cursor: pointer;
+		  }
+		  .license-text-mode-toggle button[aria-pressed="true"] {
+		    background: var(--color-accent);
+		    color: var(--color-on-accent, #fff);
+		  }
 		</style>
 
 		<a class="back-link" href="#(meta.basePath)/licenses">&larr; Licenses</a>
@@ -216,19 +236,97 @@
 					<div class="license-text-panel">
 						#if(license.hasDeed):
 							<details open>
-								<summary>Deed</summary>
-								<p class="license-text-body">#(license.deed)</p>
+								<summary>Deed
+									<span class="license-text-mode-toggle" data-license-text-toggle>
+										<button type="button" data-mode="preview" aria-pressed="true">Preview</button>
+										<button type="button" data-mode="raw" aria-pressed="false">Raw</button>
+									</span>
+								</summary>
+								<p class="license-text-body" data-mode="preview" data-raw="#(license.deed)">#(license.deed)</p>
 							</details>
 						#endif
 						#if(license.hasLegalCode):
 							<details>
-								<summary>Legal code</summary>
-								<p class="license-text-body">#(license.legalCode)</p>
+								<summary>Legal code
+									<span class="license-text-mode-toggle" data-license-text-toggle>
+										<button type="button" data-mode="preview" aria-pressed="true">Preview</button>
+										<button type="button" data-mode="raw" aria-pressed="false">Raw</button>
+									</span>
+								</summary>
+								<p class="license-text-body" data-mode="preview" data-raw="#(license.legalCode)">#(license.legalCode)</p>
 							</details>
 						#endif
 					</div>
 				</div>
 			#endif
 		</div>
+
+		<script>
+		(function () {
+		  // Deed/legal code preview toggle: renders a small, dependency-free Markdown subset
+		  // (headers, bold/italic, links, lists, paragraphs) client-side rather than pulling in
+		  // a Swift Markdown package - this text is admin-authored license text, not
+		  // user-submitted, but it's still escaped first so a raw '<'/'&' in the source can't
+		  // break out of the rendered HTML.
+		  function escapeHTML(text) {
+		    return text
+		      .replace(/&/g, '&amp;')
+		      .replace(/</g, '&lt;')
+		      .replace(/>/g, '&gt;');
+		  }
+
+		  function renderInline(text) {
+		    return escapeHTML(text)
+		      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
+		      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+		      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+		  }
+
+		  function renderMarkdown(text) {
+		    var lines = text.split(/\r?\n/);
+		    var html = '';
+		    var listOpen = false;
+		    lines.forEach(function (line) {
+		      var heading = line.match(/^(#{1,6})\s+(.*)$/);
+		      var listItem = line.match(/^\s*[-*]\s+(.*)$/);
+		      if (heading) {
+		        if (listOpen) { html += '</ul>'; listOpen = false; }
+		        var level = heading[1].length;
+		        html += '<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>';
+		      } else if (listItem) {
+		        if (!listOpen) { html += '<ul>'; listOpen = true; }
+		        html += '<li>' + renderInline(listItem[1]) + '</li>';
+		      } else if (line.trim() === '') {
+		        if (listOpen) { html += '</ul>'; listOpen = false; }
+		      } else {
+		        if (listOpen) { html += '</ul>'; listOpen = false; }
+		        html += '<p>' + renderInline(line) + '</p>';
+		      }
+		    });
+		    if (listOpen) html += '</ul>';
+		    return html;
+		  }
+
+		  document.querySelectorAll('.license-text-body').forEach(function (body) {
+		    body.innerHTML = renderMarkdown(body.dataset.raw);
+		  });
+
+		  document.querySelectorAll('[data-license-text-toggle]').forEach(function (toggle) {
+		    var body = toggle.closest('details').querySelector('.license-text-body');
+		    var buttons = toggle.querySelectorAll('button');
+		    buttons.forEach(function (button) {
+		      button.addEventListener('click', function (e) {
+		        e.preventDefault();
+		        var mode = button.dataset.mode;
+		        body.dataset.mode = mode;
+		        body.innerHTML = mode === 'raw'
+		          ? escapeHTML(body.dataset.raw).replace(/\n/g, '<br>')
+		          : renderMarkdown(body.dataset.raw);
+		        buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b === button)); });
+		      });
+		    });
+		  });
+		})();
+		</script>
 	#endexport
 #endextend
