@@ -277,10 +277,10 @@ struct AppTests {
       try await app.testing().test(.GET, "test-browse") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("asset/cover/64c7cf96a3fc8ee7407f9b76"))
-        #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
-        #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
-        #expect(res.body.string.contains("card-cover-fallback"))
-        #expect(res.body.string.contains("Cover pending"))
+        #expect(
+          res.body.string.contains(
+            "onerror=\"this.onerror=null;this.src='http://localhost:8081"
+              + "/static/img/catalog/cover-placeholder-browse.png'\""))
       }
     }
   }

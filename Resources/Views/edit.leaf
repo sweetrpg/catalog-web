@@ -357,8 +357,7 @@
 			<div class="detail-cover-column">
 			<div class="card-cover detail-cover">
 				<div class="cover-image-wrap">
-					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
-					<span class="card-cover-fallback">Cover pending</span>
+					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onerror="this.onerror=null;this.src='#(meta.sharedURL)/static/img/catalog/cover-placeholder-detail.png'">
 					#if(canUploadCover):
 						<div class="cover-overlay-controls" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover" data-live-cover-path="#(volume.liveCoverPath)">
 							<label class="icon-btn cover-edit-trigger" for="cover-upload-input" title="Change cover">
