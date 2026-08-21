@@ -1,4 +1,17 @@
 
+## 0.35.0 - 2026-08-21
+
+### Added
+- Add deed/legal-code preview toggle, default deed open
+
+
+### Fixed
+- Add missing catalog-web-health-token Password generator
+- Fix cpu resource limit quantity that never matched ArgoCD's applied manifest
+- Remove implicit whitespace above the Deed/Legal code toggle
+
+
+
 ## 0.34.0 - 2026-08-20
 
 ### Added
