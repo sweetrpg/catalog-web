@@ -1,5 +1,7 @@
 #extend("base"):
 	#export("body"):
+		<link rel="stylesheet" href="#(meta.sharedURL)/static/css/catalog/browse.css">
+
 		<section class="page-header">
 			<span class="section-label">Browse</span>
 			<h2>The Stacks</h2>

@@ -391,7 +391,8 @@ struct VolumesController: RouteCollection {
 
       let basePath = "\(req.basePath)/volumes/\(volumeID)"
       do {
-        let result = try await req.catalogAPI.finalizeSession(id: volumeID, token: user.accessToken)
+        let result = try await req.catalogAPI.finalizeSession(
+          id: volumeID, token: user.accessToken)
         switch result {
         case .applied:
           // Only .applied changes the live record - a .proposed submitter edit hasn't touched
@@ -427,10 +428,12 @@ struct VolumesController: RouteCollection {
           "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
-              volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+              volume: volumeWithCredits, session: session,
+              userSub: sanitizedAssetUserID(user.sub),
               req: req,
               systemOptions: await systemOptions,
-              publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
+              publisherOptions: try await publisherOptions,
+              studioOptions: try await studioOptions,
               personOptions: try await personOptions,
               contributionTypeOptions: try await contributionTypeOptions,
               canAddContributionType: canCreateVocabularyValue(user.roles),
