@@ -1,4 +1,13 @@
 
+## 0.35.2 - 2026-08-21
+
+### Fixed
+- Edit/Delete as icon buttons in the header, not stacked text buttons
+- Fix broken delete/restore icons, add destructive styling
+- Contributor dialog - plus icon for Add, move Close to panel header
+
+
+
 ## 0.35.1 - 2026-08-21
 
 ### Fixed
