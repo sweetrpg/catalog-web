@@ -1,4 +1,11 @@
 
+## 0.35.1 - 2026-08-21
+
+### Fixed
+- Fail open when /systems is unavailable
+
+
+
 ## 0.35.0 - 2026-08-21
 
 ### Added
