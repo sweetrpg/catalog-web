@@ -71,6 +71,7 @@ struct LicensesController: RouteCollection {
   private struct BrowseQuery: Content {
     let q: String?
     let order: String?
+    let page: Int?
   }
 
   @Sendable
@@ -81,12 +82,15 @@ struct LicensesController: RouteCollection {
       let licenses = try await req.catalogAPI.fetchLicenses()
       let filtered = filterByName(licenses, query: query.q) { $0.title }
       let sorted = sortByName(filtered, order: order) { $0.title }
+      let (page, pagination) = paginate(
+        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/licenses",
+        query: ["q": query.q ?? "", "order": query.order ?? ""])
 
-      // Licenses are a small, fixed-ish collection (same "no dedicated search endpoint needed"
-      // assumption filterByName already relies on) - a per-card volume-count fetch is fine here,
-      // it wouldn't be for a larger or more dynamic list.
+      // A per-card volume-count fetch, only for the current page's items - pagination already
+      // bounds this to at most browsePageSize requests instead of one per license in the whole
+      // (possibly filtered) collection.
       var cards: [LeafLicenseCard] = []
-      for license in sorted {
+      for license in page {
         let volumeCount =
           (try? await req.catalogAPI.fetchLicenseVolumes(id: license.id))?.count ?? 0
         let label = try await volumeCountLabel(volumeCount, req: req)
@@ -102,6 +106,7 @@ struct LicensesController: RouteCollection {
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
           canEdit: canEdit((await req.currentUser)?.roles ?? []),
+          pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))

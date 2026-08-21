@@ -49,6 +49,7 @@ struct PublishersController: RouteCollection {
   private struct BrowseQuery: Content {
     let q: String?
     let order: String?
+    let page: Int?
   }
 
   @Sendable
@@ -59,11 +60,15 @@ struct PublishersController: RouteCollection {
       let publishers = try await req.catalogAPI.fetchPublishers()
       let filtered = filterByName(publishers, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
+      let (page, pagination) = paginate(
+        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/publishers",
+        query: ["q": query.q ?? "", "order": query.order ?? ""])
 
-      // Publishers are a small, fixed-ish collection (same assumption filterByName already
-      // relies on) - a per-card volume-count fetch is fine here, matching licenses' browse page.
+      // A per-card volume-count fetch, only for the current page's items - pagination already
+      // bounds this to at most browsePageSize requests instead of one per publisher in the
+      // whole (possibly filtered) collection.
       var cards: [LeafPublisherCard] = []
-      for publisher in sorted {
+      for publisher in page {
         let volumeCount =
           (try? await req.catalogAPI.fetchPublisherVolumes(id: publisher.id))?.count ?? 0
         let label = try await volumeCountLabel(volumeCount, req: req)
@@ -79,6 +84,7 @@ struct PublishersController: RouteCollection {
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
           canEdit: canEdit((await req.currentUser)?.roles ?? []),
+          pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))

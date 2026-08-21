@@ -20,19 +20,44 @@ struct CatalogAPIClientService {
     self.req = request
   }
 
+  /// Loops `page[start]`/`page[limit]` until a short page comes back, accumulating every
+  /// record - the dedicated `fetchX()` SDK methods only ask for one page at catalog-api's own
+  /// default size (50), so a browse page silently dropped anything past it once a collection
+  /// grew past that (persons at 177, volumes at 165 both already do). 100 is catalog-api's own
+  /// hard per-page cap (`mongodb.go`'s `QueryMaxSize`), the largest `page[limit]` a single
+  /// request can actually get back.
+  private func fetchAllPages<Attrs: Codable & Sendable>(
+    path: String
+  ) async throws -> [JSONAPIDocument<Attrs>.Resource] {
+    var all: [JSONAPIDocument<Attrs>.Resource] = []
+    var start = 0
+    let limit = 100
+    while true {
+      let doc: JSONAPIDocument<Attrs> = try await sdk.fetch(
+        path: "\(path)?page[limit]=\(limit)&page[start]=\(start)")
+      all.append(contentsOf: doc.data)
+      if doc.data.count < limit { break }
+      start += limit
+    }
+    return all
+  }
+
   func fetchVolumes() async throws -> [VolumeViewModel] {
     try await withSpan("sdk-fetch-volumes") { _ in
-      async let volumesDoc = getCached("catalog:volumes") { try await sdk.fetchVolumes() }
+      async let volumesResources = getCached("catalog:volumes") {
+        try await self.fetchAllPages(path: "/volumes")
+          as [JSONAPIDocument<VolumeAttributes>.Resource]
+      }
       async let systems = (try? await fetchNameMap(path: "/systems")) ?? [:]
       async let publishers = fetchNameMap(path: "/publishers")
       async let studios = fetchNameMap(path: "/studios")
       async let licenses = fetchNameMap(path: "/licenses")
 
-      let (doc, publisherNames, studioNames, licenseNames) =
-        try await (volumesDoc, publishers, studios, licenses)
+      let (resources, publisherNames, studioNames, licenseNames) =
+        try await (volumesResources, publishers, studios, licenses)
       let systemNames = await systems
 
-      return doc.data.map { resource in
+      return resources.map { resource in
         let rel = resource.relationships ?? [:]
         func ids(_ key: String) -> [String] {
           rel[key]?.data?.ids ?? []
@@ -76,21 +101,23 @@ struct CatalogAPIClientService {
   /// existing full-collection fetch).
   func fetchPublisherOptions() async throws -> [(id: String, name: String)] {
     try await withSpan("sdk-fetch-publisher-options") { _ in
-      let doc = try await getCached("catalog:/publishers") {
-        try await sdk.fetchNamed(path: "/publishers")
+      let resources = try await getCached("catalog:/publishers") {
+        try await self.fetchAllPages(path: "/publishers")
+          as [JSONAPIDocument<NamedAttributes>.Resource]
       }
 
-      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+      return resources.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
     }
   }
 
   /// Every studio, sorted by name - same rationale as `fetchPublisherOptions`.
   func fetchStudioOptions() async throws -> [(id: String, name: String)] {
     try await withSpan("sdk-fetch-studio-options") { _ in
-      let doc = try await getCached("catalog:/studios") {
-        try await sdk.fetchNamed(path: "/studios")
+      let resources = try await getCached("catalog:/studios") {
+        try await self.fetchAllPages(path: "/studios")
+          as [JSONAPIDocument<NamedAttributes>.Resource]
       }
-      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+      return resources.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
     }
   }
 
@@ -101,10 +128,11 @@ struct CatalogAPIClientService {
   func fetchSystemOptions() async -> [(id: String, name: String)] {
     await withSpan("sdk-fetch-system-options") { _ in
       let fetch: () async throws -> [(id: String, name: String)] = {
-        let doc = try await getCached("catalog:/systems") {
-          try await sdk.fetchNamed(path: "/systems")
+        let resources = try await getCached("catalog:/systems") {
+          try await self.fetchAllPages(path: "/systems")
+            as [JSONAPIDocument<NamedAttributes>.Resource]
         }
-        return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+        return resources.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
       }
       return (try? await fetch()) ?? []
     }
@@ -126,13 +154,14 @@ struct CatalogAPIClientService {
     personId: String, role: String, person: String
   )] {
     try await withSpan("sdk-fetch-credits") { _ in
-      async let contributionsDoc = getCached("catalog:contributions") {
-        try await sdk.fetchContributions()
+      async let contributionsResources = getCached("catalog:contributions") {
+        try await self.fetchAllPages(path: "/contributions")
+          as [JSONAPIDocument<ContributionAttributes>.Resource]
       }
       async let personNames = fetchPersonNameMap()
 
-      let (doc, persons) = try await (contributionsDoc, personNames)
-      return doc.data.compactMap { resource -> (personId: String, role: String, person: String)? in
+      let (resources, persons) = try await (contributionsResources, personNames)
+      return resources.compactMap { resource -> (personId: String, role: String, person: String)? in
         guard let volID = resource.relationships?["volume"]?.data?.ids.first,
           volID == volumeID
         else { return nil }
@@ -149,9 +178,12 @@ struct CatalogAPIClientService {
   /// to" section needs this separate lookup to show what each credit was for.
   func fetchPersonContributionRoles(personID: String) async throws -> [String: String] {
     try await withSpan("sdk-fetch-person-contribution-roles") { _ in
-      let doc = try await getCached("catalog:contributions") { try await sdk.fetchContributions() }
+      let resources = try await getCached("catalog:contributions") {
+        try await self.fetchAllPages(path: "/contributions")
+          as [JSONAPIDocument<ContributionAttributes>.Resource]
+      }
       var roles: [String: String] = [:]
-      for resource in doc.data {
+      for resource in resources {
         guard let pID = resource.relationships?["person"]?.data?.ids.first, pID == personID,
           let volID = resource.relationships?["volume"]?.data?.ids.first
         else { continue }
@@ -251,8 +283,11 @@ struct CatalogAPIClientService {
   /// (task 8.1), same client-side-filtering rationale as `fetchPublisherOptions`.
   func fetchPersonOptions() async throws -> [(id: String, name: String)] {
     try await withSpan("sdk-fetch-persons") { _ in
-      let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
-      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+      let resources = try await getCached("catalog:persons") {
+        try await self.fetchAllPages(path: "/persons")
+          as [JSONAPIDocument<PersonAttributes>.Resource]
+      }
+      return resources.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
     }
   }
 
@@ -273,8 +308,11 @@ struct CatalogAPIClientService {
 
   func fetchPublishers() async throws -> [PublisherViewModel] {
     try await withSpan("sdk-fetch-publishers") { _ in
-      let doc = try await getCached("catalog:publishers") { try await sdk.fetchPublishers() }
-      return doc.data.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) }
+      let resources = try await getCached("catalog:publishers") {
+        try await self.fetchAllPages(path: "/publishers")
+          as [JSONAPIDocument<PublisherAttributes>.Resource]
+      }
+      return resources.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) }
         .sorted { $0.name < $1.name }
     }
   }
@@ -295,8 +333,11 @@ struct CatalogAPIClientService {
 
   func fetchStudios() async throws -> [StudioViewModel] {
     try await withSpan("sdk-fetch-studios") { _ in
-      let doc = try await getCached("catalog:studios") { try await sdk.fetchStudios() }
-      return doc.data.map { StudioViewModel(id: $0.id, attributes: $0.attributes) }
+      let resources = try await getCached("catalog:studios") {
+        try await self.fetchAllPages(path: "/studios")
+          as [JSONAPIDocument<StudioAttributes>.Resource]
+      }
+      return resources.map { StudioViewModel(id: $0.id, attributes: $0.attributes) }
         .sorted { $0.name < $1.name }
     }
   }
@@ -317,8 +358,11 @@ struct CatalogAPIClientService {
 
   func fetchPersonsCatalog() async throws -> [PersonViewModel] {
     try await withSpan("sdk-fetch-persons-catalog") { _ in
-      let doc = try await getCached("catalog:persons-list") { try await sdk.fetchPersons() }
-      return doc.data.map { PersonViewModel(id: $0.id, attributes: $0.attributes) }
+      let resources = try await getCached("catalog:persons-list") {
+        try await self.fetchAllPages(path: "/persons")
+          as [JSONAPIDocument<PersonAttributes>.Resource]
+      }
+      return resources.map { PersonViewModel(id: $0.id, attributes: $0.attributes) }
         .sorted { $0.name < $1.name }
     }
   }
@@ -339,8 +383,11 @@ struct CatalogAPIClientService {
 
   func fetchLicenses() async throws -> [LicenseViewModel] {
     try await withSpan("sdk-fetch-licenses") { _ in
-      let doc = try await getCached("catalog:licenses-list") { try await sdk.fetchLicenses() }
-      return doc.data.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) }
+      let resources = try await getCached("catalog:licenses-list") {
+        try await self.fetchAllPages(path: "/licenses")
+          as [JSONAPIDocument<LicenseAttributes>.Resource]
+      }
+      return resources.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) }
         .sorted { $0.title < $1.title }
     }
   }
@@ -667,15 +714,20 @@ struct CatalogAPIClientService {
 
   private func fetchNameMap(path: String) async throws -> [String: String] {
     try await withSpan("sdk-fetch-named") { _ in
-      let doc = try await getCached("catalog:\(path)") { try await sdk.fetchNamed(path: path) }
-      return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
+      let resources = try await getCached("catalog:\(path)") {
+        try await self.fetchAllPages(path: path) as [JSONAPIDocument<NamedAttributes>.Resource]
+      }
+      return Dictionary(uniqueKeysWithValues: resources.map { ($0.id, $0.attributes.displayName) })
     }
   }
 
   private func fetchPersonNameMap() async throws -> [String: String] {
     try await withSpan("sdk-fetch-persons") { _ in
-      let doc = try await getCached("catalog:persons") { try await sdk.fetchPersons() }
-      return Dictionary(uniqueKeysWithValues: doc.data.map { ($0.id, $0.attributes.displayName) })
+      let resources = try await getCached("catalog:persons") {
+        try await self.fetchAllPages(path: "/persons")
+          as [JSONAPIDocument<PersonAttributes>.Resource]
+      }
+      return Dictionary(uniqueKeysWithValues: resources.map { ($0.id, $0.attributes.displayName) })
     }
   }
 

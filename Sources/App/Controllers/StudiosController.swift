@@ -43,6 +43,7 @@ struct StudiosController: RouteCollection {
   private struct BrowseQuery: Content {
     let q: String?
     let order: String?
+    let page: Int?
   }
 
   @Sendable
@@ -53,16 +54,20 @@ struct StudiosController: RouteCollection {
       let studios = try await req.catalogAPI.fetchStudios()
       let filtered = filterByName(studios, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
+      let (page, pagination) = paginate(
+        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/studios",
+        query: ["q": query.q ?? "", "order": query.order ?? ""])
 
       return try await req.view.render(
         "studios/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: sorted.map { LeafStudioCard($0) },
+          items: page.map { LeafStudioCard($0) },
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
           canEdit: canEdit((await req.currentUser)?.roles ?? []),
+          pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))
