@@ -23,13 +23,14 @@ struct CatalogAPIClientService {
   func fetchVolumes() async throws -> [VolumeViewModel] {
     try await withSpan("sdk-fetch-volumes") { _ in
       async let volumesDoc = getCached("catalog:volumes") { try await sdk.fetchVolumes() }
-      async let systems = fetchNameMap(path: "/systems")
+      async let systems = (try? await fetchNameMap(path: "/systems")) ?? [:]
       async let publishers = fetchNameMap(path: "/publishers")
       async let studios = fetchNameMap(path: "/studios")
       async let licenses = fetchNameMap(path: "/licenses")
 
-      let (doc, systemNames, publisherNames, studioNames, licenseNames) =
-        try await (volumesDoc, systems, publishers, studios, licenses)
+      let (doc, publisherNames, studioNames, licenseNames) =
+        try await (volumesDoc, publishers, studios, licenses)
+      let systemNames = await systems
 
       return doc.data.map { resource in
         let rel = resource.relationships ?? [:]
@@ -97,12 +98,15 @@ struct CatalogAPIClientService {
   /// volume edit page's system picker (previously missing entirely - unlike publisher/studio,
   /// the volume edit form never wired one up despite catalog-api's Volume record already
   /// carrying a `Systems` relation).
-  func fetchSystemOptions() async throws -> [(id: String, name: String)] {
-    try await withSpan("sdk-fetch-system-options") { _ in
-      let doc = try await getCached("catalog:/systems") {
-        try await sdk.fetchNamed(path: "/systems")
+  func fetchSystemOptions() async -> [(id: String, name: String)] {
+    await withSpan("sdk-fetch-system-options") { _ in
+      let fetch: () async throws -> [(id: String, name: String)] = {
+        let doc = try await getCached("catalog:/systems") {
+          try await sdk.fetchNamed(path: "/systems")
+        }
+        return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
       }
-      return doc.data.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
+      return (try? await fetch()) ?? []
     }
   }
 

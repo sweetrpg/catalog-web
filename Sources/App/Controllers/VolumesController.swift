@@ -338,7 +338,7 @@ struct VolumesController: RouteCollection {
           volume: try LeafVolumeEditForm(
             volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
             req: req,
-            systemOptions: try await systemOptions,
+            systemOptions: await systemOptions,
             publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
             personOptions: try await personOptions,
             contributionTypeOptions: try await contributionTypeOptions,
@@ -429,7 +429,7 @@ struct VolumesController: RouteCollection {
             volume: try LeafVolumeEditForm(
               volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
               req: req,
-              systemOptions: try await systemOptions,
+              systemOptions: await systemOptions,
               publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
               personOptions: try await personOptions,
               contributionTypeOptions: try await contributionTypeOptions,
