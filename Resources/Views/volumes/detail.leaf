@@ -1,42 +1,6 @@
 #extend("base"):
 	#export("body"):
-		<style>
-		  /* Page-specific: header action icons (upper-right of the title) and the description's
-		     Markdown-rendered, scrollable body - shared-web owns the global stylesheet, neither
-		     is common enough elsewhere to belong there. */
-		  .detail-header-row {
-		    display: flex;
-		    align-items: flex-start;
-		    justify-content: space-between;
-		    gap: 12px;
-		  }
-		  .detail-header-actions {
-		    display: flex;
-		    gap: 6px;
-		    flex-shrink: 0;
-		  }
-		  .detail-header-actions .icon-btn {
-		    width: 2rem;
-		    height: 2rem;
-		    border-radius: 50%;
-		  }
-		  .detail-header-actions .icon-btn:not(.icon-btn-danger) {
-		    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-		  }
-		  .detail-header-actions .icon-btn:not(.icon-btn-danger):hover {
-		    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
-		  }
-		  .detail-description {
-		    max-height: 20vh;
-		    overflow-y: auto;
-		  }
-		  .detail-description :first-child {
-		    margin-top: 0;
-		  }
-		  .detail-description :last-child {
-		    margin-bottom: 0;
-		  }
-		</style>
+		<link rel="stylesheet" href="#(meta.sharedURL)/static/css/catalog/detail.css">
 
 		<a class="back-link" href="#(meta.basePath)/browse">&larr; Browse the stacks</a>
 
@@ -73,13 +37,13 @@
 							#if(isDeleted):
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/undelete">
 									<button type="submit" class="icon-btn icon-btn-danger" title="Restore">
-										<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg" alt="Restore">
+										<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg');"></span>
 									</button>
 								</form>
 							#else:
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('Delete this volume? It will be hidden from browse and pickers, but can be restored later.')">
 									<button type="submit" class="icon-btn icon-btn-danger" title="Delete">
-										<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg" alt="Delete">
+										<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg');"></span>
 									</button>
 								</form>
 							#endif

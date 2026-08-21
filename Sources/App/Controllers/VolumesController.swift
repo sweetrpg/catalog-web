@@ -87,7 +87,7 @@ struct VolumesController: RouteCollection {
         .split(separator: ",").map(String.init)
 
       return try await req.view.render(
-        "detail",
+        "volumes/detail",
         DetailContext(
           volume: try LeafVolumeDetail(volume, req: req),
           canEdit: canEdit(roles),
@@ -333,7 +333,7 @@ struct VolumesController: RouteCollection {
       req.logger.info("editForm: volume \(volumeID) loaded for user \(user.sub)")
 
       return try await req.view.render(
-        "edit",
+        "volumes/edit",
         EditContext(
           volume: try LeafVolumeEditForm(
             volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
@@ -391,7 +391,8 @@ struct VolumesController: RouteCollection {
 
       let basePath = "\(req.basePath)/volumes/\(volumeID)"
       do {
-        let result = try await req.catalogAPI.finalizeSession(id: volumeID, token: user.accessToken)
+        let result = try await req.catalogAPI.finalizeSession(
+          id: volumeID, token: user.accessToken)
         switch result {
         case .applied:
           // Only .applied changes the live record - a .proposed submitter edit hasn't touched
@@ -424,13 +425,15 @@ struct VolumesController: RouteCollection {
         volumeWithCredits.credits = try await existingCredits
 
         return try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
-              volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
+              volume: volumeWithCredits, session: session,
+              userSub: sanitizedAssetUserID(user.sub),
               req: req,
               systemOptions: await systemOptions,
-              publisherOptions: try await publisherOptions, studioOptions: try await studioOptions,
+              publisherOptions: try await publisherOptions,
+              studioOptions: try await studioOptions,
               personOptions: try await personOptions,
               contributionTypeOptions: try await contributionTypeOptions,
               canAddContributionType: canCreateVocabularyValue(user.roles),
