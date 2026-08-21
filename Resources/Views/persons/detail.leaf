@@ -41,14 +41,14 @@
 					#if(canDelete):
 						#if(isDeleted):
 							<form method="post" action="#(meta.basePath)/persons/#(person.id)/undelete">
-								<button type="submit" class="icon-btn" title="Restore">
-									<img src="#(meta.sharedURL)/static/img/icons/trash-restore-alt.svg" alt="Restore">
+								<button type="submit" class="icon-btn icon-btn-danger" title="Restore">
+									<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg" alt="Restore">
 								</button>
 							</form>
 						#else:
 							<form method="post" action="#(meta.basePath)/persons/#(person.id)/delete" onsubmit="return confirm('Delete this person? They will be hidden from browse and pickers, but can be restored later.')">
-								<button type="submit" class="icon-btn" title="Delete">
-									<img src="#(meta.sharedURL)/static/img/icons/trash-alt.svg" alt="Delete">
+								<button type="submit" class="icon-btn icon-btn-danger" title="Delete">
+									<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg" alt="Delete">
 								</button>
 							</form>
 						#endif
