@@ -44,6 +44,7 @@ struct PersonsController: RouteCollection {
   private struct BrowseQuery: Content {
     let q: String?
     let order: String?
+    let page: Int?
     // Set by submitBulkAddPersons' redirect - see PersonsBrowseContext's own doc comment for why
     // this rides on persons/browse rather than a separate results page.
     let bulkCreated: Int?
@@ -59,6 +60,9 @@ struct PersonsController: RouteCollection {
       let persons = try await req.catalogAPI.fetchPersonsCatalog()
       let filtered = filterByName(persons, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
+      let (page, pagination) = paginate(
+        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/persons",
+        query: ["q": query.q ?? "", "order": query.order ?? ""])
       let roles = (await req.currentUser)?.roles ?? []
 
       var bulkFailures: [LeafBulkAddFailure] = []
@@ -70,7 +74,7 @@ struct PersonsController: RouteCollection {
         "persons/browse",
         PersonsBrowseContext(
           query: query.q ?? "",
-          items: sorted.map { LeafPersonCard($0) },
+          items: page.map { LeafPersonCard($0) },
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
@@ -80,6 +84,7 @@ struct PersonsController: RouteCollection {
           bulkCreatedCount: query.bulkCreated ?? 0,
           bulkFailedCount: query.bulkFailed ?? 0,
           bulkFailures: bulkFailures,
+          pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))

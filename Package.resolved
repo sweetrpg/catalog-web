@@ -1,5 +1,5 @@
 {
-  "originHash" : "40f0c1cb2fbc01562f5db6de813bb6c5e968694b079373de3d2f5b237fd132ff",
+  "originHash" : "67a76b6fe462cce075cedcbd004f70f9abd5d481a7ecbf89a195cefd896c4c69",
   "pins" : [
     {
       "identity" : "admin-api-client.swift",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sweetrpg/catalog-api-client.swift.git",
       "state" : {
-        "revision" : "6e9f5dafa298803797916c51d4970764575dd7e5",
-        "version" : "0.4.1"
+        "revision" : "21a8991927bfb359fae35e91cc912a0c8e0a512b",
+        "version" : "0.5.0"
       }
     },
     {

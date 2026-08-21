@@ -59,6 +59,7 @@ struct CatalogController: RouteCollection {
       struct Query: Content {
         let q: String?
         let tag: String?
+        let page: Int?
       }
       let query = try req.query.decode(Query.self)
       let volumes = try await req.catalogAPI.fetchVolumes()
@@ -72,6 +73,9 @@ struct CatalogController: RouteCollection {
           || volume.description.lowercased().contains(needle)
           || volume.tags.contains { $0.lowercased().contains(needle) }
       }
+      let (page, pagination) = paginate(
+        filtered, page: query.page ?? 1, basePath: req.basePath, path: "/browse",
+        query: ["q": query.q ?? "", "tag": query.tag ?? ""])
 
       return try await req.view.render(
         "browse",
@@ -79,8 +83,9 @@ struct CatalogController: RouteCollection {
           query: query.q ?? "",
           noActiveTag: query.tag == nil || query.tag!.isEmpty,
           tagCloud: tagCloud.map { LeafTag(name: $0, isActive: $0 == query.tag) },
-          volumes: filtered.map(LeafVolumeCard.init),
+          volumes: page.map(LeafVolumeCard.init),
           noResults: filtered.isEmpty,
+          pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)
         ))

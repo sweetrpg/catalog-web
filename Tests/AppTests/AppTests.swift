@@ -272,7 +272,11 @@ struct AppTests {
           "browse",
           BrowseContext(
             query: "", noActiveTag: true, tagCloud: [], volumes: [LeafVolumeCard(volume)],
-            noResults: false, user: nil, meta: await PageMeta.make(req)))
+            noResults: false,
+            pagination: LeafPagination(
+              currentPage: 1, totalPages: 1, hasMultiplePages: false, hasPrev: false,
+              hasNext: false, prevURL: "", nextURL: "", pages: []),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-browse") { res in
         #expect(res.status == .ok)

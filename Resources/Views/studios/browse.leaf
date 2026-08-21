@@ -30,5 +30,7 @@
 				</a>
 			#endfor
 		</div>
+
+		#extend("partials/pagination")
 	#endexport
 #endextend

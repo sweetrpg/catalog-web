@@ -1,0 +1,23 @@
+#if(pagination.hasMultiplePages):
+	<nav class="pagination" aria-label="Pagination">
+		#if(pagination.hasPrev):
+			<a class="pagination-link" href="#(pagination.prevURL)" rel="prev">&larr; Prev</a>
+		#else:
+			<span class="pagination-link pagination-link-disabled">&larr; Prev</span>
+		#endif
+
+		#for(link in pagination.pages):
+			#if(link.isCurrent):
+				<span class="pagination-page pagination-page-current" aria-current="page">#(link.number)</span>
+			#else:
+				<a class="pagination-page" href="#(link.url)">#(link.number)</a>
+			#endif
+		#endfor
+
+		#if(pagination.hasNext):
+			<a class="pagination-link" href="#(pagination.nextURL)" rel="next">Next &rarr;</a>
+		#else:
+			<span class="pagination-link pagination-link-disabled">Next &rarr;</span>
+		#endif
+	</nav>
+#endif

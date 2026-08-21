@@ -68,6 +68,7 @@ struct BrowseContext: Content {
   let tagCloud: [LeafTag]
   let volumes: [LeafVolumeCard]
   let noResults: Bool
+  let pagination: LeafPagination
   let user: LeafUser?
   let meta: PageMeta
 }
@@ -290,6 +291,7 @@ struct EntityBrowseContext<Item: Content>: Content {
   let orderIsAsc: Bool
   let orderIsDesc: Bool
   let canEdit: Bool
+  let pagination: LeafPagination
   let user: LeafUser?
   let meta: PageMeta
 }
