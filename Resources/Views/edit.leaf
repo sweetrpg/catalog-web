@@ -255,6 +255,18 @@
 		  .contributor-dialog[hidden] {
 		    display: none;
 		  }
+		  .contributor-dialog-header {
+		    display: flex;
+		    align-items: center;
+		    justify-content: space-between;
+		  }
+		  .contributor-dialog-title {
+		    font-weight: var(--font-heading-weight);
+		  }
+		  .contributor-dialog-header .icon-btn {
+		    width: 1.75rem;
+		    height: 1.75rem;
+		  }
 		  .contributor-dialog-row {
 		    display: flex;
 		    align-items: flex-end;
@@ -345,8 +357,7 @@
 			<div class="detail-cover-column">
 			<div class="card-cover detail-cover">
 				<div class="cover-image-wrap">
-					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
-					<span class="card-cover-fallback">Cover pending</span>
+					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onerror="this.onerror=null;this.src='#(meta.sharedURL)/static/img/catalog/cover-placeholder-detail.png'">
 					#if(canUploadCover):
 						<div class="cover-overlay-controls" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover" data-live-cover-path="#(volume.liveCoverPath)">
 							<label class="icon-btn cover-edit-trigger" for="cover-upload-input" title="Change cover">
@@ -483,6 +494,12 @@
 						<script type="application/json" id="contributor-type-options">#unsafeHTML(volume.contributionTypeOptionsJSON)</script>
 
 						<div class="contributor-dialog" id="contributor-dialog" hidden>
+							<div class="contributor-dialog-header">
+								<span class="contributor-dialog-title">Add contributor</span>
+								<button type="button" class="icon-btn" id="contributor-cancel-trigger" title="Close">
+									<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Close">
+								</button>
+							</div>
 							<div class="contributor-dialog-row">
 								<label class="contributor-dialog-label">
 									Person
@@ -496,10 +513,7 @@
 									</select>
 								</label>
 								<button type="button" class="icon-btn" id="contributor-confirm-trigger" title="Add" disabled>
-									<img src="#(meta.sharedURL)/static/img/icons/accept.svg" alt="Confirm">
-								</button>
-								<button type="button" class="icon-btn" id="contributor-cancel-trigger" title="Cancel">
-									<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Cancel">
+									<img class="icon-invert" src="#(meta.sharedURL)/static/svgs/fontawesome/solid/plus.svg" alt="Add">
 								</button>
 							</div>
 							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
