@@ -1,4 +1,18 @@
 
+## 0.36.0 - 2026-08-21
+
+### Added
+- Fall back to a placeholder image, not text, when a volume has no cover
+
+
+### Fixed
+- Edit/Delete as icon buttons in the header, not stacked text buttons
+- Correct icon paths, add destructive styling to Delete/Restore
+- Fix broken delete/restore icons, add destructive styling
+- Contributor dialog - plus icon for Add, move Close to panel header
+
+
+
 ## 0.35.1 - 2026-08-21
 
 ### Fixed
