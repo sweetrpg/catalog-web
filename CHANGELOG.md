@@ -1,4 +1,11 @@
 
+## 0.37.0 - 2026-08-21
+
+### Added
+- Add real pagination controls, fix the underlying page-cap bug
+
+
+
 ## 0.36.0 - 2026-08-21
 
 ### Added
