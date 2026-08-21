@@ -87,7 +87,7 @@ struct VolumesController: RouteCollection {
         .split(separator: ",").map(String.init)
 
       return try await req.view.render(
-        "detail",
+        "volumes/detail",
         DetailContext(
           volume: try LeafVolumeDetail(volume, req: req),
           canEdit: canEdit(roles),
@@ -333,7 +333,7 @@ struct VolumesController: RouteCollection {
       req.logger.info("editForm: volume \(volumeID) loaded for user \(user.sub)")
 
       return try await req.view.render(
-        "edit",
+        "volumes/edit",
         EditContext(
           volume: try LeafVolumeEditForm(
             volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
@@ -424,7 +424,7 @@ struct VolumesController: RouteCollection {
         volumeWithCredits.credits = try await existingCredits
 
         return try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volumeWithCredits, session: session, userSub: sanitizedAssetUserID(user.sub),
