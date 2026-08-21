@@ -7,13 +7,12 @@ import VaporTesting
 
 @testable import App
 
-
 func testEditSession(for volume: VolumeViewModel) -> EditSession {
   EditSession(
     recordId: volume.id,
     fields: [
-    "title": .string(volume.title), "description": .string(volume.description),
-    "notes": .string(volume.notes),
+      "title": .string(volume.title), "description": .string(volume.description),
+      "notes": .string(volume.notes),
     ],
     stagedCoverAssetId: nil, sampleAssetIds: nil, createdAt: Date(), updatedAt: Date())
 }

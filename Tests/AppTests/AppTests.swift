@@ -10,7 +10,6 @@ import VaporTesting
 @Suite("App")
 struct AppTests {
 
-
   // The landing page's own "recently catalogued" volume grid was replaced by the
   // catalog-landing-page-summary per-entity-type cards - this markup now lives only on the
   // browse page, so the coverage moved there with it.

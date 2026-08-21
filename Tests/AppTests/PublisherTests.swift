@@ -8,9 +8,9 @@ import VaporTesting
 @testable import App
 
 @Suite("Publisher")
-struct Publisher`Tests {
+struct PublisherTests {
 
-@Test("edit page publisher/studio pickers show existing options and no create-new affordance")
+  @Test("edit page publisher/studio pickers show existing options and no create-new affordance")
   func editPagePublisherStudioPickersRenderOptionsAndNoCreatePath() async throws {
     let volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
