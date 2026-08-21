@@ -167,7 +167,7 @@ struct AppTests {
         #expect(res.body.string.contains("Schwalb Entertainment"))
         #expect(res.body.string.contains("OGL"))
         #expect(!res.body.string.contains(">Studio<"))
-        #expect(!res.body.string.contains(#"title="volumes/edit""#))
+        #expect(!res.body.string.contains(#"title="Edit""#))
       }
     }
   }
@@ -252,7 +252,7 @@ struct AppTests {
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains(#"title="volumes/edit""#))
+        #expect(res.body.string.contains(#"title="Edit""#))
         #expect(res.body.string.contains("/volumes/1/edit"))
       }
     }
