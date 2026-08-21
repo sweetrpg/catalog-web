@@ -269,7 +269,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-browse") { req async throws -> View in
         try await req.view.render(
-          "browse",
+          "volumes/browse",
           BrowseContext(
             query: "", noActiveTag: true, tagCloud: [], volumes: [LeafVolumeCard(volume)],
             noResults: false,
@@ -299,7 +299,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -323,7 +323,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -347,7 +347,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -372,7 +372,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -400,7 +400,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -430,7 +430,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -454,7 +454,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -490,7 +490,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
             isDeleted: false,
@@ -514,7 +514,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             // canEdit: true (submitter can propose), but review stays nil - only
             // CatalogController decides to populate it, gated on canReview, not canEdit.
@@ -539,7 +539,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -567,7 +567,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -601,7 +601,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -627,7 +627,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -651,7 +651,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
         try await req.view.render(
-          "detail",
+          "volumes/detail",
           DetailContext(
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
@@ -674,7 +674,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -701,7 +701,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -936,7 +936,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: session, userSub: "auth0-tester", req: req),
@@ -961,7 +961,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -997,7 +997,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1026,7 +1026,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: session, userSub: "auth0-tester", req: req,
@@ -1053,7 +1053,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1121,7 +1121,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1151,7 +1151,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1178,7 +1178,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1208,7 +1208,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1234,7 +1234,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1264,7 +1264,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1292,7 +1292,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1318,7 +1318,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1348,7 +1348,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1376,7 +1376,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: session, userSub: "auth0-tester", req: req),
@@ -1404,7 +1404,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
@@ -1435,7 +1435,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: session, userSub: "auth0-tester", req: req),
@@ -1464,7 +1464,7 @@ struct AppTests {
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
         try await req.view.render(
-          "edit",
+          "volumes/edit",
           EditContext(
             volume: try LeafVolumeEditForm(
               volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
