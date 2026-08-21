@@ -19,9 +19,11 @@
 		    width: 2rem;
 		    height: 2rem;
 		    border-radius: 50%;
+		  }
+		  .detail-header-actions .icon-btn:not(.icon-btn-danger) {
 		    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 		  }
-		  .detail-header-actions .icon-btn:hover {
+		  .detail-header-actions .icon-btn:not(.icon-btn-danger):hover {
 		    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 		  }
 		  .detail-description {
@@ -52,8 +54,7 @@
 
 		<div class="detail-layout">
 			<div class="card-cover detail-cover">
-				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onload="this.style.display='';this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
-				<span class="card-cover-fallback">Cover pending</span>
+				<img class="card-cover-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onerror="this.onerror=null;this.src='#(meta.sharedURL)/static/img/catalog/cover-placeholder-detail.png'">
 			</div>
 
 			<div>
@@ -71,14 +72,14 @@
 						#if(canDelete):
 							#if(isDeleted):
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/undelete">
-									<button type="submit" class="icon-btn" title="Restore">
-										<img src="#(meta.sharedURL)/static/img/icons/restore.svg" alt="Restore" onerror="this.replaceWith('↺')">
+									<button type="submit" class="icon-btn icon-btn-danger" title="Restore">
+										<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg" alt="Restore">
 									</button>
 								</form>
 							#else:
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('Delete this volume? It will be hidden from browse and pickers, but can be restored later.')">
-									<button type="submit" class="icon-btn" title="Delete">
-										<img src="#(meta.sharedURL)/static/img/icons/delete.svg" alt="Delete" onerror="this.replaceWith('×')">
+									<button type="submit" class="icon-btn icon-btn-danger" title="Delete">
+										<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg" alt="Delete">
 									</button>
 								</form>
 							#endif

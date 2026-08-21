@@ -1,5 +1,19 @@
 #extend("base"):
 	#export("body"):
+		<style>
+		  .person-header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 16px;
+		  }
+		  .person-header-actions {
+			display: flex;
+			gap: 8px;
+			flex-shrink: 0;
+		  }
+		</style>
+
 		<a class="back-link" href="#(meta.basePath)/persons">&larr; Persons</a>
 
 		#if(justProposed):
@@ -15,28 +29,37 @@
 		#endif
 
 		<div>
-			<h1>#(person.name)</h1>
+			<div class="person-header">
+				<h1>#(person.name)</h1>
+				<div class="person-header-actions">
+					#if(canEdit):
+						<a class="icon-btn" href="#(meta.basePath)/persons/#(person.id)/edit" title="Edit">
+							<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit">
+						</a>
+					#endif
+
+					#if(canDelete):
+						#if(isDeleted):
+							<form method="post" action="#(meta.basePath)/persons/#(person.id)/undelete">
+								<button type="submit" class="icon-btn icon-btn-danger" title="Restore">
+									<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg" alt="Restore">
+								</button>
+							</form>
+						#else:
+							<form method="post" action="#(meta.basePath)/persons/#(person.id)/delete" onsubmit="return confirm('Delete this person? They will be hidden from browse and pickers, but can be restored later.')">
+								<button type="submit" class="icon-btn icon-btn-danger" title="Delete">
+									<img src="#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg" alt="Delete">
+								</button>
+							</form>
+						#endif
+					#endif
+				</div>
+			</div>
 			<div class="tag-cloud">
 				#for(tag in person.tags):
 					<span class="tag tag-accent">#(tag)</span>
 				#endfor
 			</div>
-
-			#if(canEdit):
-				<a class="btn btn-ghost" href="#(meta.basePath)/persons/#(person.id)/edit">Edit</a>
-			#endif
-
-			#if(canDelete):
-				#if(isDeleted):
-					<form method="post" action="#(meta.basePath)/persons/#(person.id)/undelete">
-						<button type="submit" class="btn btn-ghost">Restore</button>
-					</form>
-				#else:
-					<form method="post" action="#(meta.basePath)/persons/#(person.id)/delete" onsubmit="return confirm('Delete this person? They will be hidden from browse and pickers, but can be restored later.')">
-						<button type="submit" class="btn btn-ghost">Delete</button>
-					</form>
-				#endif
-			#endif
 
 			#if(person.hasNotes):
 				<p class="detail-notes"><strong>Notes:</strong> #(person.notes)</p>
