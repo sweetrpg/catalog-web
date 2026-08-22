@@ -45,9 +45,9 @@ struct VolumesController: RouteCollection {
   func detail(req: Request) async throws -> View {
 
     try await withSpan("volume-detail") { _ in
-        req.application.logger.info("volume-detail: \(String(describing: req.parameters))")
+      req.application.logger.info("volume-detail: \(String(describing: req.parameters))")
 
-        guard let volumeID = req.parameters.get("volumeID") else {
+      guard let volumeID = req.parameters.get("volumeID") else {
         throw Abort(.badRequest, reason: "volumeID is missing")
       }
       let volumes = try await req.catalogAPI.fetchVolumes()
@@ -414,6 +414,18 @@ struct VolumesController: RouteCollection {
           "submitEdit: finalize-session failed for volume \(volumeID): \(error)")
         req.application.sentryReporter?.report(error, on: req.client)
 
+        // Human-friendly banner copy - the raw API message is for the logs/Sentry above, not
+        // for the person editing. The submission cap is the one failure that tells them
+        // something they can act on, so its own message passes through.
+        let friendlyError: String
+        switch error.error {
+        case "submission_cap_reached":
+          friendlyError = error.message ?? "You have too many pending submissions."
+        default:
+          friendlyError =
+            "We couldn't save your changes just now, and your work is still here - try again in a few minutes. If it keeps failing, please contact support and mention this page."
+        }
+
         // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
         // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
         let volumes = try await req.catalogAPI.fetchVolumes()
@@ -451,7 +463,7 @@ struct VolumesController: RouteCollection {
               propertyNameOptions: try await propertyNameOptions,
               canAddPropertyName: canCreateVocabularyValue(user.roles)),
             canUploadCover: canUploadCover(user.roles),
-            submitError: error.message ?? "Unable to save your changes. Try again.",
+            submitError: friendlyError,
             user: LeafUser(user),
             meta: await PageMeta.make(req)
           )
