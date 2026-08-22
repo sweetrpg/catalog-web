@@ -369,7 +369,7 @@ struct VolumesController: RouteCollection {
   func submitEdit(req: Request) async throws -> Response {
     try await withSpan("volume-submit-edit") { _ in
       guard let volumeID = req.parameters.get("volumeID") else {
-        throw Abort(.badRequest)
+        throw Abort(.badRequest, reason: "No volume ID provided")
       }
       guard let user = await req.currentUser, canEdit(user.roles) else {
         throw Abort(.forbidden)
