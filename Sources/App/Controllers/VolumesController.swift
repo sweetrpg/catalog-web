@@ -43,9 +43,12 @@ struct VolumesController: RouteCollection {
 
   @Sendable
   func detail(req: Request) async throws -> View {
+
     try await withSpan("volume-detail") { _ in
-      guard let volumeID = req.parameters.get("volumeID") else {
-        throw Abort(.badRequest)
+        req.application.logger.info("volume-detail: \(String(describing: req.parameters))")
+
+        guard let volumeID = req.parameters.get("volumeID") else {
+        throw Abort(.badRequest, reason: "volumeID is missing")
       }
       let volumes = try await req.catalogAPI.fetchVolumes()
       guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)

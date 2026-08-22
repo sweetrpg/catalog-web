@@ -122,7 +122,7 @@ public func configure(_ app: Application) async throws {
     app.logger.warning("ALLOWED_ORIGINS not set, no cross-origin requests will be allowed")
   }
 
-  let rateLimit = Environment.get("RATE_LIMIT").flatMap(Int.init) ?? 20
+  let rateLimit = Environment.get("RATE_LIMIT").flatMap(Int.init) ?? 200
   app.middleware.use(RateLimitMiddleware(capacity: rateLimit))
 
   // Checked after rate limiting (a request that shouldn't be served at all needn't consume a
