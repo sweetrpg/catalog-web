@@ -406,6 +406,14 @@ struct VolumesController: RouteCollection {
           return req.redirect(to: "\(basePath)?proposed=1")
         }
       } catch let error as CatalogAPIError {
+        // The catch below re-renders the edit form rather than throwing, so neither
+        // SentryMiddleware nor Vapor's error handling ever sees this failure - report and log it
+        // here, or a finalize that 4xx/5xx'd (cap reached, cover promote rejected upstream)
+        // vanishes without a trace server-side. The user-facing page stays unchanged.
+        req.logger.error(
+          "submitEdit: finalize-session failed for volume \(volumeID): \(error)")
+        req.application.sentryReporter?.report(error, on: req.client)
+
         // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
         // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
         let volumes = try await req.catalogAPI.fetchVolumes()
