@@ -1,4 +1,14 @@
 
+## 0.37.2 - 2026-08-22
+
+### Fixed
+- Deduplicate volume tests left in both AppTests.swift and VolumesTests.swift
+- Add error reason for missing volume ID
+- Add some logging
+- Log and Sentry-report swallowed finalize-session failures
+- Show a human-friendly banner when finalize fails
+
+
 ## 0.37.1 - 2026-08-21
 
 ### Fixed

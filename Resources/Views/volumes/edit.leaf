@@ -5,7 +5,9 @@
 		<a class="back-link" href="#(meta.basePath)/volumes/#(volume.id)">&larr; #(volume.title)</a>
 
 		#if(hasSubmitError):
-			<p class="form-error">#(submitError)</p>
+			<div class="banner-region">
+				<div class="banner banner-warning" role="alert">#(submitError)</div>
+			</div>
 		#endif
 
 		<div class="detail-layout">

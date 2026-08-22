@@ -43,9 +43,12 @@ struct VolumesController: RouteCollection {
 
   @Sendable
   func detail(req: Request) async throws -> View {
+
     try await withSpan("volume-detail") { _ in
+      req.application.logger.info("volume-detail: \(String(describing: req.parameters))")
+
       guard let volumeID = req.parameters.get("volumeID") else {
-        throw Abort(.badRequest)
+        throw Abort(.badRequest, reason: "volumeID is missing")
       }
       let volumes = try await req.catalogAPI.fetchVolumes()
       guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
@@ -369,7 +372,7 @@ struct VolumesController: RouteCollection {
   func submitEdit(req: Request) async throws -> Response {
     try await withSpan("volume-submit-edit") { _ in
       guard let volumeID = req.parameters.get("volumeID") else {
-        throw Abort(.badRequest)
+        throw Abort(.badRequest, reason: "No volume ID provided")
       }
       guard let user = await req.currentUser, canEdit(user.roles) else {
         throw Abort(.forbidden)
@@ -403,6 +406,26 @@ struct VolumesController: RouteCollection {
           return req.redirect(to: "\(basePath)?proposed=1")
         }
       } catch let error as CatalogAPIError {
+        // The catch below re-renders the edit form rather than throwing, so neither
+        // SentryMiddleware nor Vapor's error handling ever sees this failure - report and log it
+        // here, or a finalize that 4xx/5xx'd (cap reached, cover promote rejected upstream)
+        // vanishes without a trace server-side. The user-facing page stays unchanged.
+        req.logger.error(
+          "submitEdit: finalize-session failed for volume \(volumeID): \(error)")
+        req.application.sentryReporter?.report(error, on: req.client)
+
+        // Human-friendly banner copy - the raw API message is for the logs/Sentry above, not
+        // for the person editing. The submission cap is the one failure that tells them
+        // something they can act on, so its own message passes through.
+        let friendlyError: String
+        switch error.error {
+        case "submission_cap_reached":
+          friendlyError = error.message ?? "You have too many pending submissions."
+        default:
+          friendlyError =
+            "We couldn't save your changes just now, and your work is still here - try again in a few minutes. If it keeps failing, please contact support and mention this page."
+        }
+
         // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
         // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
         let volumes = try await req.catalogAPI.fetchVolumes()
@@ -440,7 +463,7 @@ struct VolumesController: RouteCollection {
               propertyNameOptions: try await propertyNameOptions,
               canAddPropertyName: canCreateVocabularyValue(user.roles)),
             canUploadCover: canUploadCover(user.roles),
-            submitError: error.message ?? "Unable to save your changes. Try again.",
+            submitError: friendlyError,
             user: LeafUser(user),
             meta: await PageMeta.make(req)
           )
