@@ -136,6 +136,16 @@ struct LeafVolumeEditForm: Content {
   let canAddPropertyName: Bool
   let selectedProperties: [LeafProperty]
   let hasSelectedProperties: Bool
+  /// The volume's free-text tags (session-staged values win over live ones, same as every
+  /// other field) - plain strings, not references to entities.
+  let selectedTags: [String]
+  let hasTags: Bool
+  /// Every known tag value from the shared "tag" vocabulary, JSON-encoded (plain strings) -
+  /// the page's own JS filters this client-side; new values are allowed regardless.
+  let tagOptionsJSON: String
+  /// `true` for editor/admin sessions only - gates growing the shared tag vocabulary with a
+  /// newly typed value, same rationale as `canAddContributionType`.
+  let canAddTag: Bool
   /// The volume's existing live samples - shown read-only for context; this page has no way to
   /// remove or reorder them individually (see `edit.leaf`'s note to the user: uploading any new
   /// sample below replaces this entire set on save, matching `finalize-session`'s actual
@@ -157,7 +167,9 @@ struct LeafVolumeEditForm: Content {
     contributionTypeOptions: [String] = [],
     canAddContributionType: Bool = false,
     propertyNameOptions: [String] = [],
-    canAddPropertyName: Bool = false
+    canAddPropertyName: Bool = false,
+    tagOptions: [String] = [],
+    canAddTag: Bool = false
   ) throws {
     self.id = volume.id
     self.title = session.stringField("title") ?? volume.title
@@ -268,6 +280,14 @@ struct LeafVolumeEditForm: Content {
       }
     }
     self.hasSelectedProperties = !self.selectedProperties.isEmpty
+
+    self.selectedTags = session.stringArrayField("tags") ?? volume.tags
+    self.hasTags = !self.selectedTags.isEmpty
+    self.tagOptionsJSON =
+      (try? JSONEncoder().encode(tagOptions)).flatMap {
+        String(data: $0, encoding: .utf8)
+      } ?? "[]"
+    self.canAddTag = canAddTag
 
     self.livingSamplePaths = volume.samplePaths
     self.hasLivingSamples = !volume.samplePaths.isEmpty

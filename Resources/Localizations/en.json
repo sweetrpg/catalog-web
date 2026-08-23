@@ -233,6 +233,7 @@
   "volume_edit.publishers": "Publishers",
   "volume_edit.studios": "Studios",
   "volume_edit.properties": "Properties",
+  "volume_edit.tags": "Tags",
   "volume_edit.contributors": "Contributors",
   "volume_edit.add_game_system": "Add a game system",
   "volume_edit.add_publisher": "Add a publisher",

@@ -139,6 +139,23 @@
 						<script type="application/json" class="picker-options">#unsafeHTML(volume.studioOptionsJSON)</script>
 					</div>
 
+					<div class="tag-cloud-field" id="tags-field" data-session-fields-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/fields" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/tag">
+						<h3>#(meta.l10n.volume_edit.tags)</h3>
+						<div class="chip-list" data-chip-list>
+							#for(tag in volume.selectedTags):
+								<span class="chip" data-name="#(tag)"><span class="chip-label">#(tag)</span><button type="button" class="chip-remove" title="Remove #(tag)">&times;</button></span>
+							#endfor
+							<button type="button" class="chip-add-trigger" title="#(meta.l10n.volume_edit.add_tag)">+</button>
+						</div>
+						<div class="tag-picker" hidden>
+							<input type="text" class="input picker-filter" id="tag-picker-filter" placeholder="#(meta.l10n.volume_edit.search_tags)" autocomplete="off">
+							<ul class="picker-results" hidden></ul>
+							<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
+						</div>
+						<input type="hidden" name="tags" id="tags-input">
+						<script type="application/json" class="picker-options">#unsafeHTML(volume.tagOptionsJSON)</script>
+					</div>
+
 					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
 						<h3>#(meta.l10n.volume_edit.contributors)</h3>
 						<div class="chip-list" data-chip-list>
@@ -261,6 +278,154 @@
 		  document.getElementById('edit-form').addEventListener('keydown', function (e) {
 		    if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault();
 		  }, true);
+		})();
+		</script>
+
+		<script>
+		(function () {
+		  // Tags picker: free-text labels, not entity references - typing a value with no match
+		  // offers an "Add" result that adds it as a chip immediately (same model as the licenses
+		  // form's tag picker). Every change sends the full resulting name list to the session
+		  // fields autosave (full-replace) and syncs the hidden input so "Save changes" carries
+		  // the same state. If canAddTag, a newly typed value is also POSTed to the shared "tag"
+		  // vocabulary so it shows up in other editors' autocomplete - best-effort.
+		  var field = document.getElementById('tags-field');
+		  if (!field) return;
+
+		  var sessionFieldsURL = field.dataset.sessionFieldsUrl;
+		  var vocabularyURL = field.dataset.vocabularyUrl;
+		  var canAddTag = #(volume.canAddTag);
+		  var chipList = field.querySelector('[data-chip-list]');
+		  var addTrigger = field.querySelector('.chip-add-trigger');
+		  var pickerRow = field.querySelector('.tag-picker');
+		  var input = field.querySelector('.picker-filter');
+		  var results = field.querySelector('.picker-results');
+		  var cancelBtn = field.querySelector('.tag-picker-cancel');
+		  var hiddenInput = document.getElementById('tags-input');
+		  var options = [];
+		  try { options = JSON.parse(field.querySelector('.picker-options').textContent); } catch (e) {}
+		  var knownOptions = options.slice();
+
+		  function selectedNames() {
+		    return Array.prototype.map.call(
+		      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.name.toLowerCase(); });
+		  }
+
+		  function syncHiddenInput() {
+		    hiddenInput.value = Array.prototype.map.call(
+		      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.name; }).join(',');
+		  }
+
+		  function sync() {
+		    var names = Array.prototype.map.call(
+		      chipList.querySelectorAll('.chip'), function (chip) { return chip.dataset.name; });
+		    syncHiddenInput();
+		    fetch(sessionFieldsURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ tags: names }),
+		      credentials: 'include'
+		    });
+		  }
+
+		  function bindChip(chip) {
+		    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
+		      e.stopPropagation();
+		      chip.remove();
+		      sync();
+		    });
+		  }
+
+		  function addChip(name) {
+		    var chip = document.createElement('span');
+		    chip.className = 'chip';
+		    chip.dataset.name = name;
+		    var label = document.createElement('span');
+		    label.className = 'chip-label';
+		    label.textContent = name;
+		    chip.appendChild(label);
+		    var removeBtn = document.createElement('button');
+		    removeBtn.type = 'button';
+		    removeBtn.className = 'chip-remove';
+		    removeBtn.title = 'Remove ' + name;
+		    removeBtn.textContent = '\u00d7';
+		    chip.appendChild(removeBtn);
+		    bindChip(chip);
+		    chipList.insertBefore(chip, addTrigger);
+		    if (options.indexOf(name) === -1) options.push(name);
+		    sync();
+		  }
+
+		  function growVocabulary(name) {
+		    // Only values the shared vocabulary didn't already know need growing - and only when
+		    // this session is allowed to grow it (editor/admin).
+		    if (!canAddTag || knownOptions.indexOf(name) !== -1) return;
+		    fetch(vocabularyURL, {
+		      method: 'POST',
+		      headers: { 'Content-Type': 'application/json' },
+		      body: JSON.stringify({ value: name }),
+		      credentials: 'include'
+		    }).catch(function () {});
+		  }
+
+		  function commit(name) {
+		    name = name.trim();
+		    if (!name || selectedNames().indexOf(name.toLowerCase()) !== -1) { closePicker(); return; }
+		    addChip(name);
+		    growVocabulary(name);
+		    closePicker();
+		  }
+
+		  function closePicker() {
+		    pickerRow.hidden = true;
+		    addTrigger.hidden = false;
+		    input.value = '';
+		    results.hidden = true;
+		  }
+
+		  function renderResults(query) {
+		    results.innerHTML = '';
+		    var needle = query.toLowerCase();
+		    var selected = selectedNames();
+		    var matches = options.filter(function (option) {
+		      return selected.indexOf(option.toLowerCase()) === -1
+		        && option.toLowerCase().indexOf(needle) !== -1;
+		    }).slice(0, 8);
+		    matches.forEach(function (name) {
+		      var item = document.createElement('li');
+		      item.textContent = name;
+		      item.addEventListener('click', function () { commit(name); });
+		      results.appendChild(item);
+		    });
+		    // A non-empty query matching nothing known (or matching only partially) always offers
+		    // itself as a new tag - tags are free text.
+		    if (query && (matches.length === 0
+		        || matches.map(function (m) { return m.toLowerCase(); }).indexOf(needle) === -1)) {
+		      var item = document.createElement('li');
+		      item.textContent = 'Add "' + query + '"';
+		      item.addEventListener('click', function () { commit(query); });
+		      results.appendChild(item);
+		    }
+		    results.hidden = results.childElementCount === 0;
+		  }
+
+		  chipList.querySelectorAll('.chip').forEach(bindChip);
+		  syncHiddenInput();
+
+		  addTrigger.addEventListener('click', function () {
+		    addTrigger.hidden = true;
+		    pickerRow.hidden = false;
+		    input.focus();
+		    renderResults(input.value.trim());
+		  });
+		  cancelBtn.addEventListener('click', closePicker);
+		  input.addEventListener('input', function () { renderResults(input.value.trim()); });
+		  input.addEventListener('keydown', function (e) {
+		    if (e.key === 'Enter') {
+		      e.preventDefault();
+		      commit(input.value);
+		    }
+		  });
 		})();
 		</script>
 
