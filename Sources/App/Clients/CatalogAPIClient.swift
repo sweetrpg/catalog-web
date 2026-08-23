@@ -211,7 +211,7 @@ struct CatalogAPIClientService {
           volID == volumeID
         else { return nil }
         guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
-        let role = resource.attributes.roles?.first ?? "Contributor"
+        let role = resource.attributes.role ?? "Contributor"
         return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
       }
     }
@@ -232,7 +232,7 @@ struct CatalogAPIClientService {
         guard let pID = resource.relationships?["person"]?.data?.ids.first, pID == personID,
           let volID = resource.relationships?["volume"]?.data?.ids.first
         else { continue }
-        roles[volID] = resource.attributes.roles?.first ?? "Contributor"
+        roles[volID] = resource.attributes.role ?? "Contributor"
       }
       return roles
     }
