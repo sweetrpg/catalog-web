@@ -1,4 +1,11 @@
 
+## 0.40.0 - 2026-08-23
+
+### Added
+- Add tag editing to the volume edit page
+
+
+
 ## 0.39.0 - 2026-08-23
 
 ### Added

@@ -238,6 +238,27 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// Person ID -> distinct credited volume count - groups the same cached
+  /// `catalog:contributions` payload `fetchCredits`/`fetchPersonContributionRoles` already use,
+  /// so the persons browse page can badge every card without extra API calls. Records missing a
+  /// person or volume relationship are skipped, mirroring the guards above.
+  func fetchContributionCountsByPerson() async throws -> [String: Int] {
+    try await withSpan("sdk-fetch-contribution-counts-by-person") { _ in
+      let resources = try await getCached("catalog:contributions") {
+        try await self.fetchAllPages(path: "/contributions")
+          as [JSONAPIDocument<ContributionAttributes>.Resource]
+      }
+      var volumesByPerson: [String: Set<String>] = [:]
+      for resource in resources {
+        guard let personID = resource.relationships?["person"]?.data?.ids.first,
+          let volID = resource.relationships?["volume"]?.data?.ids.first
+        else { continue }
+        volumesByPerson[personID, default: []].insert(volID)
+      }
+      return volumesByPerson.mapValues(\.count)
+    }
+  }
+
   func fetchReviews(volumeID: String) async throws -> [(author: String, rating: Int, text: String)]
   {
     try await withSpan("sdk-fetch-reviews") { _ in
