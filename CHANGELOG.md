@@ -1,4 +1,15 @@
 
+## 0.38.0 - 2026-08-23
+
+### Added
+- Structured entry/exit and decision-point logging across volume edit flow
+
+
+### Fixed
+- Fetch volume detail by id instead of walking the full collection
+
+
+
 ## 0.37.2 - 2026-08-22
 
 ### Fixed
