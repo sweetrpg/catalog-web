@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Catalogue</title>
+	<title>#(meta.l10n.nav.catalogue)</title>
 	<link rel="icon" type="image/png" href="#(meta.sharedURL)/static/img/favicon.png">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/main.css">
 	<link rel="stylesheet" href="#(meta.sharedURL)/static/css/avatar-menu.css">

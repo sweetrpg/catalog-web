@@ -776,7 +776,7 @@ struct AppTests {
       try await app.testing().test(.GET, "test-versions") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("No version history"))
-        #expect(!res.body.string.contains("couldn't be loaded"))
+        #expect(!res.body.string.contains("be loaded right now"))
       }
     }
   }
@@ -796,7 +796,7 @@ struct AppTests {
       }
       try await app.testing().test(.GET, "test-versions") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("couldn't be loaded"))
+        #expect(res.body.string.contains("be loaded right now"))
         #expect(!res.body.string.contains("No version history"))
       }
     }

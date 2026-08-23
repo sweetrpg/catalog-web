@@ -1,24 +1,24 @@
 #extend("base"):
 	#export("body"):
 		<section class="page-header">
-			<span class="section-label">Browse</span>
-			<h2>Studios</h2>
+			<span class="section-label">#(meta.l10n.common.browse)</span>
+			<h2>#(meta.l10n.entity.studios)</h2>
 			<div class="page-header-toolbar">
 				<form class="nav-search" action="#(meta.basePath)/studios" method="get">
-					<input class="input" type="search" name="q" placeholder="Search studios" value="#(query)">
+					<input class="input" type="search" name="q" placeholder="#(meta.l10n.studios.search_placeholder)" value="#(query)">
 					<select class="input" name="order" onchange="this.form.submit()">
-						<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
-						<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
+						<option value="asc" #if(orderIsAsc): selected #endif>#(meta.l10n.studios.order_asc)</option>
+						<option value="desc" #if(orderIsDesc): selected #endif>#(meta.l10n.studios.order_desc)</option>
 					</select>
 				</form>
 				#if(canEdit):
-					<a class="btn btn-primary" href="#(meta.basePath)/studios/new">Add studio</a>
+					<a class="btn btn-primary" href="#(meta.basePath)/studios/new">#(meta.l10n.studios.add)</a>
 				#endif
 			</div>
 		</section>
 
 		#if(noResults):
-			<p class="empty-state">No studios match "#(query)".</p>
+			<p class="empty-state">#(meta.l10n.studios.no_results_prefix)#(query)#(meta.l10n.studios.no_results_suffix)</p>
 		#endif
 
 		<div class="card-grid">

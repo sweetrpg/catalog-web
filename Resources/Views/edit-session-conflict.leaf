@@ -1,18 +1,17 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; Volume</a>
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; #(meta.l10n.entity.volume)</a>
 
 		<div class="empty-state">
-			<h1>You're already editing something else</h1>
-			<p>You have an in-flight edit session for <strong>#(otherVolumeTitle)</strong>. Finish or
-			discard it before starting a new edit on <strong>#(volumeTitle)</strong>.</p>
+			<h1>#(meta.l10n.conflict.heading)</h1>
+			<p>#(meta.l10n.conflict.body_prefix)<strong>#(otherVolumeTitle)</strong>#(meta.l10n.conflict.body_mid)<strong>#(volumeTitle)</strong>#(meta.l10n.conflict.body_suffix)</p>
 
 			<div class="form-actions">
-				<a class="btn btn-primary" href="#(meta.basePath)/volumes/#(otherVolumeID)/edit">Continue editing "#(otherVolumeTitle)"</a>
+				<a class="btn btn-primary" href="#(meta.basePath)/volumes/#(otherVolumeID)/edit">#(meta.l10n.conflict.continue_prefix)#(otherVolumeTitle)#(meta.l10n.conflict.continue_suffix)</a>
 
 				<form id="discard-other-form" action="#(meta.basePath)/volumes/#(volumeID)/edit/session/discard" method="post" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="#(otherStagedCoverPath)">
 					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volumeID)/edit">
-					<button type="submit" class="btn btn-ghost">Discard it and edit "#(volumeTitle)" instead</button>
+					<button type="submit" class="btn btn-ghost">#(meta.l10n.conflict.discard_prefix)#(volumeTitle)#(meta.l10n.conflict.discard_suffix)</button>
 				</form>
 			</div>
 		</div>

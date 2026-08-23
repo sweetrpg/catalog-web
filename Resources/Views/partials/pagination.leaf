@@ -1,9 +1,9 @@
 #if(pagination.hasMultiplePages):
-	<nav class="pagination" aria-label="Pagination">
+	<nav class="pagination" aria-label="#(meta.l10n.pagination.aria)">
 		#if(pagination.hasPrev):
-			<a class="pagination-link" href="#(pagination.prevURL)" rel="prev">&larr; Prev</a>
+			<a class="pagination-link" href="#(pagination.prevURL)" rel="prev">&larr; #(meta.l10n.pagination.prev)</a>
 		#else:
-			<span class="pagination-link pagination-link-disabled">&larr; Prev</span>
+			<span class="pagination-link pagination-link-disabled">&larr; #(meta.l10n.pagination.prev)</span>
 		#endif
 
 		#for(link in pagination.pages):
@@ -15,9 +15,9 @@
 		#endfor
 
 		#if(pagination.hasNext):
-			<a class="pagination-link" href="#(pagination.nextURL)" rel="next">Next &rarr;</a>
+			<a class="pagination-link" href="#(pagination.nextURL)" rel="next">#(meta.l10n.pagination.next) &rarr;</a>
 		#else:
-			<span class="pagination-link pagination-link-disabled">Next &rarr;</span>
+			<span class="pagination-link pagination-link-disabled">#(meta.l10n.pagination.next) &rarr;</span>
 		#endif
 	</nav>
 #endif
