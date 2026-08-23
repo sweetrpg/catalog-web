@@ -37,6 +37,8 @@ public func configure(_ app: Application) async throws {
   // directory; request.locale (once a route reads it) picks the right one automatically.
   app.lingoVapor.configuration = .init(
     defaultLocale: "en", localizationsDir: "Resources/Localizations")
+  // Same tables, read independently by I18n.swift for template strings (see PageMeta.l10n).
+  try I18n.loadTables()
 
   // Serves Public/ (css, images, favicon) - never registered before, so every static asset
   // 404'd through the app's own JSON not-found handler instead of being served as a file.

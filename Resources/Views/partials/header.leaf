@@ -4,17 +4,17 @@
 			<img src="#(meta.sharedURL)/static/img/sweetrpg-logo-black.svg" alt="SweetRPG" class="nav-logo nav-logo-light">
 			<img src="#(meta.sharedURL)/static/img/sweetrpg-logo-white.svg" alt="SweetRPG" class="nav-logo nav-logo-dark">
 		</a>
-		<a href="#(meta.basePath)/">Catalogue</a>
+		<a href="#(meta.basePath)/">#(meta.l10n.nav.catalogue)</a>
 	</div>
-	<a href="#(meta.basePath)/">Front Page</a>
-	<a href="#(meta.basePath)/browse">Browse</a>
-	<a href="#(meta.basePath)/shelves">My Shelves</a>
+	<a href="#(meta.basePath)/">#(meta.l10n.nav.front_page)</a>
+	<a href="#(meta.basePath)/browse">#(meta.l10n.nav.browse)</a>
+	<a href="#(meta.basePath)/shelves">#(meta.l10n.nav.my_shelves)</a>
 	<div class="nav-spacer"></div>
 	<form class="nav-search" action="#(meta.basePath)/browse" method="get">
-		<input class="input" type="text" name="q" placeholder="Search titles...">
+		<input class="input" type="text" name="q" placeholder="#(meta.l10n.nav.search_placeholder)">
 	</form>
 	<div class="app-switcher">
-		<button type="button" class="app-switcher-trigger" aria-label="Switch app">
+		<button type="button" class="app-switcher-trigger" aria-label="#(meta.l10n.nav.switch_app)">
 			<svg viewBox="0 0 24 24" aria-hidden="true">
 				<circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>
 				<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
@@ -22,10 +22,10 @@
 			</svg>
 		</button>
 		<div class="app-switcher-panel" hidden>
-			<a class="app-switcher-item" href="/">Main</a>
-			<a class="app-switcher-item" href="/catalog">Catalog</a>
-			<a class="app-switcher-item" href="/shelf">Shelf</a>
-			<a class="app-switcher-item" href="/initiative">Initiative</a>
+			<a class="app-switcher-item" href="/">#(meta.l10n.nav.app_main)</a>
+			<a class="app-switcher-item" href="/catalog">#(meta.l10n.nav.app_catalog)</a>
+			<a class="app-switcher-item" href="/shelf">#(meta.l10n.nav.app_shelf)</a>
+			<a class="app-switcher-item" href="/initiative">#(meta.l10n.nav.app_initiative)</a>
 		</div>
 	</div>
 	<div class="avatar-menu">
@@ -48,22 +48,22 @@
 					#endif
 				</div>
 				<hr class="avatar-menu-divider">
-				<a class="avatar-menu-item" href="#(meta.userSettingsURL)">User Settings</a>
+				<a class="avatar-menu-item" href="#(meta.userSettingsURL)">#(meta.l10n.user.user_settings)</a>
 				#if(user.isAdmin):
-				<a class="avatar-menu-item" href="#(meta.adminURL)">Administration</a>
+				<a class="avatar-menu-item" href="#(meta.adminURL)">#(meta.l10n.user.administration)</a>
 				#endif
 				<hr class="avatar-menu-divider">
 				<form action="#(meta.logoutURL)" method="post" class="avatar-menu-item-form">
-					<button type="submit" class="avatar-menu-item avatar-menu-item-danger">Log out</button>
+					<button type="submit" class="avatar-menu-item avatar-menu-item-danger">#(meta.l10n.user.log_out)</button>
 				</form>
 			#else:
-				<a class="avatar-menu-item" href="#(meta.loginURL)">Log in</a>
+				<a class="avatar-menu-item" href="#(meta.loginURL)">#(meta.l10n.user.log_in)</a>
 			#endif
 			<hr class="avatar-menu-divider">
-			<div id="avatar-menu-theme-row" class="avatar-menu-theme-row" role="group" aria-label="Theme">
-				<button type="button" class="avatar-menu-theme-option" data-theme-choice="light" aria-label="Light"></button>
-				<button type="button" class="avatar-menu-theme-option" data-theme-choice="dark" aria-label="Dark"></button>
-				<button type="button" class="avatar-menu-theme-option" data-theme-choice="system" aria-label="System"></button>
+			<div id="avatar-menu-theme-row" class="avatar-menu-theme-row" role="group" aria-label="#(meta.l10n.theme.group)">
+				<button type="button" class="avatar-menu-theme-option" data-theme-choice="light" aria-label="#(meta.l10n.theme.light)"></button>
+				<button type="button" class="avatar-menu-theme-option" data-theme-choice="dark" aria-label="#(meta.l10n.theme.dark)"></button>
+				<button type="button" class="avatar-menu-theme-option" data-theme-choice="system" aria-label="#(meta.l10n.theme.system)"></button>
 			</div>
 		</div>
 	</div>

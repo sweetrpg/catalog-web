@@ -128,6 +128,29 @@ Swift-appropriate tooling, not identical libraries:
   server) on `swift package resolve`, a poor fit for this deployment. `SENTRY_DSN` unset means
   reporting silently no-ops, not an error.
 
+### Localization
+
+Implements the `full-localization-web-apps` OpenSpec change in `sweetrpg/platform`. All
+user-facing template strings come from locale resource files, never literals in `.leaf`
+templates.
+
+- **Library**: `Lingo-Vapor` (wrapping `miroslavkovac/Lingo`), loaded in `configure.swift`.
+- **Tables**: `Resources/Localizations/<code>.json`, flat dotted keys (`page.name`), shipped as
+  a plain directory next to the binary (same mechanism as `Resources/Views`). `I18n.swift`
+  loads them all at first use and exposes the resolved table per request.
+- **Resolution order**: `locale` cookie -> first `Accept-Language` tag's base subtag (e.g.
+  `en-GB` -> `en`) -> English. Only locales with a table on disk are supported; unknown values
+  fall through silently.
+- **Template convention**: `PageMeta.l10n` carries the resolved table regrouped two levels
+  deep, so templates write `#(meta.l10n.page.name)`. Interpolated strings use prefix/suffix
+  key pairs. Brand names (SweetRPG/GitHub/Pilgrimage Software), footer build lines, emails,
+  and raw enum/status identifiers rendered as tags stay hardcoded.
+- **Adding a locale**: copy `en.json` to `<code>.json` and translate the values - the loader
+  picks it up with no code changes.
+- **CI gate**: `scripts/check-template-strings.sh` flags hardcoded inter-tag text in
+  `Resources/Views` (script/style/comments/Leaf tags stripped); the `locale-lint` job in both
+  `.github/workflows/ci.yaml` and `pr.yaml` runs it on every push and PR.
+
 ## Committing Code
 
 [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`.

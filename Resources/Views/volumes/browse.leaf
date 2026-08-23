@@ -3,10 +3,10 @@
 		<link rel="stylesheet" href="#(meta.sharedURL)/static/css/catalog/browse.css">
 
 		<section class="page-header">
-			<span class="section-label">Browse</span>
-			<h2>The Stacks</h2>
+			<span class="section-label">#(meta.l10n.common.browse)</span>
+			<h2>#(meta.l10n.volumes.title)</h2>
 			<div class="tag-cloud">
-				<a class="tag #if(noActiveTag): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse">All</a>
+				<a class="tag #if(noActiveTag): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse">#(meta.l10n.volumes.all)</a>
 				#for(tag in tagCloud):
 					<a class="tag #if(tag.isActive): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse?tag=#(tag.name)">#(tag.name)</a>
 				#endfor
@@ -14,7 +14,7 @@
 		</section>
 
 		#if(noResults):
-			<p class="empty-state">No volumes match "#(query)".</p>
+			<p class="empty-state">#(meta.l10n.volumes.no_results_prefix)#(query)#(meta.l10n.volumes.no_results_suffix)</p>
 		#endif
 
 		<div class="card-grid">
