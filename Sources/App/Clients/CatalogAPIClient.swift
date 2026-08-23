@@ -127,9 +127,17 @@ struct CatalogAPIClientService {
   func fetchVolume(id: String) async throws -> VolumeViewModel? {
     try await withSpan("sdk-fetch-volume") { _ -> VolumeViewModel? in
       let uri = URI(string: req.backendConfig.catalogAPIURL + "/volumes/\(id)")
+      req.logger.debug(
+        "fetchVolume: enter", metadata: ["volumeID": "\(id)", "path": "\(uri.path)"])
       let response = try await req.client.get(uri)
-      guard response.status == .ok else { return nil }
+      guard response.status == .ok else {
+        req.logger.warning(
+          "fetchVolume: non-ok response",
+          metadata: ["volumeID": "\(id)", "status": "\(response.status.code)"])
+        return nil
+      }
       let doc = try response.content.decode(JSONAPISingleDocument<VolumeAttributes>.self)
+      req.logger.debug("fetchVolume: done", metadata: ["volumeID": "\(id)"])
       async let systemNames = (try? await fetchNameMap(path: "/systems")) ?? [:]
       async let publisherNames = (try? await fetchNameMap(path: "/publishers")) ?? [:]
       async let studioNames = (try? await fetchNameMap(path: "/studios")) ?? [:]
@@ -254,8 +262,11 @@ struct CatalogAPIClientService {
     id: String, token: String, title: String?, description: String?, notes: String?
   ) async throws -> VolumePatchResult {
     try await withSpan("sdk-patch-volume") { _ in
-      try await sdk.patchVolume(
+      req.logger.debug("patchVolume: enter", metadata: ["volumeID": "\(id)"])
+      let result = try await sdk.patchVolume(
         id: id, token: token, title: title, description: description, notes: notes)
+      req.logger.debug("patchVolume: done", metadata: ["volumeID": "\(id)"])
+      return result
     }
   }
 
@@ -263,7 +274,10 @@ struct CatalogAPIClientService {
   /// `CatalogController.submitEdit`.
   func finalizeSession(id: String, token: String) async throws -> VolumePatchResult {
     try await withSpan("sdk-finalize-session") { _ in
-      try await sdk.finalizeSession(id: id, token: token)
+      req.logger.debug("finalizeSession: enter", metadata: ["volumeID": "\(id)"])
+      let result = try await sdk.finalizeSession(id: id, token: token)
+      req.logger.debug("finalizeSession: done", metadata: ["volumeID": "\(id)"])
+      return result
     }
   }
 
@@ -273,8 +287,18 @@ struct CatalogAPIClientService {
     volumeID: String, version: Int, token: String, fields: [String]?
   ) async throws -> ReviewVersionResult {
     try await withSpan("sdk-accept-volume-version") { _ in
-      try await sdk.acceptVolumeVersion(
+      req.logger.debug(
+        "acceptVolumeVersion: enter",
+        metadata: [
+          "volumeID": "\(volumeID)",
+          "version": "\(version)",
+          "fieldCount": "\(fields?.count ?? -1)",
+        ])
+      let result = try await sdk.acceptVolumeVersion(
         id: volumeID, version: version, token: token, fields: fields)
+      req.logger.debug(
+        "acceptVolumeVersion: done", metadata: ["volumeID": "\(volumeID)", "version": "\(version)"])
+      return result
     }
   }
 
@@ -284,7 +308,14 @@ struct CatalogAPIClientService {
     volumeID: String, version: Int, token: String, note: String?
   ) async throws -> ReviewVersionResult {
     try await withSpan("sdk-reject-volume-version") { _ in
-      try await sdk.rejectVolumeVersion(id: volumeID, version: version, token: token, note: note)
+      req.logger.debug(
+        "rejectVolumeVersion: enter",
+        metadata: ["volumeID": "\(volumeID)", "version": "\(version)", "hasNote": "\(note != nil)"])
+      let result = try await sdk.rejectVolumeVersion(
+        id: volumeID, version: version, token: token, note: note)
+      req.logger.debug(
+        "rejectVolumeVersion: done", metadata: ["volumeID": "\(volumeID)", "version": "\(version)"])
+      return result
     }
   }
 
@@ -312,7 +343,15 @@ struct CatalogAPIClientService {
     -> VolumeVersionAttributes
   {
     try await withSpan("sdk-set-current-volume-version") { _ in
-      try await sdk.setCurrentVolumeVersion(id: volumeID, version: version, token: token)
+      req.logger.debug(
+        "setCurrentVolumeVersion: enter",
+        metadata: ["volumeID": "\(volumeID)", "version": "\(version)"])
+      let result = try await sdk.setCurrentVolumeVersion(
+        id: volumeID, version: version, token: token)
+      req.logger.debug(
+        "setCurrentVolumeVersion: done",
+        metadata: ["volumeID": "\(volumeID)", "version": "\(version)"])
+      return result
     }
   }
 
@@ -725,13 +764,18 @@ struct CatalogAPIClientService {
   /// path (e.g. `/publishers/abc123`), not its collection path.
   func deleteEntity(path: String, token: String) async throws {
     try await withSpan("delete-entity") { _ in
+      req.logger.debug("deleteEntity: enter", metadata: ["path": "\(path)"])
       let uri = URI(string: req.backendConfig.catalogAPIURL + path)
       let response = try await req.client.delete(uri) { clientReq in
         clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
       }
       guard response.status == .noContent else {
+        req.logger.warning(
+          "deleteEntity: non-2xx response",
+          metadata: ["path": "\(path)", "status": "\(response.status.code)"])
         throw Abort(response.status, reason: "catalog-api delete failed")
       }
+      req.logger.debug("deleteEntity: done", metadata: ["path": "\(path)"])
     }
   }
 
@@ -739,13 +783,18 @@ struct CatalogAPIClientService {
   /// `path` is the resource's own path (e.g. `/publishers/abc123`).
   func restoreEntity(path: String, token: String) async throws {
     try await withSpan("restore-entity") { _ in
+      req.logger.debug("restoreEntity: enter", metadata: ["path": "\(path)"])
       let uri = URI(string: req.backendConfig.catalogAPIURL + path + "/restore")
       let response = try await req.client.post(uri) { clientReq in
         clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
       }
       guard response.status == .ok else {
+        req.logger.warning(
+          "restoreEntity: non-2xx response",
+          metadata: ["path": "\(path)", "status": "\(response.status.code)"])
         throw Abort(response.status, reason: "catalog-api restore failed")
       }
+      req.logger.debug("restoreEntity: done", metadata: ["path": "\(path)"])
     }
   }
 
