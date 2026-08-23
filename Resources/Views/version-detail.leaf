@@ -1,12 +1,12 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)/versions">&larr; Back to Version History</a>
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)/versions">&larr; #(meta.l10n.version_detail.back)</a>
 
 		<section class="page-header">
-			<span class="section-label">Version #(version.version)</span>
+			<span class="section-label">#(meta.l10n.version_detail.section_prefix)#(version.version)</span>
 			<h2>#(version.title)</h2>
 			#if(version.isLive):
-				<span class="tag tag-accent">live</span>
+				<span class="tag tag-accent">#(meta.l10n.version_detail.live)</span>
 			#else:
 				<span class="tag tag-neutral">#(version.state)</span>
 			#endif
@@ -15,7 +15,7 @@
 		#if(canRollback):
 			#if(!version.isLive):
 				<form method="post" action="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)/restore">
-					<button type="submit" class="btn btn-primary">Restore This Version</button>
+					<button type="submit" class="btn btn-primary">#(meta.l10n.version_detail.restore)</button>
 				</form>
 			#endif
 		#endif
@@ -24,26 +24,26 @@
 			#if(version.hasDescription):
 				<p class="detail-description">#(version.description)</p>
 			#else:
-				<p class="detail-description detail-description-empty">No description on file for this version.</p>
+				<p class="detail-description detail-description-empty">#(meta.l10n.version_detail.no_description)</p>
 			#endif
 
 			#if(version.hasNotes):
-				<p class="detail-notes"><strong>Notes:</strong> #(version.notes)</p>
+				<p class="detail-notes"><strong>#(meta.l10n.common.notes_label)</strong> #(version.notes)</p>
 			#endif
 
 			#if(version.format):
-				<p><strong>Format:</strong> #(version.format)</p>
+				<p><strong>#(meta.l10n.version_detail.format_label)</strong> #(version.format)</p>
 			#endif
 		</div>
 
 		<div class="detail-block">
-			<span class="section-label">Audit</span>
-			<p>Submitted by #(version.submittedBy) on #(version.submittedAtLabel).</p>
+			<span class="section-label">#(meta.l10n.version_detail.audit)</span>
+			<p>#(meta.l10n.version_detail.submitted_prefix)#(version.submittedBy) #(meta.l10n.common.on) #(version.submittedAtLabel)#(meta.l10n.common.period)</p>
 			#if(version.hasReviewedBy):
-				<p>Reviewed by #(version.reviewedBy).</p>
+				<p>#(meta.l10n.version_detail.reviewed_prefix)#(version.reviewedBy)#(meta.l10n.common.period)</p>
 			#endif
 			#if(version.hasReviewNote):
-				<p><strong>Review note:</strong> #(version.reviewNote)</p>
+				<p><strong>#(meta.l10n.version_detail.review_note_label)</strong> #(version.reviewNote)</p>
 			#endif
 		</div>
 	#endexport

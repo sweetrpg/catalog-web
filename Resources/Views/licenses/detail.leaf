@@ -78,47 +78,47 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)/licenses">&larr; Licenses</a>
+		<a class="back-link" href="#(meta.basePath)/licenses">&larr; #(meta.l10n.entity.licenses)</a>
 
 		#if(justProposed):
-			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+			<p class="empty-state-inline">#(meta.l10n.common.just_proposed)</p>
 		#endif
 
 		#if(count(conflicts) > 0):
-			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+			<p class="form-error">#(meta.l10n.common.conflicts_prefix) #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
 		#if(isDeleted):
-			<p class="form-error">This license is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
+			<p class="form-error">#(meta.l10n.license.deleted_notice)</p>
 		#endif
 
 		<div>
-			<span class="section-label">License</span>
+			<span class="section-label">#(meta.l10n.entity.license)</span>
 			<h1>#(license.title)</h1>
 
 			#if(canEdit):
-				<a class="btn btn-ghost" href="#(meta.basePath)/licenses/#(license.id)/edit">Edit</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/licenses/#(license.id)/edit">#(meta.l10n.common.edit)</a>
 			#endif
 
 			#if(canDelete):
 				#if(isDeleted):
 					<form method="post" action="#(meta.basePath)/licenses/#(license.id)/undelete">
-						<button type="submit" class="btn btn-ghost">Restore</button>
+						<button type="submit" class="btn btn-ghost">#(meta.l10n.common.restore)</button>
 					</form>
 				#else:
-					<form method="post" action="#(meta.basePath)/licenses/#(license.id)/delete" onsubmit="return confirm('Delete this license? It will be hidden from browse and pickers, but can be restored later.')">
-						<button type="submit" class="btn btn-ghost">Delete</button>
+					<form method="post" action="#(meta.basePath)/licenses/#(license.id)/delete" onsubmit="return confirm('#(meta.l10n.license.delete_confirm)')">
+						<button type="submit" class="btn btn-ghost">#(meta.l10n.common.delete)</button>
 					</form>
 				#endif
 			#endif
 
 			#if(review):
 				<div class="detail-block">
-					<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+					<span class="section-label">#(meta.l10n.common.pending_prefix)#(review.pendingCount)#(meta.l10n.common.pending_suffix)</span>
 
 					#if(review.hasMultiplePending):
 						<form class="proposal-picker" method="get" action="#(meta.basePath)/licenses/#(license.id)">
-							<label class="form-label" for="proposal">Viewing proposal from</label>
+							<label class="form-label" for="proposal">#(meta.l10n.common.viewing_proposal_from)</label>
 							<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
 								#for(option in review.options):
 									<option value="#(option.version)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
@@ -126,7 +126,7 @@
 							</select>
 						</form>
 					#else:
-						<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+						<p class="empty-state-inline">#(meta.l10n.common.proposed_by_prefix)#(review.submittedBy) #(meta.l10n.common.on) #(review.submittedAtLabel)#(meta.l10n.common.period)</p>
 					#endif
 
 					<form class="proposal-diff" method="post" action="#(meta.basePath)/licenses/#(license.id)/versions/#(review.selectedVersion)/accept">
@@ -135,9 +135,9 @@
 							<thead>
 								<tr>
 									<th></th>
-									<th>Field</th>
-									<th>Live value</th>
-									<th>Proposed value</th>
+									<th>#(meta.l10n.common.field)</th>
+									<th>#(meta.l10n.common.live_value)</th>
+									<th>#(meta.l10n.common.proposed_value)</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -152,18 +152,18 @@
 							</tbody>
 						</table>
 						<div class="form-actions table-actions">
-							<button type="submit" class="btn btn-ghost">Accept Selected</button>
+							<button type="submit" class="btn btn-ghost">#(meta.l10n.common.accept_selected)</button>
 						</div>
 					</form>
 
 					<div class="table-actions">
 						<form method="post" action="#(meta.basePath)/licenses/#(license.id)/versions/#(review.selectedVersion)/accept">
 							<input type="hidden" name="mode" value="all">
-							<button type="submit" class="btn btn-primary">Accept All</button>
+							<button type="submit" class="btn btn-primary">#(meta.l10n.common.accept_all)</button>
 						</form>
 						<form method="post" action="#(meta.basePath)/licenses/#(license.id)/versions/#(review.selectedVersion)/reject">
-							<input class="input" type="text" name="note" placeholder="Optional note">
-							<button type="submit" class="btn btn-ghost">Reject</button>
+							<input class="input" type="text" name="note" placeholder="#(meta.l10n.common.optional_note)">
+							<button type="submit" class="btn btn-ghost">#(meta.l10n.common.reject)</button>
 						</form>
 					</div>
 				</div>
@@ -172,27 +172,27 @@
 			<div class="license-columns">
 				<div class="license-meta">
 					#if(license.hasShortTitle):
-						<span class="license-meta-label">Short title</span>
+						<span class="license-meta-label">#(meta.l10n.license.short_title)</span>
 						<span class="license-meta-value">#(license.shortTitle)</span>
 					#endif
 
 					#if(license.hasVersion):
-						<span class="license-meta-label">Version</span>
+						<span class="license-meta-label">#(meta.l10n.license.version)</span>
 						<span class="license-meta-value">#(license.version)</span>
 					#endif
 
 					#if(license.hasStatus):
-						<span class="license-meta-label">Status</span>
+						<span class="license-meta-label">#(meta.l10n.license.status)</span>
 						<span class="license-meta-value">#(license.status)</span>
 					#endif
 
 					#if(license.hasAvailability):
-						<span class="license-meta-label">Availability</span>
+						<span class="license-meta-label">#(meta.l10n.license.availability)</span>
 						<span class="license-meta-value">#(license.availability)</span>
 					#endif
 
 					#if(license.hasWebsite):
-						<span class="license-meta-label">Website</span>
+						<span class="license-meta-label">#(meta.l10n.license.website)</span>
 						<span class="license-meta-value"><a href="#(license.website)">#(license.website)</a></span>
 					#endif
 
@@ -202,12 +202,12 @@
 					#endfor
 
 					#if(license.hasNotes):
-						<span class="license-meta-label">Notes</span>
+						<span class="license-meta-label">#(meta.l10n.license.notes)</span>
 						<div class="license-meta-value license-notes">#(license.notes)</div>
 					#endif
 
 					#if(license.hasTags):
-						<span class="license-meta-label">Tags</span>
+						<span class="license-meta-label">#(meta.l10n.license.tags)</span>
 						<div class="license-meta-value tag-cloud">
 							#for(tag in license.tags):
 								<span class="tag tag-accent">#(tag)</span>
@@ -217,7 +217,7 @@
 				</div>
 
 				<div class="license-volumes">
-					<span class="section-label">Volumes</span>
+					<span class="section-label">#(meta.l10n.license.volumes)</span>
 					#if(license.hasVolumes):
 						<div class="license-volumes-panel">
 							<div class="card-grid">
@@ -231,21 +231,21 @@
 							</div>
 						</div>
 					#else:
-						<p class="empty-state-inline">No volumes associated with this license yet.</p>
+						<p class="empty-state-inline">#(meta.l10n.license.no_volumes)</p>
 					#endif
 				</div>
 			</div>
 
 			#if(license.hasDeed || license.hasLegalCode):
 				<div class="detail-block">
-					<span class="section-label">License Text</span>
+					<span class="section-label">#(meta.l10n.license.text_section)</span>
 					<div class="license-text-panel">
 						#if(license.hasDeed):
 							<details open>
-								<summary>Deed
+								<summary>#(meta.l10n.license.deed)
 									<span class="license-text-mode-toggle" data-license-text-toggle>
-										<button type="button" data-mode="preview" aria-pressed="true">Preview</button>
-										<button type="button" data-mode="raw" aria-pressed="false">Raw</button>
+										<button type="button" data-mode="preview" aria-pressed="true">#(meta.l10n.license.preview)</button>
+										<button type="button" data-mode="raw" aria-pressed="false">#(meta.l10n.license.raw)</button>
 									</span>
 								</summary>
 								<p class="license-text-body" data-mode="preview" data-raw="#(license.deed)">#(license.deed)</p>
@@ -253,10 +253,10 @@
 						#endif
 						#if(license.hasLegalCode):
 							<details>
-								<summary>Legal code
+								<summary>#(meta.l10n.license.legal_code)
 									<span class="license-text-mode-toggle" data-license-text-toggle>
-										<button type="button" data-mode="preview" aria-pressed="true">Preview</button>
-										<button type="button" data-mode="raw" aria-pressed="false">Raw</button>
+										<button type="button" data-mode="preview" aria-pressed="true">#(meta.l10n.license.preview)</button>
+										<button type="button" data-mode="raw" aria-pressed="false">#(meta.l10n.license.raw)</button>
 									</span>
 								</summary>
 								<p class="license-text-body" data-mode="preview" data-raw="#(license.legalCode)">#(license.legalCode)</p>

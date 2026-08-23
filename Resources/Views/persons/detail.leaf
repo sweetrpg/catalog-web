@@ -14,18 +14,18 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)/persons">&larr; Persons</a>
+		<a class="back-link" href="#(meta.basePath)/persons">&larr; #(meta.l10n.entity.persons)</a>
 
 		#if(justProposed):
-			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+			<p class="empty-state-inline">#(meta.l10n.common.just_proposed)</p>
 		#endif
 
 		#if(count(conflicts) > 0):
-			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+			<p class="form-error">#(meta.l10n.common.conflicts_prefix) #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
 		#if(isDeleted):
-			<p class="form-error">This person is deleted. They're hidden from browse, search, and pickers, but stay reachable here directly.</p>
+			<p class="form-error">#(meta.l10n.person.deleted_notice)</p>
 		#endif
 
 		<div>
@@ -33,21 +33,21 @@
 				<h1>#(person.name)</h1>
 				<div class="person-header-actions">
 					#if(canEdit):
-						<a class="icon-btn" href="#(meta.basePath)/persons/#(person.id)/edit" title="Edit">
-							<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit">
+						<a class="icon-btn" href="#(meta.basePath)/persons/#(person.id)/edit" title="#(meta.l10n.common.tooltip_edit)">
+							<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="#(meta.l10n.common.tooltip_edit)">
 						</a>
 					#endif
 
 					#if(canDelete):
 						#if(isDeleted):
 							<form method="post" action="#(meta.basePath)/persons/#(person.id)/undelete">
-								<button type="submit" class="icon-btn icon-btn-danger" title="Restore">
+								<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_restore)">
 									<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg');"></span>
 								</button>
 							</form>
 						#else:
-							<form method="post" action="#(meta.basePath)/persons/#(person.id)/delete" onsubmit="return confirm('Delete this person? They will be hidden from browse and pickers, but can be restored later.')">
-								<button type="submit" class="icon-btn icon-btn-danger" title="Delete">
+							<form method="post" action="#(meta.basePath)/persons/#(person.id)/delete" onsubmit="return confirm('#(meta.l10n.person.delete_confirm)')">
+								<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_delete)">
 									<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg');"></span>
 								</button>
 							</form>
@@ -62,16 +62,16 @@
 			</div>
 
 			#if(person.hasNotes):
-				<p class="detail-notes"><strong>Notes:</strong> #(person.notes)</p>
+				<p class="detail-notes"><strong>#(meta.l10n.common.notes_label)</strong> #(person.notes)</p>
 			#endif
 
 			#if(review):
 				<div class="detail-block">
-					<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+					<span class="section-label">#(meta.l10n.common.pending_prefix)#(review.pendingCount)#(meta.l10n.common.pending_suffix)</span>
 
 					#if(review.hasMultiplePending):
 						<form class="proposal-picker" method="get" action="#(meta.basePath)/persons/#(person.id)">
-							<label class="form-label" for="proposal">Viewing proposal from</label>
+							<label class="form-label" for="proposal">#(meta.l10n.common.viewing_proposal_from)</label>
 							<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
 								#for(option in review.options):
 									<option value="#(option.version)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
@@ -79,7 +79,7 @@
 							</select>
 						</form>
 					#else:
-						<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+						<p class="empty-state-inline">#(meta.l10n.common.proposed_by_prefix)#(review.submittedBy) #(meta.l10n.common.on) #(review.submittedAtLabel)#(meta.l10n.common.period)</p>
 					#endif
 
 					<form class="proposal-diff" method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/accept">
@@ -88,9 +88,9 @@
 							<thead>
 								<tr>
 									<th></th>
-									<th>Field</th>
-									<th>Live value</th>
-									<th>Proposed value</th>
+									<th>#(meta.l10n.common.field)</th>
+									<th>#(meta.l10n.common.live_value)</th>
+									<th>#(meta.l10n.common.proposed_value)</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -105,25 +105,25 @@
 							</tbody>
 						</table>
 						<div class="form-actions table-actions">
-							<button type="submit" class="btn btn-ghost">Accept Selected</button>
+							<button type="submit" class="btn btn-ghost">#(meta.l10n.common.accept_selected)</button>
 						</div>
 					</form>
 
 					<div class="table-actions">
 						<form method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/accept">
 							<input type="hidden" name="mode" value="all">
-							<button type="submit" class="btn btn-primary">Accept All</button>
+							<button type="submit" class="btn btn-primary">#(meta.l10n.common.accept_all)</button>
 						</form>
 						<form method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/reject">
-							<input class="input" type="text" name="note" placeholder="Optional note">
-							<button type="submit" class="btn btn-ghost">Reject</button>
+							<input class="input" type="text" name="note" placeholder="#(meta.l10n.common.optional_note)">
+							<button type="submit" class="btn btn-ghost">#(meta.l10n.common.reject)</button>
 						</form>
 					</div>
 				</div>
 			#endif
 
 			<div class="detail-block">
-				<span class="section-label">Contributed to</span>
+				<span class="section-label">#(meta.l10n.person.contributed_to)</span>
 				#if(person.hasContributions):
 					<div class="card-grid">
 						#for(contribution in person.contributions):
@@ -136,7 +136,7 @@
 						#endfor
 					</div>
 				#else:
-					<p class="empty-state-inline">No contributions on file yet for this person.</p>
+					<p class="empty-state-inline">#(meta.l10n.person.no_contributions)</p>
 				#endif
 			</div>
 		</div>

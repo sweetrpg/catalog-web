@@ -1,17 +1,17 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/studios">&larr; Studios</a>
+		<a class="back-link" href="#(meta.basePath)/studios">&larr; #(meta.l10n.entity.studios)</a>
 
 		#if(justProposed):
-			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+			<p class="empty-state-inline">#(meta.l10n.common.just_proposed)</p>
 		#endif
 
 		#if(count(conflicts) > 0):
-			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+			<p class="form-error">#(meta.l10n.common.conflicts_prefix) #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
 		#if(isDeleted):
-			<p class="form-error">This studio is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
+			<p class="form-error">#(meta.l10n.studio.deleted_notice)</p>
 		#endif
 
 		<div>
@@ -23,36 +23,36 @@
 			</div>
 
 			#if(canEdit):
-				<a class="btn btn-ghost" href="#(meta.basePath)/studios/#(studio.id)/edit">Edit</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/studios/#(studio.id)/edit">#(meta.l10n.common.edit)</a>
 			#endif
 
 			#if(canDelete):
 				#if(isDeleted):
 					<form method="post" action="#(meta.basePath)/studios/#(studio.id)/undelete">
-						<button type="submit" class="btn btn-ghost">Restore</button>
+						<button type="submit" class="btn btn-ghost">#(meta.l10n.common.restore)</button>
 					</form>
 				#else:
-					<form method="post" action="#(meta.basePath)/studios/#(studio.id)/delete" onsubmit="return confirm('Delete this studio? It will be hidden from browse and pickers, but can be restored later.')">
-						<button type="submit" class="btn btn-ghost">Delete</button>
+					<form method="post" action="#(meta.basePath)/studios/#(studio.id)/delete" onsubmit="return confirm('#(meta.l10n.studio.delete_confirm)')">
+						<button type="submit" class="btn btn-ghost">#(meta.l10n.common.delete)</button>
 					</form>
 				#endif
 			#endif
 
 			#if(studio.hasWebsite):
-				<p class="detail-notes"><strong>Website:</strong> <a href="#(studio.website)">#(studio.website)</a></p>
+				<p class="detail-notes"><strong>#(meta.l10n.common.website_label)</strong> <a href="#(studio.website)">#(studio.website)</a></p>
 			#endif
 
 			#if(studio.hasNotes):
-				<p class="detail-notes"><strong>Notes:</strong> #(studio.notes)</p>
+				<p class="detail-notes"><strong>#(meta.l10n.common.notes_label)</strong> #(studio.notes)</p>
 			#endif
 
 			#if(review):
 				<div class="detail-block">
-					<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+					<span class="section-label">#(meta.l10n.common.pending_prefix)#(review.pendingCount)#(meta.l10n.common.pending_suffix)</span>
 
 					#if(review.hasMultiplePending):
 						<form class="proposal-picker" method="get" action="#(meta.basePath)/studios/#(studio.id)">
-							<label class="form-label" for="proposal">Viewing proposal from</label>
+							<label class="form-label" for="proposal">#(meta.l10n.common.viewing_proposal_from)</label>
 							<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
 								#for(option in review.options):
 									<option value="#(option.version)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
@@ -60,7 +60,7 @@
 							</select>
 						</form>
 					#else:
-						<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+						<p class="empty-state-inline">#(meta.l10n.common.proposed_by_prefix)#(review.submittedBy) #(meta.l10n.common.on) #(review.submittedAtLabel)#(meta.l10n.common.period)</p>
 					#endif
 
 					<form class="proposal-diff" method="post" action="#(meta.basePath)/studios/#(studio.id)/versions/#(review.selectedVersion)/accept">
@@ -69,9 +69,9 @@
 							<thead>
 								<tr>
 									<th></th>
-									<th>Field</th>
-									<th>Live value</th>
-									<th>Proposed value</th>
+									<th>#(meta.l10n.common.field)</th>
+									<th>#(meta.l10n.common.live_value)</th>
+									<th>#(meta.l10n.common.proposed_value)</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -86,25 +86,25 @@
 							</tbody>
 						</table>
 						<div class="form-actions table-actions">
-							<button type="submit" class="btn btn-ghost">Accept Selected</button>
+							<button type="submit" class="btn btn-ghost">#(meta.l10n.common.accept_selected)</button>
 						</div>
 					</form>
 
 					<div class="table-actions">
 						<form method="post" action="#(meta.basePath)/studios/#(studio.id)/versions/#(review.selectedVersion)/accept">
 							<input type="hidden" name="mode" value="all">
-							<button type="submit" class="btn btn-primary">Accept All</button>
+							<button type="submit" class="btn btn-primary">#(meta.l10n.common.accept_all)</button>
 						</form>
 						<form method="post" action="#(meta.basePath)/studios/#(studio.id)/versions/#(review.selectedVersion)/reject">
-							<input class="input" type="text" name="note" placeholder="Optional note">
-							<button type="submit" class="btn btn-ghost">Reject</button>
+							<input class="input" type="text" name="note" placeholder="#(meta.l10n.common.optional_note)">
+							<button type="submit" class="btn btn-ghost">#(meta.l10n.common.reject)</button>
 						</form>
 					</div>
 				</div>
 			#endif
 
 			<div class="detail-block">
-				<span class="section-label">Volumes</span>
+				<span class="section-label">#(meta.l10n.studio.volumes)</span>
 				#if(studio.hasVolumes):
 					<div class="card-grid">
 						#for(volume in studio.volumes):
@@ -116,7 +116,7 @@
 						#endfor
 					</div>
 				#else:
-					<p class="empty-state-inline">No volumes associated with this studio yet.</p>
+					<p class="empty-state-inline">#(meta.l10n.studio.no_volumes)</p>
 				#endif
 			</div>
 		</div>

@@ -17,8 +17,8 @@
 					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onerror="this.onerror=null;this.src='#(meta.sharedURL)/static/img/catalog/cover-placeholder-detail.png'">
 					#if(canUploadCover):
 						<div class="cover-overlay-controls" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover" data-live-cover-path="#(volume.liveCoverPath)">
-							<label class="icon-btn cover-edit-trigger" for="cover-upload-input" title="Change cover">
-								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Change cover">
+							<label class="icon-btn cover-edit-trigger" for="cover-upload-input" title="#(meta.l10n.volume_edit.change_cover)">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="#(meta.l10n.volume_edit.change_cover)">
 							</label>
 							#if(volume.hasStagedCover):
 								<button type="button" class="icon-btn cover-remove-trigger" id="cover-remove-trigger" title="Remove staged cover">&times;</button>
@@ -47,7 +47,7 @@
 						#endfor
 					</div>
 				</div>
-				<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">Add sample</label>
+				<label class="btn btn-ghost sample-upload-label" for="sample-upload-input" id="sample-upload-trigger">#(meta.l10n.volume_edit.add_sample)</label>
 				<input type="file" id="sample-upload-input" accept="image/png,image/jpeg,image/webp" hidden>
 				<p class="form-error" id="sample-upload-error" hidden></p>
 			</div>
@@ -75,7 +75,7 @@
 						#if(volume.hasDescription):
 							<p class="detail-description field-display">#(volume.description)</p>
 						#else:
-							<p class="detail-description detail-description-empty field-display">No description on file yet for this volume.</p>
+							<p class="detail-description detail-description-empty field-display">#(meta.l10n.volume.no_description)</p>
 						#endif
 						<textarea class="input field-input" name="description" rows="4" hidden>#(volume.description)</textarea>
 						<span class="field-actions">
@@ -92,7 +92,7 @@
 					</div>
 
 					<div class="picker-field tag-cloud-field" data-picker="system" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
-						<h3>Game Systems</h3>
+						<h3>#(meta.l10n.volume_edit.game_systems)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(system in volume.selectedSystems):
 								<span class="chip" data-id="#(system.id)" data-name="#(system.name)"><span class="chip-label">#(system.name)</span><button type="button" class="chip-remove" title="Remove #(system.name)">&times;</button></span>
@@ -108,7 +108,7 @@
 					</div>
 
 					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
-						<h3>Publishers</h3>
+						<h3>#(meta.l10n.volume_edit.publishers)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(pub in volume.selectedPublishers):
 								<span class="chip" data-id="#(pub.id)" data-name="#(pub.name)"><span class="chip-label">#(pub.name)</span><button type="button" class="chip-remove" title="Remove #(pub.name)">&times;</button></span>
@@ -124,7 +124,7 @@
 					</div>
 
 					<div class="picker-field tag-cloud-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
-						<h3>Studios</h3>
+						<h3>#(meta.l10n.volume_edit.studios)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(studio in volume.selectedStudios):
 								<span class="chip" data-id="#(studio.id)" data-name="#(studio.name)"><span class="chip-label">#(studio.name)</span><button type="button" class="chip-remove" title="Remove #(studio.name)">&times;</button></span>
@@ -140,7 +140,7 @@
 					</div>
 
 					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
-						<h3>Contributors</h3>
+						<h3>#(meta.l10n.volume_edit.contributors)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(credit in volume.selectedCredits):
 								<span class="chip" data-person-id="#(credit.personId)" data-person-name="#(credit.personName)" data-contribution-type="#(credit.contributionType)"><span class="chip-label">#(credit.personName) &mdash; #(credit.contributionType)</span><button type="button" class="chip-remove" title="Remove #(credit.personName)">&times;</button></span>
@@ -152,21 +152,21 @@
 
 						<div class="contributor-dialog" id="contributor-dialog" hidden>
 							<div class="contributor-dialog-header">
-								<span class="contributor-dialog-title">Add contributor</span>
+								<span class="contributor-dialog-title">#(meta.l10n.volume_edit.add_contributor)</span>
 								<button type="button" class="icon-btn" id="contributor-cancel-trigger" title="Close">
 									<img src="#(meta.sharedURL)/static/img/icons/cancel.svg" alt="Close">
 								</button>
 							</div>
 							<div class="contributor-dialog-row">
 								<label class="contributor-dialog-label">
-									Person
+									#(meta.l10n.volume_edit.person_label)
 									<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
 									<ul class="picker-results" id="contributor-person-results" hidden></ul>
 								</label>
 								<label class="contributor-dialog-label">
-									Contribution type
+									#(meta.l10n.volume_edit.type_label)
 									<select class="input" id="contributor-type-select">
-										<option value="">Select a type&hellip;</option>
+										<option value="">#(meta.l10n.volume_edit.select_type)</option>
 									</select>
 								</label>
 								<button type="button" class="icon-btn" id="contributor-confirm-trigger" title="Add" disabled>
@@ -188,7 +188,7 @@
 					</div>
 
 					<div class="properties-field" id="properties-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/properties" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/property-name">
-						<h3>Properties</h3>
+						<h3>#(meta.l10n.volume_edit.properties)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(property in volume.selectedProperties):
 								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.displayLabel): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.displayLabel)">&times;</button></span>
@@ -198,7 +198,7 @@
 
 						<div class="property-add-row">
 							<select class="input" id="property-name-select">
-								<option value="">Select a property&hellip;</option>
+								<option value="">#(meta.l10n.volume_edit.select_property)</option>
 							</select>
 							<input type="text" class="input" id="property-value-input" placeholder="Value">
 							<button type="button" class="icon-btn" id="property-add-trigger" title="Add" disabled>
@@ -219,9 +219,9 @@
 
 					<div class="field-row field-row-block" data-field="notes" data-field-type="block">
 						#if(volume.hasNotes):
-							<p class="detail-notes field-display"><strong>Notes:</strong> #(volume.notes)</p>
+							<p class="detail-notes field-display"><strong>#(meta.l10n.common.notes_label)</strong> #(volume.notes)</p>
 						#else:
-							<p class="detail-notes detail-description-empty field-display">No notes on file yet for this volume.</p>
+							<p class="detail-notes detail-description-empty field-display">#(meta.l10n.volume_edit.no_notes)</p>
 						#endif
 						<textarea class="input field-input" name="notes" rows="3" hidden>#(volume.notes)</textarea>
 						<span class="field-actions">
@@ -238,8 +238,8 @@
 					</div>
 
 					<div class="form-actions">
-						<button type="submit" class="btn btn-primary">Save changes</button>
-						<button type="submit" form="discard-form" class="btn btn-ghost discard-changes-trigger">Discard changes</button>
+						<button type="submit" class="btn btn-primary">#(meta.l10n.common.save_changes)</button>
+						<button type="submit" form="discard-form" class="btn btn-ghost discard-changes-trigger">#(meta.l10n.common.discard_changes)</button>
 					</div>
 				</form>
 

@@ -108,11 +108,11 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; License</a>
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; #(meta.l10n.entity.license)</a>
 
 		<section class="page-header">
-			<span class="section-label">Edit</span>
-			<h2>License</h2>
+			<span class="section-label">#(meta.l10n.common.edit)</span>
+			<h2>#(meta.l10n.entity.license)</h2>
 		</section>
 
 		<form class="form-with-sidebar" id="edit-form" action="#(meta.basePath)#(submitPath)" method="post">
@@ -132,16 +132,16 @@
 				#endif
 			#endfor
 
-			<label class="form-label" for="tag-picker-filter">Tags</label>
+			<label class="form-label" for="tag-picker-filter">#(meta.l10n.license.tags)</label>
 			<div class="picker-field tag-cloud-field" id="tags-field">
 				<div class="chip-list" data-chip-list>
 					#for(tag in tags):
 						<span class="chip" data-id="#(tag.id)" data-name="#(tag.name)"><span class="chip-label">#(tag.name)</span><button type="button" class="chip-remove" title="Remove #(tag.name)">&times;</button></span>
 					#endfor
-					<button type="button" class="chip-add-trigger" title="Add a tag">+</button>
+					<button type="button" class="chip-add-trigger" title="#(meta.l10n.volume_edit.add_tag)">+</button>
 				</div>
 				<div class="tag-picker" hidden>
-					<input type="text" class="input picker-filter" id="tag-picker-filter" placeholder="Search tags..." autocomplete="off">
+					<input type="text" class="input picker-filter" id="tag-picker-filter" placeholder="#(meta.l10n.volume_edit.search_tags)" autocomplete="off">
 					<ul class="picker-results" hidden></ul>
 					<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
 				</div>
@@ -152,15 +152,15 @@
 
 			#if(canManageVolumes):
 				<div class="picker-field tag-cloud-field" id="volumes-field">
-					<h3>Volumes</h3>
+					<h3>#(meta.l10n.license.volumes)</h3>
 					<div class="chip-list" data-chip-list>
 						#for(volume in selectedVolumes):
 							<span class="chip" data-id="#(volume.id)" data-name="#(volume.name)"><span class="chip-label">#(volume.name)</span><button type="button" class="chip-remove" title="Remove #(volume.name)">&times;</button></span>
 						#endfor
-						<button type="button" class="chip-add-trigger" title="Add a volume">+</button>
+						<button type="button" class="chip-add-trigger" title="#(meta.l10n.volume_edit.add_volume)">+</button>
 					</div>
 					<div class="tag-picker" hidden>
-						<input type="text" class="input picker-filter" placeholder="Search volumes..." autocomplete="off">
+						<input type="text" class="input picker-filter" placeholder="#(meta.l10n.volume_edit.search_volumes)" autocomplete="off">
 						<ul class="picker-results" hidden></ul>
 						<button type="button" class="tag-picker-cancel" title="Cancel">&times;</button>
 					</div>
@@ -170,8 +170,8 @@
 			#endif
 
 			<div class="form-actions">
-				<button type="submit" class="btn btn-primary">Save changes</button>
-				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
+				<button type="submit" class="btn btn-primary">#(meta.l10n.common.save_changes)</button>
+				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">#(meta.l10n.common.cancel)</a>
 			</div>
 		</form>
 

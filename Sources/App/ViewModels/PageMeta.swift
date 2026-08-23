@@ -28,6 +28,9 @@ struct PageMeta: Content {
   /// already-tracked gap.
   let adminURL: String
   let userSettingsURL: String
+  /// Localized strings for the request's resolved locale (see I18n.swift), regrouped as
+  /// `page -> name` so Leaf's dot-path resolution can reach them: `#(meta.l10n.page.name)`.
+  let l10n: [String: [String: String]]
 
   /// Fetches banner messages as part of building page metadata, so every existing call site
   /// (`meta: PageMeta(req)` -> `meta: await PageMeta.make(req)`) gets banner display "for
@@ -53,7 +56,8 @@ struct PageMeta: Content {
       loginURL: "/auth/login?return_to=\(encodedReturnTo)",
       logoutURL: "/auth/logout?return_to=\(encodedReturnTo)",
       adminURL: "/admin",
-      userSettingsURL: "/users"
+      userSettingsURL: "/users",
+      l10n: I18n.nested(I18n.table(for: req))
     )
   }
 }

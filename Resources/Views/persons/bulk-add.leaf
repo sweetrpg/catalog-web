@@ -27,29 +27,29 @@
 		  }
 		</style>
 
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Back</a>
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; #(meta.l10n.common.back)</a>
 
 		<section class="page-header">
-			<span class="section-label">Bulk add</span>
-			<h2>Persons</h2>
+			<span class="section-label">#(meta.l10n.bulk_add.section)</span>
+			<h2>#(meta.l10n.entity.persons)</h2>
 		</section>
 
 		<form class="form" id="bulk-add-form" action="#(meta.basePath)#(submitPath)" method="post">
-			<label class="form-label" for="names-input">Names</label>
+			<label class="form-label" for="names-input">#(meta.l10n.bulk_add.names_label)</label>
 			<div>
-				<textarea class="input" id="names-input" name="names" rows="10" placeholder="One name per line, e.g.&#10;Ann Leckie&#10;N.K. Jemisin"></textarea>
+				<textarea class="input" id="names-input" name="names" rows="10" placeholder="#(meta.l10n.bulk_add.placeholder)"></textarea>
 
 				<div id="preview-panel" hidden>
-					<p class="form-label" style="text-align: left;">Preview - remove any line before adding</p>
+					<p class="form-label" style="text-align: left;">#(meta.l10n.bulk_add.preview_hint)</p>
 					<ul class="bulk-add-preview-list" id="preview-list"></ul>
-					<p class="bulk-add-preview-empty" id="preview-empty" hidden>No names left to add.</p>
+					<p class="bulk-add-preview-empty" id="preview-empty" hidden>#(meta.l10n.bulk_add.preview_empty)</p>
 				</div>
 
 				<div class="form-actions">
-					<button type="button" class="btn btn-ghost" id="preview-trigger">Preview</button>
-					<button type="button" class="btn btn-ghost" id="edit-trigger" hidden>Edit</button>
-					<button type="submit" class="btn btn-primary" id="submit-trigger" hidden>Add all</button>
-					<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
+					<button type="button" class="btn btn-ghost" id="preview-trigger">#(meta.l10n.bulk_add.preview)</button>
+					<button type="button" class="btn btn-ghost" id="edit-trigger" hidden>#(meta.l10n.bulk_add.edit)</button>
+					<button type="submit" class="btn btn-primary" id="submit-trigger" hidden>#(meta.l10n.bulk_add.add_all)</button>
+					<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">#(meta.l10n.common.cancel)</a>
 				</div>
 			</div>
 		</form>

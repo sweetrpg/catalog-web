@@ -15,24 +15,24 @@
 		</style>
 
 		<section class="page-header">
-			<span class="section-label">Browse</span>
-			<h2>Licenses</h2>
+			<span class="section-label">#(meta.l10n.common.browse)</span>
+			<h2>#(meta.l10n.entity.licenses)</h2>
 			<div class="page-header-toolbar">
 				<form class="nav-search" action="#(meta.basePath)/licenses" method="get">
-					<input class="input" type="search" name="q" placeholder="Search licenses" value="#(query)">
+					<input class="input" type="search" name="q" placeholder="#(meta.l10n.licenses.search_placeholder)" value="#(query)">
 					<select class="input" name="order" onchange="this.form.submit()">
-						<option value="asc" #if(orderIsAsc): selected #endif>Title (A-Z)</option>
-						<option value="desc" #if(orderIsDesc): selected #endif>Title (Z-A)</option>
+						<option value="asc" #if(orderIsAsc): selected #endif>#(meta.l10n.licenses.order_asc)</option>
+						<option value="desc" #if(orderIsDesc): selected #endif>#(meta.l10n.licenses.order_desc)</option>
 					</select>
 				</form>
 				#if(canEdit):
-					<a class="btn btn-primary" href="#(meta.basePath)/licenses/new">Add license</a>
+					<a class="btn btn-primary" href="#(meta.basePath)/licenses/new">#(meta.l10n.licenses.add)</a>
 				#endif
 			</div>
 		</section>
 
 		#if(noResults):
-			<p class="empty-state">No licenses match "#(query)".</p>
+			<p class="empty-state">#(meta.l10n.licenses.no_results_prefix)#(query)#(meta.l10n.licenses.no_results_suffix)</p>
 		#endif
 
 		<div class="card-grid">
@@ -43,7 +43,7 @@
 						<div class="license-card-meta">
 							<span class="card-meta">#(item.volumeCountLabel)</span>
 							#if(item.isNotAccepted):
-								<span class="tag tag-neutral">Not accepted</span>
+								<span class="tag tag-neutral">#(meta.l10n.licenses.not_accepted)</span>
 							#endif
 						</div>
 					</div>

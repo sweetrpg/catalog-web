@@ -1,10 +1,10 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; Persons</a>
+		<a class="back-link" href="#(meta.basePath)#(backPath)">&larr; #(meta.l10n.entity.persons)</a>
 
 		<section class="page-header">
-			<span class="section-label">New</span>
-			<h2>Person</h2>
+			<span class="section-label">#(meta.l10n.common.new)</span>
+			<h2>#(meta.l10n.entity.person)</h2>
 		</section>
 
 		<form class="form" action="#(meta.basePath)#(submitPath)" method="post">
@@ -14,8 +14,8 @@
 			#endfor
 
 			<div class="form-actions">
-				<button type="submit" class="btn btn-primary">Create</button>
-				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">Cancel</a>
+				<button type="submit" class="btn btn-primary">#(meta.l10n.common.create)</button>
+				<a class="btn btn-ghost" href="#(meta.basePath)#(backPath)">#(meta.l10n.common.cancel)</a>
 			</div>
 		</form>
 	#endexport
