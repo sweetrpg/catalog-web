@@ -401,6 +401,9 @@ struct VolumesController: RouteCollection {
       async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
         type: "property-name", token: user.accessToken)
       async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+      let tagOptions =
+        (try? await req.catalogAPI.fetchVocabulary(
+          type: "tag", token: user.accessToken)) ?? []
 
       var volumeWithCredits = volume
       volumeWithCredits.credits = try await existingCredits
@@ -420,7 +423,9 @@ struct VolumesController: RouteCollection {
             contributionTypeOptions: try await contributionTypeOptions,
             canAddContributionType: canCreateVocabularyValue(user.roles),
             propertyNameOptions: try await propertyNameOptions,
-            canAddPropertyName: canCreateVocabularyValue(user.roles)),
+            canAddPropertyName: canCreateVocabularyValue(user.roles),
+            tagOptions: tagOptions,
+            canAddTag: canCreateVocabularyValue(user.roles)),
           canUploadCover: canUploadCover(user.roles),
           submitError: nil,
           user: LeafUser(user),
@@ -433,6 +438,9 @@ struct VolumesController: RouteCollection {
     let title: String
     let description: String
     let notes: String
+    /// Comma-separated tag names from the tags field's hidden input - the same wire shape the
+    /// licenses form uses. Absent (not empty) means "no change".
+    let tags: String?
   }
 
   /// Saves the form's current field values into the session (covers any edit not yet synced by
@@ -467,6 +475,12 @@ struct VolumesController: RouteCollection {
       session.fields["title"] = .string(input.title)
       session.fields["description"] = .string(input.description)
       session.fields["notes"] = .string(input.notes)
+      if let tags = input.tags {
+        let names = tags.split(separator: ",").map {
+          $0.trimmingCharacters(in: .whitespaces)
+        }.filter { !$0.isEmpty }
+        session.fields["tags"] = .stringArray(names)
+      }
       session.updatedAt = Date()
       try await req.editSessions.set(
         userID: user.sub, recordType: recordTypeVolume, session: session)
@@ -531,6 +545,9 @@ struct VolumesController: RouteCollection {
         async let propertyNameOptions = req.catalogAPI.fetchVocabulary(
           type: "property-name", token: user.accessToken)
         async let existingCredits = req.catalogAPI.fetchCredits(volumeID: volumeID)
+        let tagOptions =
+          (try? await req.catalogAPI.fetchVocabulary(
+            type: "tag", token: user.accessToken)) ?? []
 
         var volumeWithCredits = volume
         volumeWithCredits.credits = try await existingCredits
@@ -549,7 +566,9 @@ struct VolumesController: RouteCollection {
               contributionTypeOptions: try await contributionTypeOptions,
               canAddContributionType: canCreateVocabularyValue(user.roles),
               propertyNameOptions: try await propertyNameOptions,
-              canAddPropertyName: canCreateVocabularyValue(user.roles)),
+              canAddPropertyName: canCreateVocabularyValue(user.roles),
+              tagOptions: tagOptions,
+              canAddTag: canCreateVocabularyValue(user.roles)),
             canUploadCover: canUploadCover(user.roles),
             submitError: friendlyError,
             user: LeafUser(user),
@@ -569,6 +588,9 @@ struct VolumesController: RouteCollection {
     let title: String?
     let description: String?
     let notes: String?
+    /// Full-replace tag-name list from the tags picker - same semantics the associations
+    /// autosave uses for its id lists.
+    let tags: [String]?
   }
 
   @Sendable
@@ -601,6 +623,9 @@ struct VolumesController: RouteCollection {
         session.fields["description"] = .string(description)
       }
       if let notes = input.notes { session.fields["notes"] = .string(notes) }
+      if let tags = input.tags {
+        session.fields["tags"] = .stringArray(tags.filter { !$0.isEmpty })
+      }
       session.updatedAt = Date()
       try await req.editSessions.set(
         userID: user.sub, recordType: recordTypeVolume, session: session)
