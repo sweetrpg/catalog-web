@@ -1,4 +1,15 @@
 
+## 0.39.0 - 2026-08-23
+
+### Added
+- Extract user-facing strings into locale resources
+
+
+### Fixed
+- Use singular role attribute from SDK
+
+
+
 ## 0.38.0 - 2026-08-23
 
 ### Added
