@@ -74,25 +74,25 @@
 		</style>
 
 		<section class="hero">
-			<h1>Catalogue</h1>
-			<p class="hero-tagline">Every rulebook, supplement and setting guide - rated, reviewed and shelved by the table that played them.</p>
+			<h1>#(meta.l10n.nav.catalogue)</h1>
+			<p class="hero-tagline">#(meta.l10n.home.tagline)</p>
 			<div class="hero-actions">
-				<a class="btn btn-primary" href="#(meta.basePath)/browse">Browse the stacks</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/publishers">Publishers</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/studios">Studios</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/persons">Persons</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/licenses">Licenses</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/shelves">My shelves</a>
+				<a class="btn btn-primary" href="#(meta.basePath)/browse">#(meta.l10n.common.browse_stacks)</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/publishers">#(meta.l10n.entity.publishers)</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/studios">#(meta.l10n.entity.studios)</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/persons">#(meta.l10n.entity.persons)</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/licenses">#(meta.l10n.entity.licenses)</a>
+				<a class="btn btn-ghost" href="#(meta.basePath)/shelves">#(meta.l10n.home.my_shelves)</a>
 			</div>
 		</section>
 
 		<section>
-			<span class="section-label">Catalog Summary</span>
+			<span class="section-label">#(meta.l10n.home.section_summary)</span>
 			<div class="stat-card-grid">
 				#for(card in statCards):
 					<div class="stat-card">
 						#if(card.hasBrowseLink):
-							<a class="stat-card-browse-link" href="#(meta.basePath)#(card.browsePath)" aria-label="Browse #(card.label)"></a>
+							<a class="stat-card-browse-link" href="#(meta.basePath)#(card.browsePath)" aria-label="#(meta.l10n.home.browse_aria_prefix)#(card.label)"></a>
 						#endif
 						<div class="stat-card-label">#(card.label)</div>
 						<div class="stat-card-count">#(card.count)</div>
@@ -103,10 +103,10 @@
 								#else:
 									<span>#(card.mostRecentName)</span>
 								#endif
-								<span class="stat-card-updated">Last updated: #(card.lastUpdatedLabel)</span>
+								<span class="stat-card-updated">#(meta.l10n.home.last_updated_prefix)#(card.lastUpdatedLabel)</span>
 							</div>
 						#else:
-							<div class="stat-card-recent stat-card-empty">No entries yet</div>
+							<div class="stat-card-recent stat-card-empty">#(meta.l10n.home.no_entries)</div>
 						#endif
 					</div>
 				#endfor
@@ -115,7 +115,7 @@
 
 		#if(count(tagCloud) > 0):
 			<section>
-				<span class="section-label">Browse by Tag</span>
+				<span class="section-label">#(meta.l10n.home.section_tags)</span>
 				<div class="tag-cloud">
 					#for(tag in tagCloud):
 						<a class="tag tag-outline" href="#(meta.basePath)/browse?tag=#(tag.name)">#(tag.name)</a>

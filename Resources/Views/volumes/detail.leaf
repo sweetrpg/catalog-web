@@ -2,18 +2,18 @@
 	#export("body"):
 		<link rel="stylesheet" href="#(meta.sharedURL)/static/css/catalog/detail.css">
 
-		<a class="back-link" href="#(meta.basePath)/browse">&larr; Browse the stacks</a>
+		<a class="back-link" href="#(meta.basePath)/browse">&larr; #(meta.l10n.common.browse_stacks)</a>
 
 		#if(justProposed):
-			<p class="empty-state-inline">Your change was submitted for review and hasn't been applied yet.</p>
+			<p class="empty-state-inline">#(meta.l10n.common.just_proposed)</p>
 		#endif
 
 		#if(hasConflicts):
-			<p class="form-error">Some changes weren't applied because the live record changed since the proposal was submitted: #for(field in conflicts):#(field) #endfor</p>
+			<p class="form-error">#(meta.l10n.common.conflicts_prefix) #for(field in conflicts):#(field) #endfor</p>
 		#endif
 
 		#if(isDeleted):
-			<p class="form-error">This volume is deleted. It's hidden from browse, search, and pickers, but stays reachable here directly.</p>
+			<p class="form-error">#(meta.l10n.volume.deleted_notice)</p>
 		#endif
 
 		<div class="detail-layout">
@@ -26,23 +26,23 @@
 					<h1>#(volume.title)</h1>
 					<span class="detail-header-actions">
 						#if(canEdit):
-							<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/edit" title="Edit">
-								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="Edit">
+							<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/edit" title="#(meta.l10n.common.tooltip_edit)">
+								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="#(meta.l10n.common.tooltip_edit)">
 							</a>
 						#endif
-						<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/versions" title="Version History">
-							<img src="#(meta.sharedURL)/static/img/icons/history.svg" alt="Version History">
+						<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/versions" title="#(meta.l10n.version_history.section)">
+							<img src="#(meta.sharedURL)/static/img/icons/history.svg" alt="#(meta.l10n.version_history.section)">
 						</a>
 						#if(canDelete):
 							#if(isDeleted):
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/undelete">
-									<button type="submit" class="icon-btn icon-btn-danger" title="Restore">
+									<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_restore)">
 										<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg');"></span>
 									</button>
 								</form>
 							#else:
-								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('Delete this volume? It will be hidden from browse and pickers, but can be restored later.')">
-									<button type="submit" class="icon-btn icon-btn-danger" title="Delete">
+								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('#(meta.l10n.volume.delete_confirm)')">
+									<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_delete)">
 										<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg');"></span>
 									</button>
 								</form>
@@ -59,16 +59,16 @@
 				#if(volume.hasDescription):
 					<div class="detail-description">#unsafeHTML(volume.descriptionHTML)</div>
 				#else:
-					<p class="detail-description detail-description-empty">No description on file yet for this volume.</p>
+					<p class="detail-description detail-description-empty">#(meta.l10n.volume.no_description)</p>
 				#endif
 
 				#if(volume.hasNotes):
-					<p class="detail-notes"><strong>Notes:</strong> #(volume.notes)</p>
+					<p class="detail-notes"><strong>#(meta.l10n.common.notes_label)</strong> #(volume.notes)</p>
 				#endif
 
 				#if(volume.hasSystemNames):
 					<div class="detail-block">
-						<span class="section-label">System</span>
+						<span class="section-label">#(meta.l10n.volume.section_system)</span>
 						<div class="tag-cloud">
 							#for(name in volume.systemNames):
 								<span class="tag tag-neutral">#(name)</span>
@@ -79,10 +79,10 @@
 
 				#if(volume.hasPublisherNames):
 					<div class="detail-block">
-						<span class="section-label">Publisher</span>
+						<span class="section-label">#(meta.l10n.volume.section_publisher)</span>
 						<div class="tag-cloud">
 							#for(ref in volume.publisherRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -90,10 +90,10 @@
 
 				#if(volume.hasStudioNames):
 					<div class="detail-block">
-						<span class="section-label">Studio</span>
+						<span class="section-label">#(meta.l10n.volume.section_studio)</span>
 						<div class="tag-cloud">
 							#for(ref in volume.studioRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -101,10 +101,10 @@
 
 				#if(volume.hasLicenseNames):
 					<div class="detail-block">
-						<span class="section-label">License</span>
+						<span class="section-label">#(meta.l10n.volume.section_license)</span>
 						<div class="tag-cloud">
 							#for(ref in volume.licenseRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)#if(ref.isDeleted): (deleted)#endif</a>
+								<a class="tag tag-neutral" href="#(meta.basePath)/licenses/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
 							#endfor
 						</div>
 					</div>
@@ -112,7 +112,7 @@
 
 				#if(volume.hasCredits):
 					<div class="detail-block">
-						<span class="section-label">Credits</span>
+						<span class="section-label">#(meta.l10n.volume.section_credits)</span>
 						#for(credit in volume.credits):
 							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
 						#endfor
@@ -121,7 +121,7 @@
 
 				#if(volume.hasProperties):
 					<div class="detail-block">
-						<span class="section-label">Properties</span>
+						<span class="section-label">#(meta.l10n.volume.section_properties)</span>
 						<table class="table">
 							<tbody>
 								#for(property in volume.properties):
@@ -137,7 +137,7 @@
 
 				#if(volume.hasSamples):
 					<div class="detail-block">
-						<span class="section-label">Sample Pages</span>
+						<span class="section-label">#(meta.l10n.volume.section_samples)</span>
 						<div class="sample-thumbnails" id="sample-thumbnails">
 							#for(path in volume.samplePaths):
 								<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
@@ -148,11 +148,11 @@
 
 				#if(review):
 					<div class="detail-block">
-						<span class="section-label">Pending Changes (#(review.pendingCount))</span>
+						<span class="section-label">#(meta.l10n.common.pending_prefix)#(review.pendingCount)#(meta.l10n.common.pending_suffix)</span>
 
 						#if(review.hasMultiplePending):
 							<form class="proposal-picker" method="get" action="#(meta.basePath)/volumes/#(volume.id)">
-								<label class="form-label" for="proposal">Viewing proposal from</label>
+								<label class="form-label" for="proposal">#(meta.l10n.common.viewing_proposal_from)</label>
 								<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
 									#for(option in review.options):
 										<option value="#(option.version)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
@@ -160,7 +160,7 @@
 								</select>
 							</form>
 						#else:
-							<p class="empty-state-inline">Proposed by #(review.submittedBy) on #(review.submittedAtLabel).</p>
+							<p class="empty-state-inline">#(meta.l10n.common.proposed_by_prefix)#(review.submittedBy) #(meta.l10n.common.on) #(review.submittedAtLabel)#(meta.l10n.common.period)</p>
 						#endif
 
 						<form class="proposal-diff" method="post" action="#(meta.basePath)/volumes/#(volume.id)/versions/#(review.selectedVersion)/accept">
@@ -169,9 +169,9 @@
 								<thead>
 									<tr>
 										<th></th>
-										<th>Field</th>
-										<th>Live value</th>
-										<th>Proposed value</th>
+										<th>#(meta.l10n.common.field)</th>
+										<th>#(meta.l10n.common.live_value)</th>
+										<th>#(meta.l10n.common.proposed_value)</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -186,18 +186,18 @@
 								</tbody>
 							</table>
 							<div class="form-actions table-actions">
-								<button type="submit" class="btn btn-ghost">Accept Selected</button>
+								<button type="submit" class="btn btn-ghost">#(meta.l10n.common.accept_selected)</button>
 							</div>
 						</form>
 
 						<div class="table-actions">
 							<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/versions/#(review.selectedVersion)/accept">
 								<input type="hidden" name="mode" value="all">
-								<button type="submit" class="btn btn-primary">Accept All</button>
+								<button type="submit" class="btn btn-primary">#(meta.l10n.common.accept_all)</button>
 							</form>
 							<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/versions/#(review.selectedVersion)/reject">
-								<input class="input" type="text" name="note" placeholder="Optional note">
-								<button type="submit" class="btn btn-ghost">Reject</button>
+								<input class="input" type="text" name="note" placeholder="#(meta.l10n.common.optional_note)">
+								<button type="submit" class="btn btn-ghost">#(meta.l10n.common.reject)</button>
 							</form>
 						</div>
 					</div>
@@ -207,12 +207,12 @@
 				     (see ShelfAPIClient) - the design's prototype has this as browser-local
 				     state today; this app doesn't persist anything client-side. -->
 				<div class="detail-block">
-					<span class="section-label">Your Shelf</span>
-					<p class="empty-state-inline">Sign in and shelf tracking will appear here once shelf-api is connected.</p>
+					<span class="section-label">#(meta.l10n.volume.your_shelf)</span>
+					<p class="empty-state-inline">#(meta.l10n.volume.shelf_empty)</p>
 				</div>
 
 				<div class="detail-block">
-					<span class="section-label">Community Reviews</span>
+					<span class="section-label">#(meta.l10n.volume.reviews_section)</span>
 					#if(volume.hasReviews):
 						#for(review in volume.reviews):
 							<div class="review">
@@ -221,7 +221,7 @@
 							</div>
 						#endfor
 					#else:
-						<p class="empty-state-inline">No reviews yet - be the first at the table to weigh in.</p>
+						<p class="empty-state-inline">#(meta.l10n.volume.reviews_empty)</p>
 					#endif
 				</div>
 			</div>

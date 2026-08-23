@@ -1,24 +1,24 @@
 #extend("base"):
 	#export("body"):
-		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; Back to #(volumeTitle)</a>
+		<a class="back-link" href="#(meta.basePath)/volumes/#(volumeID)">&larr; #(meta.l10n.version_history.back_prefix)#(volumeTitle)</a>
 
 		<section class="page-header">
-			<span class="section-label">Version History</span>
+			<span class="section-label">#(meta.l10n.version_history.section)</span>
 			<h2>#(volumeTitle)</h2>
 		</section>
 
 		#if(fetchFailed):
-			<p class="form-error">Version history couldn't be loaded right now. Try again shortly.</p>
+			<p class="form-error">#(meta.l10n.version_history.load_error)</p>
 		#elseif(hasVersions):
 			<table class="table">
 				<thead>
 					<tr>
-						<th>Version</th>
-						<th>State</th>
-						<th>Submitted by</th>
-						<th>Submitted at</th>
-						<th>Reviewed by</th>
-						<th>Note</th>
+						<th>#(meta.l10n.version_history.th_version)</th>
+						<th>#(meta.l10n.version_history.th_state)</th>
+						<th>#(meta.l10n.version_history.th_submitted_by)</th>
+						<th>#(meta.l10n.version_history.th_submitted_at)</th>
+						<th>#(meta.l10n.version_history.th_reviewed_by)</th>
+						<th>#(meta.l10n.version_history.th_note)</th>
 						<th></th>
 					</tr>
 				</thead>
@@ -28,7 +28,7 @@
 							<td><a href="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)">#(version.version)</a></td>
 							<td>
 								#if(version.isLive):
-									<span class="tag tag-accent">live</span>
+									<span class="tag tag-accent">#(meta.l10n.version_history.live)</span>
 								#else:
 									<span class="tag tag-neutral">#(version.state)</span>
 								#endif
@@ -49,7 +49,7 @@
 								#if(canRollback):
 									#if(!version.isLive):
 										<form method="post" action="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)/restore">
-											<button type="submit" class="btn btn-ghost">Restore</button>
+											<button type="submit" class="btn btn-ghost">#(meta.l10n.version_history.restore)</button>
 										</form>
 									#endif
 								#endif
@@ -59,7 +59,7 @@
 				</tbody>
 			</table>
 		#else:
-			<p class="empty-state">No version history available.</p>
+			<p class="empty-state">#(meta.l10n.version_history.empty)</p>
 		#endif
 	#endexport
 #endextend

@@ -1,24 +1,24 @@
 #extend("base"):
 	#export("body"):
 		<section class="page-header">
-			<span class="section-label">Browse</span>
-			<h2>Publishers</h2>
+			<span class="section-label">#(meta.l10n.common.browse)</span>
+			<h2>#(meta.l10n.entity.publishers)</h2>
 			<div class="page-header-toolbar">
 				<form class="nav-search" action="#(meta.basePath)/publishers" method="get">
-					<input class="input" type="search" name="q" placeholder="Search publishers" value="#(query)">
+					<input class="input" type="search" name="q" placeholder="#(meta.l10n.publishers.search_placeholder)" value="#(query)">
 					<select class="input" name="order" onchange="this.form.submit()">
-						<option value="asc" #if(orderIsAsc): selected #endif>Name (A-Z)</option>
-						<option value="desc" #if(orderIsDesc): selected #endif>Name (Z-A)</option>
+						<option value="asc" #if(orderIsAsc): selected #endif>#(meta.l10n.publishers.order_asc)</option>
+						<option value="desc" #if(orderIsDesc): selected #endif>#(meta.l10n.publishers.order_desc)</option>
 					</select>
 				</form>
 				#if(canEdit):
-					<a class="btn btn-primary" href="#(meta.basePath)/publishers/new">Add publisher</a>
+					<a class="btn btn-primary" href="#(meta.basePath)/publishers/new">#(meta.l10n.publishers.add)</a>
 				#endif
 			</div>
 		</section>
 
 		#if(noResults):
-			<p class="empty-state">No publishers match "#(query)".</p>
+			<p class="empty-state">#(meta.l10n.publishers.no_results_prefix)#(query)#(meta.l10n.publishers.no_results_suffix)</p>
 		#endif
 
 		<div class="card-grid">

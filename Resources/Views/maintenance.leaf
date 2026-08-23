@@ -1,17 +1,17 @@
 #extend("base"):
 	#export("body"):
 		<section class="page-header">
-			<span class="section-label">Maintenance</span>
+			<span class="section-label">#(meta.l10n.maintenance.section)</span>
 			<h2>#(mode.label)</h2>
 		</section>
 
 		<div class="empty-state">
 			<p>#(mode.description)</p>
-			<p>Started: #(mode.startsAt)</p>
+			<p>#(meta.l10n.maintenance.started_prefix)#(mode.startsAt)</p>
 			#if(mode.hasEndsAt):
-				<p>Expected back: #(mode.endsAt)</p>
+				<p>#(meta.l10n.maintenance.expected_prefix)#(mode.endsAt)</p>
 			#else:
-				<p>No estimated end time yet - check back soon.</p>
+				<p>#(meta.l10n.maintenance.no_end)</p>
 			#endif
 		</div>
 	#endexport

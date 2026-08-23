@@ -388,7 +388,7 @@ struct VolumesTests {
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
-        #expect(res.body.string.contains("weren't applied"))
+        #expect(res.body.string.contains("applied because the live record changed"))
         #expect(res.body.string.contains("title"))
       }
     }
@@ -412,7 +412,7 @@ struct VolumesTests {
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
-        #expect(!res.body.string.contains("weren't applied"))
+        #expect(!res.body.string.contains("applied because the live record changed"))
       }
     }
   }
