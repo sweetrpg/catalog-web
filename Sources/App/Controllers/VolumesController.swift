@@ -50,9 +50,7 @@ struct VolumesController: RouteCollection {
       guard let volumeID = req.parameters.get("volumeID") else {
         throw Abort(.badRequest, reason: "volumeID is missing")
       }
-      let volumes = try await req.catalogAPI.fetchVolumes()
-      guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
-      else {
+      guard var volume = try await req.catalogAPI.fetchVolume(id: volumeID) else {
         throw Abort(.notFound)
       }
       volume.credits = try await req.catalogAPI.fetchCredits(volumeID: volumeID)
@@ -115,8 +113,7 @@ struct VolumesController: RouteCollection {
       guard let volumeID = req.parameters.get("volumeID") else {
         throw Abort(.badRequest)
       }
-      let volumes = try await req.catalogAPI.fetchVolumes()
-      guard let volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      guard let volume = try await req.catalogAPI.fetchVolume(id: volumeID) else {
         throw Abort(.notFound)
       }
       let sessionUser = await req.currentUser
@@ -288,8 +285,7 @@ struct VolumesController: RouteCollection {
         req.logger.error("editForm: user is not authorized")
         throw Abort(.forbidden)
       }
-      let volumes = try await req.catalogAPI.fetchVolumes()  // TODO: fix this travesty
-      guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes) else {
+      guard var volume = try await req.catalogAPI.fetchVolume(id: volumeID) else {
         req.logger.error("editForm: volume \(volumeID) not found")
         throw Abort(.notFound)
       }
@@ -298,8 +294,11 @@ struct VolumesController: RouteCollection {
       guard let session = try await loadOrStartSession(req: req, userSub: user.sub, volume: volume)
       else {
         let existing = await req.editSessions.get(userID: user.sub, recordType: recordTypeVolume)
-        let otherVolume = existing.flatMap { session in
-          volumes.first { $0.id == session.recordId }
+        let otherVolume: VolumeViewModel?
+        if let otherID = existing?.recordId {
+          otherVolume = try await req.catalogAPI.fetchVolume(id: otherID)
+        } else {
+          otherVolume = nil
         }
 
         req.logger.info(
@@ -428,9 +427,7 @@ struct VolumesController: RouteCollection {
 
         // Surfaced inline (task 6.5) rather than a generic error page - most commonly the
         // unapproved-submission cap, but any 4xx from finalize-session lands here the same way.
-        let volumes = try await req.catalogAPI.fetchVolumes()
-        guard var volume = await req.catalogAPI.fetchVolume(id: volumeID, allVolumes: volumes)
-        else {
+        guard var volume = try await req.catalogAPI.fetchVolume(id: volumeID) else {
           throw Abort(.notFound)
         }
         volume = await req.catalogAPI.resolveDeletedReferences(volume)
