@@ -109,9 +109,16 @@ struct EditSessionStore {
   /// isn't configured (fails open, same contract as `SessionUserAccess`'s read).
   func get(userID: String, recordType: String) async -> EditSession? {
     await withSpan("edit-session-get") { _ in
-      request.logger.info("EditSessionAccess.get: userID=\(userID) recordType=\(recordType)")
+      request.logger.debug(
+        "EditSessionAccess.get: enter",
+        metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
 
-      guard request.application.editSessionRedisConfigured else { return nil }
+      guard request.application.editSessionRedisConfigured else {
+        request.logger.debug(
+          "EditSessionAccess.get: redis not configured",
+          metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
+        return nil
+      }
 
       guard
         let raw = try? await request.redis(.editSession).get(
@@ -119,10 +126,23 @@ struct EditSessionStore {
         ).get(),
         let data = raw.data(using: .utf8),
         let session = try? Self.decoder.decode(EditSession.self, from: data)
-      else { return nil }
+      else {
+        request.logger.debug(
+          "EditSessionAccess.get: miss",
+          metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
+        return nil
+      }
 
-      request.logger.info(
-        "EditSessionAccess.get: userID=\(userID) recordType=\(recordType) found: \(session)")
+      request.logger.debug(
+        "EditSessionAccess.get: hit",
+        metadata: [
+          "userID": "\(userID)",
+          "recordType": "\(recordType)",
+          "recordId": "\(session.recordId)",
+          "fieldKeys": "\(session.fields.keys.sorted().joined(separator: ","))",
+          "hasStagedCover": "\(session.stagedCoverAssetId != nil)",
+          "sampleCount": "\(session.sampleAssetIds?.count ?? 0)",
+        ])
       return session
     }
   }
@@ -131,32 +151,62 @@ struct EditSessionStore {
   /// Redis isn't configured or the write fails - unlike reads, a session write is a user-visible
   /// action ("start editing") that must not silently no-op.
   func set(userID: String, recordType: String, session: EditSession) async throws {
-    request.logger.info("EditSessionAccess.set: userID=\(userID) recordType=\(recordType)")
+    request.logger.debug(
+      "EditSessionAccess.set: enter",
+      metadata: [
+        "userID": "\(userID)",
+        "recordType": "\(recordType)",
+        "recordId": "\(session.recordId)",
+      ])
 
     try await withSpan("edit-session-set") { _ in
       guard request.application.editSessionRedisConfigured else {
+        request.logger.warning(
+          "EditSessionAccess.set: redis not configured",
+          metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
         throw Abort(.serviceUnavailable, reason: "Edit sessions are not configured")
       }
       let data = try Self.encoder.encode(session)
       guard let json = String(data: data, encoding: .utf8) else {
+        request.logger.error(
+          "EditSessionAccess.set: failed to encode session",
+          metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
         throw Abort(.internalServerError, reason: "Failed to encode edit session")
       }
       _ = try await request.redis(.editSession).set(
         key(userID: userID, recordType: recordType), to: json
       ).get()
+      request.logger.debug(
+        "EditSessionAccess.set: done",
+        metadata: [
+          "userID": "\(userID)",
+          "recordType": "\(recordType)",
+          "recordId": "\(session.recordId)",
+        ])
     }
   }
 
   /// Deletes the caller's in-flight session for `recordType` - a missing session is not an
   /// error (discarding an already-expired/finalized session is a normal, successful outcome).
   func delete(userID: String, recordType: String) async {
-    request.logger.info("EditSessionAccess.delete: userID=\(userID) recordType=\(recordType)")
+    request.logger.debug(
+      "EditSessionAccess.delete: enter",
+      metadata: ["userID": "\(userID)", "recordType": "\(recordType)"]
+    )
 
     await withSpan("delete-session") { _ in
-      guard request.application.editSessionRedisConfigured else { return }
+      guard request.application.editSessionRedisConfigured else {
+        request.logger.debug(
+          "EditSessionAccess.delete: redis not configured",
+          metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
+        return
+      }
       _ = try? await request.redis(.editSession).delete(
         key(userID: userID, recordType: recordType)
       ).get()
+      request.logger.debug(
+        "EditSessionAccess.delete: done",
+        metadata: ["userID": "\(userID)", "recordType": "\(recordType)"])
     }
   }
 }
