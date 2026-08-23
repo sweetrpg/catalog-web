@@ -58,41 +58,90 @@ struct CatalogAPIClientService {
       let systemNames = await systems
 
       return resources.map { resource in
-        let rel = resource.relationships ?? [:]
-        func ids(_ key: String) -> [String] {
-          rel[key]?.data?.ids ?? []
-        }
-        func names(_ key: String, from map: [String: String]) -> [String] {
-          ids(key).compactMap { map[$0] }
-        }
-        func refs(_ key: String, from map: [String: String]) -> [EntityRef] {
-          (rel[key]?.data?.ids ?? []).compactMap { id in
-            map[id].map { EntityRef(id: id, name: $0) }
-          }
-        }
-        return VolumeViewModel(
+        decorateVolume(
           id: resource.id,
-          title: resource.attributes.title ?? "Untitled",
-          description: resource.attributes.description ?? "",
-          notes: resource.attributes.notes ?? "",
-          tags: (resource.attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
-          systemNames: names("system", from: systemNames),
-          systemIds: ids("system"),
-          publisherNames: names("publisher", from: publisherNames),
-          publisherIds: ids("publisher"),
-          studioNames: names("studio", from: studioNames),
-          studioIds: ids("studio"),
-          licenseNames: names("license", from: licenseNames),
-          licenseIds: ids("license"),
-          properties: (resource.attributes.properties ?? []).map { ($0.name, $0.value) },
-          format: resource.attributes.format ?? "",
-          sampleAssetIds: resource.attributes.sampleAssetIds ?? [],
-          systemRefs: refs("system", from: systemNames),
-          publisherRefs: refs("publisher", from: publisherNames),
-          studioRefs: refs("studio", from: studioNames),
-          licenseRefs: refs("license", from: licenseNames)
-        )
+          attributes: resource.attributes,
+          relationships: resource.relationships,
+          systemNames: systemNames,
+          publisherNames: publisherNames,
+          studioNames: studioNames,
+          licenseNames: licenseNames)
       }.sorted { $0.title < $1.title }
+    }
+  }
+
+  /// Decorates a raw volume resource with resolved entity names/ids - shared between
+  /// `fetchVolumes()`'s browse-wide fetch and `fetchVolume(id:)`'s single-record fetch.
+  /// Takes the resource's parts rather than the resource itself because the list and
+  /// single-document wrappers declare distinct (structurally identical) nested `Resource`
+  /// types.
+  private func decorateVolume(
+    id: String,
+    attributes: VolumeAttributes,
+    relationships: [String: JSONAPIRelationship]?,
+    systemNames: [String: String],
+    publisherNames: [String: String],
+    studioNames: [String: String],
+    licenseNames: [String: String]
+  ) -> VolumeViewModel {
+    let rel = relationships ?? [:]
+    func ids(_ key: String) -> [String] {
+      rel[key]?.data?.ids ?? []
+    }
+    func names(_ key: String, from map: [String: String]) -> [String] {
+      ids(key).compactMap { map[$0] }
+    }
+    func refs(_ key: String, from map: [String: String]) -> [EntityRef] {
+      (rel[key]?.data?.ids ?? []).compactMap { id in
+        map[id].map { EntityRef(id: id, name: $0) }
+      }
+    }
+    return VolumeViewModel(
+      id: id,
+      title: attributes.title ?? "Untitled",
+      description: attributes.description ?? "",
+      notes: attributes.notes ?? "",
+      tags: (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
+      systemNames: names("system", from: systemNames),
+      systemIds: ids("system"),
+      publisherNames: names("publisher", from: publisherNames),
+      publisherIds: ids("publisher"),
+      studioNames: names("studio", from: studioNames),
+      studioIds: ids("studio"),
+      licenseNames: names("license", from: licenseNames),
+      licenseIds: ids("license"),
+      properties: (attributes.properties ?? []).map { ($0.name, $0.value) },
+      format: attributes.format ?? "",
+      sampleAssetIds: attributes.sampleAssetIds ?? [],
+      systemRefs: refs("system", from: systemNames),
+      publisherRefs: refs("publisher", from: publisherNames),
+      studioRefs: refs("studio", from: studioNames),
+      licenseRefs: refs("license", from: licenseNames)
+    )
+  }
+
+  /// Fetches one volume's live record directly by id - one round trip, not a full-collection
+  /// walk (`Get*ByID` stays unfiltered per design.md, so this reaches soft-deleted volumes
+  /// too; callers gate deleted state separately via `fetchIsDeleted`). Same raw-`req.client`
+  /// rationale as `fetchNamedById`: the SDK has no single-volume-by-id method today.
+  func fetchVolume(id: String) async throws -> VolumeViewModel? {
+    try await withSpan("sdk-fetch-volume") { _ -> VolumeViewModel? in
+      let uri = URI(string: req.backendConfig.catalogAPIURL + "/volumes/\(id)")
+      let response = try await req.client.get(uri)
+      guard response.status == .ok else { return nil }
+      let doc = try response.content.decode(JSONAPISingleDocument<VolumeAttributes>.self)
+      async let systemNames = (try? await fetchNameMap(path: "/systems")) ?? [:]
+      async let publisherNames = (try? await fetchNameMap(path: "/publishers")) ?? [:]
+      async let studioNames = (try? await fetchNameMap(path: "/studios")) ?? [:]
+      async let licenseNames = (try? await fetchNameMap(path: "/licenses")) ?? [:]
+      return decorateVolume(
+        id: doc.data.id,
+        attributes: doc.data.attributes,
+        relationships: doc.data.relationships,
+        systemNames: await systemNames,
+        publisherNames: await publisherNames,
+        studioNames: await studioNames,
+        licenseNames: await licenseNames)
     }
   }
 
@@ -135,18 +184,6 @@ struct CatalogAPIClientService {
         return resources.map { ($0.id, $0.attributes.displayName) }.sorted { $0.1 < $1.1 }
       }
       return (try? await fetch()) ?? []
-    }
-  }
-
-  func fetchVolume(id: String, allVolumes: [VolumeViewModel]) async -> VolumeViewModel? {
-    withSpan("sdk-fetch-volume") { _ in
-      // Reuses the already-fetched, already-decorated volume list rather than making a
-      // second round trip for a single resource - fine at this data size (dozens to low
-      // hundreds of volumes); revisit if the catalog grows large enough that fetching every
-      // volume up front to find one stops being cheap.
-      // TODO: dear robot, this is dumb and not forward-looking; a single entity retrieval should
-      // never be an expensive operation
-      allVolumes.first { $0.id == id }
     }
   }
 
