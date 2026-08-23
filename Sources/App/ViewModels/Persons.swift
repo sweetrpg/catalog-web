@@ -6,10 +6,14 @@ import Vapor
 struct LeafPersonCard: Content {
   let id: String
   let name: String
+  /// Distinct credited-volume count for the browse card badge; 0 renders no badge at all
+  /// (catalog-entity-browse), so callers without counts data can omit it.
+  let contributionCount: Int
 
-  init(_ person: PersonViewModel) {
+  init(_ person: PersonViewModel, contributionCount: Int = 0) {
     self.id = person.id
     self.name = person.name
+    self.contributionCount = contributionCount
   }
 }
 
