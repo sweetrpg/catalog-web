@@ -51,6 +51,12 @@
 					</span>
 				</div>
 
+						<div class="tag-cloud">
+							#for(tag in volume.tags):
+								<span class="tag tag-accent">#(tag)</span>
+							#endfor
+						</div>
+
 				#if(volume.hasDescription):
 					<div class="detail-description">#unsafeHTML(volume.descriptionHTML)</div>
 				#else:
@@ -147,13 +153,13 @@
 		<div class="volume-tabs">
 			<div class="tab-strip" role="tablist">
 				#if(volume.hasSamples):
-					<button type="button" id="volume-tab-samples" class="tab-btn active" role="tab" aria-selected="true" aria-controls="volume-panel-samples">#(meta.l10n.volume.tab_samples)</button>
+					<button type="button" id="volume-tab-samples" class="section-label tab-btn active" role="tab" aria-selected="true" aria-controls="volume-panel-samples">#(meta.l10n.volume.tab_samples)</button>
 				#endif
-				<button type="button" id="volume-tab-credits" class="tab-btn#if(!volume.hasSamples): active#endif" role="tab" aria-selected="#if(volume.hasSamples):false#else:true#endif" aria-controls="volume-panel-credits">#(meta.l10n.volume.tab_credits)</button>
-				<button type="button" id="volume-tab-publishing" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-publishing">#(meta.l10n.volume.tab_publishing)</button>
-				<button type="button" id="volume-tab-properties" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-properties">#(meta.l10n.volume.tab_properties)</button>
-				<button type="button" id="volume-tab-shelf" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-shelf">#(meta.l10n.volume.tab_shelf)</button>
-				<button type="button" id="volume-tab-reviews" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-reviews">#(meta.l10n.volume.tab_reviews)</button>
+				<button type="button" id="volume-tab-credits" class="section-label tab-btn#if(!volume.hasSamples): active#endif" role="tab" aria-selected="#if(volume.hasSamples):false#else:true#endif" aria-controls="volume-panel-credits">#(meta.l10n.volume.tab_credits)</button>
+				<button type="button" id="volume-tab-publishing" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-publishing">#(meta.l10n.volume.tab_publishing)</button>
+				<button type="button" id="volume-tab-properties" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-properties">#(meta.l10n.volume.tab_properties)</button>
+				<button type="button" id="volume-tab-shelf" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-shelf">#(meta.l10n.volume.tab_shelf)</button>
+				<button type="button" id="volume-tab-reviews" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-reviews">#(meta.l10n.volume.tab_reviews)</button>
 			</div>
 
 			#if(volume.hasSamples):
@@ -168,25 +174,15 @@
 
 			<section class="tab-panel#if(!volume.hasSamples): active#endif" id="volume-panel-credits" role="tabpanel" aria-labelledby="volume-tab-credits">
 				#if(volume.hasCredits):
-					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_credits)</span>
+					<div class="detail-block credit-columns">
 						#for(credit in volume.credits):
-							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
+							<p><a href="#(meta.basePath)/persons/#(credit.personId)">#(credit.person)</a> &mdash; #(credit.role)</p>
 						#endfor
 					</div>
 				#endif
 			</section>
 
 			<section class="tab-panel" id="volume-panel-publishing" role="tabpanel" aria-labelledby="volume-tab-publishing">
-				#if(volume.hasTags):
-					<div class="detail-block">
-						<div class="tag-cloud">
-							#for(tag in volume.tags):
-								<span class="tag tag-accent">#(tag)</span>
-							#endfor
-						</div>
-					</div>
-				#endif
 				#if(volume.hasPublisherNames):
 					<div class="detail-block">
 						<span class="section-label">#(meta.l10n.volume.section_publisher)</span>
@@ -212,7 +208,6 @@
 			<section class="tab-panel" id="volume-panel-properties" role="tabpanel" aria-labelledby="volume-tab-properties">
 				#if(volume.hasProperties):
 					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_properties)</span>
 						<table class="table">
 							<tbody>
 								#for(property in volume.properties):
@@ -232,14 +227,12 @@
 				     (see ShelfAPIClient) - the design's prototype has this as browser-local
 				     state today; this app doesn't persist anything client-side. -->
 				<div class="detail-block">
-					<span class="section-label">#(meta.l10n.volume.your_shelf)</span>
 					<p class="empty-state-inline">#(meta.l10n.volume.shelf_empty)</p>
 				</div>
 			</section>
 
 			<section class="tab-panel" id="volume-panel-reviews" role="tabpanel" aria-labelledby="volume-tab-reviews">
 				<div class="detail-block">
-					<span class="section-label">#(meta.l10n.volume.reviews_section)</span>
 					#if(volume.hasReviews):
 						#for(review in volume.reviews):
 							<div class="review">
