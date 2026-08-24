@@ -1,4 +1,12 @@
 
+## 0.43.0 - 2026-08-24
+
+### Added
+- Add tag cloud display and refactor tab labels
+- Link credit persons to their records and flow credits into columns
+
+
+
 ## 0.42.0 - 2026-08-24
 
 ### Added
