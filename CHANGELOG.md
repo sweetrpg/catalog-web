@@ -1,4 +1,16 @@
 
+## 0.41.0 - 2026-08-24
+
+### Added
+- Show contribution count on person browse cards
+
+
+### Fixed
+- Lay out system/publisher/studio/license sections horizontally
+- Render volumes/browse after the template path move
+
+
+
 ## 0.40.0 - 2026-08-23
 
 ### Added
