@@ -121,8 +121,9 @@ struct VolumesTests {
         #expect(
           samplesTabRange != nil && creditsTabRange != nil
             && samplesTabRange!.lowerBound < creditsTabRange!.lowerBound)
-        let samplesButton = body[body.range(of: "volume-tab-samples\" class=\"")!.upperBound...]
-        #expect(samplesButton.hasPrefix("tab-btn active"))
+        let samplesActive = body.range(
+          of: #"id="volume-tab-samples"[^>]*tab-btn active"#, options: .regularExpression)
+        #expect(samplesActive != nil)
       }
     }
   }
@@ -149,7 +150,35 @@ struct VolumesTests {
         #expect(!res.body.string.contains("sample-viewer"))
         #expect(!res.body.string.contains("volume-tab-samples"))
         // With no Samples tab, Credits is the first tab and the default-active one.
-        #expect(res.body.string.contains("volume-tab-credits\" class=\"tab-btn active\""))
+        #expect(
+          res.body.string.range(
+            of: #"id="volume-tab-credits"[^>]*tab-btn active"#, options: .regularExpression
+          ) != nil)
+      }
+    }
+  }
+
+  @Test("detail page links each credit's person to their person record")
+  func detailPageLinksCreditPersons() async throws {
+    var volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    volume.credits = [(personId: "person-9", role: "writer", person: "Robert J. Schwalb")]
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "volumes/detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
+            justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"href="/persons/person-9""#))
+        #expect(res.body.string.contains("credit-columns"))
       }
     }
   }

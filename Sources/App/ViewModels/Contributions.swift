@@ -5,10 +5,12 @@ import Vapor
 
 struct LeafCredit: Content {
   let role: String
+  let personId: String
   let person: String
 
   init(_ credit: (personId: String, role: String, person: String)) {
     self.role = credit.role
+    self.personId = credit.personId
     self.person = credit.person
   }
 }
