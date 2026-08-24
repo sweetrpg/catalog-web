@@ -174,9 +174,9 @@
 
 			<section class="tab-panel#if(!volume.hasSamples): active#endif" id="volume-panel-credits" role="tabpanel" aria-labelledby="volume-tab-credits">
 				#if(volume.hasCredits):
-					<div class="detail-block">
+					<div class="detail-block credit-columns">
 						#for(credit in volume.credits):
-							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
+							<p><a href="#(meta.basePath)/persons/#(credit.personId)">#(credit.person)</a> &mdash; #(credit.role)</p>
 						#endfor
 					</div>
 				#endif
