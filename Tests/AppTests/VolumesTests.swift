@@ -84,7 +84,10 @@ struct VolumesTests {
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
-        #expect(!res.body.string.contains(">Properties<"))
+        // The Properties tab itself always renders (see volume-detail-tabs); only the table
+        // is withheld when there are no properties to show in it.
+        #expect(res.body.string.contains("volume-tab-properties"))
+        #expect(!res.body.string.contains("<table"))
       }
     }
   }
@@ -111,6 +114,15 @@ struct VolumesTests {
         #expect(res.body.string.contains("asset/sample/1-0"))
         #expect(res.body.string.contains("asset/sample/1-1"))
         #expect(res.body.string.contains("sample-viewer"))
+        // Samples is the first tab in the strip and the default-active one when present.
+        let body = res.body.string
+        let samplesTabRange = body.range(of: "volume-tab-samples")
+        let creditsTabRange = body.range(of: "volume-tab-credits")
+        #expect(
+          samplesTabRange != nil && creditsTabRange != nil
+            && samplesTabRange!.lowerBound < creditsTabRange!.lowerBound)
+        let samplesButton = body[body.range(of: "volume-tab-samples\" class=\"")!.upperBound...]
+        #expect(samplesButton.hasPrefix("tab-btn active"))
       }
     }
   }
@@ -135,6 +147,9 @@ struct VolumesTests {
         #expect(res.status == .ok)
         #expect(!res.body.string.contains("sample-thumbnails"))
         #expect(!res.body.string.contains("sample-viewer"))
+        #expect(!res.body.string.contains("volume-tab-samples"))
+        // With no Samples tab, Credits is the first tab and the default-active one.
+        #expect(res.body.string.contains("volume-tab-credits\" class=\"tab-btn active\""))
       }
     }
   }

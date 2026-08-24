@@ -29,6 +29,7 @@ struct LeafVolumeDetail: Content {
   let notes: String
   let hasNotes: Bool
   let tags: [String]
+  let hasTags: Bool
   let systemNames: [String]
   let hasSystemNames: Bool
   let publisherNames: [String]
@@ -59,6 +60,7 @@ struct LeafVolumeDetail: Content {
     self.notes = volume.notes
     self.hasNotes = !volume.notes.isEmpty
     self.tags = volume.tags
+    self.hasTags = !volume.tags.isEmpty
     self.systemNames = volume.systemNames
     self.hasSystemNames = !volume.systemNames.isEmpty
     self.publisherNames = volume.publisherNames

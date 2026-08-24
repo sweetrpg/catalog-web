@@ -50,11 +50,6 @@
 						#endif
 					</span>
 				</div>
-				<div class="tag-cloud">
-					#for(tag in volume.tags):
-						<span class="tag tag-accent">#(tag)</span>
-					#endfor
-				</div>
 
 				#if(volume.hasDescription):
 					<div class="detail-description">#unsafeHTML(volume.descriptionHTML)</div>
@@ -78,28 +73,6 @@
 					</div>
 				#endif
 
-				#if(volume.hasPublisherNames):
-					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_publisher)</span>
-						<div class="tag-cloud">
-							#for(ref in volume.publisherRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
-							#endfor
-						</div>
-					</div>
-				#endif
-
-				#if(volume.hasStudioNames):
-					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_studio)</span>
-						<div class="tag-cloud">
-							#for(ref in volume.studioRefs):
-								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
-							#endfor
-						</div>
-					</div>
-				#endif
-
 				#if(volume.hasLicenseNames):
 					<div class="detail-block">
 						<span class="section-label">#(meta.l10n.volume.section_license)</span>
@@ -111,42 +84,6 @@
 					</div>
 				#endif
 				</div>
-
-				#if(volume.hasCredits):
-					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_credits)</span>
-						#for(credit in volume.credits):
-							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
-						#endfor
-					</div>
-				#endif
-
-				#if(volume.hasProperties):
-					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_properties)</span>
-						<table class="table">
-							<tbody>
-								#for(property in volume.properties):
-									<tr>
-										<td>#(property.displayLabel)</td>
-										<td>#(property.value)</td>
-									</tr>
-								#endfor
-							</tbody>
-						</table>
-					</div>
-				#endif
-
-				#if(volume.hasSamples):
-					<div class="detail-block">
-						<span class="section-label">#(meta.l10n.volume.section_samples)</span>
-						<div class="sample-thumbnails" id="sample-thumbnails">
-							#for(path in volume.samplePaths):
-								<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
-							#endfor
-						</div>
-					</div>
-				#endif
 
 				#if(review):
 					<div class="detail-block">
@@ -204,7 +141,93 @@
 						</div>
 					</div>
 				#endif
+			</div>
+		</div>
 
+		<div class="volume-tabs">
+			<div class="tab-strip" role="tablist">
+				#if(volume.hasSamples):
+					<button type="button" id="volume-tab-samples" class="tab-btn active" role="tab" aria-selected="true" aria-controls="volume-panel-samples">#(meta.l10n.volume.tab_samples)</button>
+				#endif
+				<button type="button" id="volume-tab-credits" class="tab-btn#if(!volume.hasSamples): active#endif" role="tab" aria-selected="#if(volume.hasSamples):false#else:true#endif" aria-controls="volume-panel-credits">#(meta.l10n.volume.tab_credits)</button>
+				<button type="button" id="volume-tab-publishing" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-publishing">#(meta.l10n.volume.tab_publishing)</button>
+				<button type="button" id="volume-tab-properties" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-properties">#(meta.l10n.volume.tab_properties)</button>
+				<button type="button" id="volume-tab-shelf" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-shelf">#(meta.l10n.volume.tab_shelf)</button>
+				<button type="button" id="volume-tab-reviews" class="tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-reviews">#(meta.l10n.volume.tab_reviews)</button>
+			</div>
+
+			#if(volume.hasSamples):
+				<section class="tab-panel active" id="volume-panel-samples" role="tabpanel" aria-labelledby="volume-tab-samples">
+					<div class="sample-thumbnails" id="sample-thumbnails">
+						#for(path in volume.samplePaths):
+							<img class="sample-thumbnail" src="#(meta.assetsURL)/#(path)" alt="Sample page" loading="lazy">
+						#endfor
+					</div>
+				</section>
+			#endif
+
+			<section class="tab-panel#if(!volume.hasSamples): active#endif" id="volume-panel-credits" role="tabpanel" aria-labelledby="volume-tab-credits">
+				#if(volume.hasCredits):
+					<div class="detail-block">
+						<span class="section-label">#(meta.l10n.volume.section_credits)</span>
+						#for(credit in volume.credits):
+							<p><strong>#(credit.person)</strong> &mdash; #(credit.role)</p>
+						#endfor
+					</div>
+				#endif
+			</section>
+
+			<section class="tab-panel" id="volume-panel-publishing" role="tabpanel" aria-labelledby="volume-tab-publishing">
+				#if(volume.hasTags):
+					<div class="detail-block">
+						<div class="tag-cloud">
+							#for(tag in volume.tags):
+								<span class="tag tag-accent">#(tag)</span>
+							#endfor
+						</div>
+					</div>
+				#endif
+				#if(volume.hasPublisherNames):
+					<div class="detail-block">
+						<span class="section-label">#(meta.l10n.volume.section_publisher)</span>
+						<div class="tag-cloud">
+							#for(ref in volume.publisherRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/publishers/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
+							#endfor
+						</div>
+					</div>
+				#endif
+				#if(volume.hasStudioNames):
+					<div class="detail-block">
+						<span class="section-label">#(meta.l10n.volume.section_studio)</span>
+						<div class="tag-cloud">
+							#for(ref in volume.studioRefs):
+								<a class="tag tag-neutral" href="#(meta.basePath)/studios/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
+							#endfor
+						</div>
+					</div>
+				#endif
+			</section>
+
+			<section class="tab-panel" id="volume-panel-properties" role="tabpanel" aria-labelledby="volume-tab-properties">
+				#if(volume.hasProperties):
+					<div class="detail-block">
+						<span class="section-label">#(meta.l10n.volume.section_properties)</span>
+						<table class="table">
+							<tbody>
+								#for(property in volume.properties):
+									<tr>
+										<td>#(property.displayLabel)</td>
+										<td>#(property.value)</td>
+									</tr>
+								#endfor
+							</tbody>
+						</table>
+					</div>
+				#endif
+			</section>
+
+			<section class="tab-panel" id="volume-panel-shelf" role="tabpanel" aria-labelledby="volume-tab-shelf">
 				<!-- Shelf status, rating, and review will move here once shelf-api is wired up
 				     (see ShelfAPIClient) - the design's prototype has this as browser-local
 				     state today; this app doesn't persist anything client-side. -->
@@ -212,7 +235,9 @@
 					<span class="section-label">#(meta.l10n.volume.your_shelf)</span>
 					<p class="empty-state-inline">#(meta.l10n.volume.shelf_empty)</p>
 				</div>
+			</section>
 
+			<section class="tab-panel" id="volume-panel-reviews" role="tabpanel" aria-labelledby="volume-tab-reviews">
 				<div class="detail-block">
 					<span class="section-label">#(meta.l10n.volume.reviews_section)</span>
 					#if(volume.hasReviews):
@@ -226,8 +251,41 @@
 						<p class="empty-state-inline">#(meta.l10n.volume.reviews_empty)</p>
 					#endif
 				</div>
-			</div>
+			</section>
 		</div>
+
+		<script>
+		(function () {
+		  // Tab switching (ARIA tabs pattern) - same rationale as the sample viewer below: this
+		  // page has no client-side framework, so a small inline script toggles panels and
+		  // handles arrow-key navigation between tabs.
+		  var strip = document.querySelector('.volume-tabs');
+		  if (!strip) return;
+		  var tabs = Array.prototype.slice.call(strip.querySelectorAll('[role="tab"]'));
+
+		  function activate(tab, focus) {
+		    tabs.forEach(function (t) {
+		      var on = t === tab;
+		      t.classList.toggle('active', on);
+		      t.setAttribute('aria-selected', on ? 'true' : 'false');
+		      t.tabIndex = on ? 0 : -1;
+		      var panel = document.getElementById(t.getAttribute('aria-controls'));
+		      if (panel) panel.classList.toggle('active', on);
+		    });
+		    if (focus) tab.focus();
+		  }
+
+		  tabs.forEach(function (tab, i) {
+		    tab.addEventListener('click', function () { activate(tab); });
+		    tab.addEventListener('keydown', function (e) {
+		      var delta = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+		      if (!delta) return;
+		      e.preventDefault();
+		      activate(tabs[(i + delta + tabs.length) % tabs.length], true);
+		    });
+		  });
+		})();
+		</script>
 
 		#if(volume.hasSamples):
 			<div class="sample-viewer" id="sample-viewer" hidden>
