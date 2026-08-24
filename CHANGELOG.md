@@ -1,4 +1,15 @@
 
+## 0.42.0 - 2026-08-24
+
+### Added
+- Add tabbed content area to volume detail page
+
+
+### Fixed
+- Keep side-by-side association layout for header system/license sections
+
+
+
 ## 0.41.0 - 2026-08-24
 
 ### Added
