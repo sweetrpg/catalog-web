@@ -494,4 +494,73 @@ struct VolumesTests {
       }
     }
   }
+
+  // Regression: CatalogController.browse kept rendering the pre-move top-level "browse" template
+  // path after browse.leaf moved under volumes/ - the synthetic-route tests below never hit the
+  // controller, so this shipped a 500 ("No template found for browse"). Unlike those tests this
+  // exercises the real /browse route, which calls catalog-api (via URLSession - no request-level
+  // stubbing point), so it needs an actual bound server standing in for catalog-api; same
+  // fixed-port pattern as AppTests.withFakeAdminAPI.
+  @discardableResult
+  private func withFakeCatalogAPI<T>(
+    port: Int,
+    volumesJSON: String,
+    _ test: () async throws -> T
+  ) async throws -> T {
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = port
+    let emptyDoc = #"{"data":[]}"#
+    fake.get("volumes") { _ in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: volumesJSON))
+    }
+    for path in ["systems", "publishers", "studios", "licenses"] {
+      fake.on(.GET, PathComponent(stringLiteral: path)) { _ in
+        Response(
+          status: .ok, headers: ["content-type": "application/json"],
+          body: .init(string: emptyDoc))
+      }
+    }
+    do {
+      try await fake.startup()
+    } catch {
+      try? await fake.asyncShutdown()
+      throw error
+    }
+
+    let result: T
+    do {
+      result = try await test()
+    } catch {
+      try? await fake.asyncShutdown()
+      throw error
+    }
+    try await fake.asyncShutdown()
+    return result
+  }
+
+  @Test("browse route renders through CatalogController after the volume template move")
+  func browseRouteRendersThroughController() async throws {
+    let port = 18771
+    try await withFakeCatalogAPI(
+      port: port,
+      volumesJSON: """
+        {"data":[{"id":"vol-1","type":"volumes","attributes":{"title":"Rusthaven","description":"A frontier town.","tags":[{"name":"fantasy"}]}}]}
+        """
+    ) {
+      try await withApp { app in
+        app.views.use(.leaf)
+        app.backendConfig = BackendConfig(
+          catalogAPIURL: "http://127.0.0.1:\(port)", gameSystemsAPIURL: "unused",
+          profilesAPIURL: "unused", shelfAPIURL: "unused", adminAPIURL: nil)
+        try app.register(collection: CatalogController())
+        try await app.testing().test(.GET, "browse") { res in
+          #expect(res.status == .ok)
+          #expect(res.body.string.contains("Rusthaven"))
+        }
+      }
+    }
+  }
 }
