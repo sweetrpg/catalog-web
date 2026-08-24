@@ -78,7 +78,7 @@ struct CatalogController: RouteCollection {
         query: ["q": query.q ?? "", "tag": query.tag ?? ""])
 
       return try await req.view.render(
-        "browse",
+        "volumes/browse",
         BrowseContext(
           query: query.q ?? "",
           noActiveTag: query.tag == nil || query.tag!.isEmpty,
