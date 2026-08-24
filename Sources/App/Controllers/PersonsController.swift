@@ -57,7 +57,13 @@ struct PersonsController: RouteCollection {
     try await withSpan("persons-browse") { _ in
       let query = try req.query.decode(BrowseQuery.self)
       let order = resolveBrowseSortOrder(query.order)
-      let persons = try await req.catalogAPI.fetchPersonsCatalog()
+      // Both reads share the app's cached payloads - persons from `catalog:persons`, counts
+      // grouped from the same `catalog:contributions` fetch the volume-detail credits use.
+      // Counts degrade to "no badge" rather than failing the whole browse page.
+      async let personsFetch = req.catalogAPI.fetchPersonsCatalog()
+      async let countsFetch = req.catalogAPI.fetchContributionCountsByPerson()
+      let persons = try await personsFetch
+      let contributionCounts = (try? await countsFetch) ?? [:]
       let filtered = filterByName(persons, query: query.q) { $0.name }
       let sorted = sortByName(filtered, order: order) { $0.name }
       let (page, pagination) = paginate(
@@ -74,7 +80,7 @@ struct PersonsController: RouteCollection {
         "persons/browse",
         PersonsBrowseContext(
           query: query.q ?? "",
-          items: page.map { LeafPersonCard($0) },
+          items: page.map { LeafPersonCard($0, contributionCount: contributionCounts[$0.id] ?? 0) },
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,

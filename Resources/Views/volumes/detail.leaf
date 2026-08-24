@@ -66,6 +66,7 @@
 					<p class="detail-notes"><strong>#(meta.l10n.common.notes_label)</strong> #(volume.notes)</p>
 				#endif
 
+				<div class="detail-associations">
 				#if(volume.hasSystemNames):
 					<div class="detail-block">
 						<span class="section-label">#(meta.l10n.volume.section_system)</span>
@@ -109,6 +110,7 @@
 						</div>
 					</div>
 				#endif
+				</div>
 
 				#if(volume.hasCredits):
 					<div class="detail-block">

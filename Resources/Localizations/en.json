@@ -175,6 +175,8 @@
   "persons.failed_suffix": " failed:",
   "persons.no_results_prefix": "No persons match \"",
   "persons.no_results_suffix": ".\"",
+  "persons.contribution_count_prefix": "Contributed to ",
+  "persons.contribution_count_suffix": " volume(s)",
   "person.delete_confirm": "Delete this person? They will be hidden from browse and pickers, but can be restored later.",
   "person.deleted_notice": "This person is deleted. They're hidden from browse, search, and pickers, but stay reachable here directly.",
   "person.contributed_to": "Contributed to",
