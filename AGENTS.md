@@ -23,8 +23,9 @@ exists only for the (currently unused) case of this app exposing its own API to 
 
 - **catalog-api**: primary data source (volumes, systems, publishers, studios, licenses,
   persons, contributions, reviews). Fully wired up - see `CatalogAPIClient.swift`.
-- **game-systems-api**, **profiles-api**, **shelf-api** (currently `library-api` - see
-  `sweetrpg/platform`'s `rename-library-to-shelf` OpenSpec change): endpoint shapes not
+- **game-systems-api**, **profiles-api**, **game-room-api** (previously `shelf-api`, before that
+  `library-api` - see `sweetrpg/platform`'s `rename-shelf-to-game-room-service` OpenSpec change):
+  endpoint shapes not
   confirmed yet. Stubbed in `StubAPIClients.swift` - each returns `nil`/empty rather than
   calling a real endpoint. Replace method bodies as each backend's contract is settled; call
   sites (Controllers) already expect the eventual shape.

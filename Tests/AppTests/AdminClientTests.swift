@@ -33,7 +33,7 @@ struct AdminClientTests {
     try await withApp { app in
       app.backendConfig = BackendConfig(
         catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
-        shelfAPIURL: "unused", adminAPIURL: "http://127.0.0.1:1")
+        gameRoomAPIURL: "unused", adminAPIURL: "http://127.0.0.1:1")
       app.get("test-banners") { req async -> [LeafBanner] in
         await req.adminClient.fetchBanners(scopes: ["platform"]).map(LeafBanner.init)
       }

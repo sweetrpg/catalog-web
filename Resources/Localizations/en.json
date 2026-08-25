@@ -100,7 +100,7 @@
 
   "shelves.section": "Your Library",
   "shelves.title": "My Shelves",
-  "shelves.logged_in": "Shelf tracking isn't connected yet - once shelf-api is wired up, your want/playing/played/owned lists will show here.",
+  "shelves.logged_in": "Shelf tracking isn't connected yet - once game-room-api is wired up, your want/playing/played/owned lists will show here.",
   "shelves.logged_out_prefix": "Nothing shelved yet. ",
   "shelves.logged_out_suffix": " and add a volume to a shelf once you're signed in.",
 
@@ -226,7 +226,7 @@
   "volume.sample_alt": "Sample page",
   "volume.no_description": "No description on file yet for this volume.",
   "volume.your_shelf": "Your Shelf",
-  "volume.shelf_empty": "Sign in and shelf tracking will appear here once shelf-api is connected.",
+  "volume.shelf_empty": "Sign in and shelf tracking will appear here once game-room-api is connected.",
   "volume.reviews_section": "Community Reviews",
   "volume.reviews_empty": "No reviews yet - be the first at the table to weigh in.",
   "volume.viewer_close": "Close",
