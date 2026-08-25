@@ -7,15 +7,16 @@ import Vapor
 // body with a real call once its backend contract is settled - the call sites (Controllers)
 // already expect this shape, so filling these in shouldn't require touching the views.
 
-struct ProfilesAPIClient {
+struct GameRoomAPIClient {
   let request: Request
 
-  /// User account/profile info once accounts are wired through Auth0 + profiles-api.
-  func fetchProfile(userID: String) async throws -> String? {
-    nil
+  /// Per-user shelf entries (want/playing/played/owned + rating + review). Backed by
+  /// game-room-api.
+  func fetchGameRoom(userID: String) async throws -> [String: String] {
+    [:]
   }
 }
 
 extension Request {
-  var profilesAPI: ProfilesAPIClient { ProfilesAPIClient(request: self) }
+  var gameRoomAPI: GameRoomAPIClient { GameRoomAPIClient(request: self) }
 }

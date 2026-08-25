@@ -12,7 +12,7 @@
 [![Built with love](https://ForTheBadge.com/images/badges/built-with-love.svg)](https://ForTheBadge.com/images/badges/built-with-love.svg)
 
 Server-rendered Vapor (Swift) frontend for the SweetRPG Catalog domain: browse volumes, view
-details, and (once shelf-api is wired up) track what's on your shelves. The org's first
+details, and (once game-room-api is wired up) track what's on your shelves. The org's first
 Vapor/Swift-based web frontend - see `docs/service-conventions.md` in the `platform` repo for
 the Go API baseline this doesn't follow, and this repo's own `AGENTS.md` for the conventions it
 establishes instead.
@@ -28,8 +28,8 @@ prior client-rendered prototype of this UI (Claude Design's "SweetRPG catalog ap
 Early scaffold. Home, Browse, and Volume Detail pages work against catalog-api. Login is a real
 Auth0 Authorization Code flow (needs `AUTH0_DOMAIN`/`AUTH0_CLIENT_ID`/`AUTH0_CLIENT_SECRET`
 configured to do anything). My Shelves, and any deeper integration with game-systems-api,
-profiles-api, or shelf-api (currently library-api - see `sweetrpg/platform`'s
-`rename-library-to-shelf` change), are placeholders - see `AGENTS.md` for what's real vs. stubbed.
+profiles-api, or game-room-api - see `sweetrpg/platform`'s
+`rename-shelf-to-game-room-service` change), are placeholders - see `AGENTS.md` for what's real vs. stubbed.
 
 ## Run locally
 
