@@ -87,6 +87,42 @@ struct LeafVolumeDetail: Content {
   }
 }
 
+/// One optional field (beyond the required `name`) shown in an entity-creation popup - see
+/// `LeafEntityCreatePopupConfig`.
+struct LeafEntityCreatePopupField: Content {
+  let key: String
+  let label: String
+}
+
+/// Configures one rendering of `partials/entity-create-popup.leaf` (add-entity-popup-volume-edit,
+/// task 2.1/4.1) - `LeafVolumeEditForm` builds one of these per creatable entity type (publisher,
+/// studio, person) when `canCreateEntities` is true, empty otherwise so a submitter's page never
+/// even renders the markup.
+struct LeafEntityCreatePopupConfig: Content {
+  let popupID: String
+  let popupTitle: String
+  let entityType: String
+  let volumeID: String
+  let fields: [LeafEntityCreatePopupField]
+  /// The optional fields' keys alone, JSON-encoded - the popup's own script reads this to know
+  /// which `#(popupID)-<key>` inputs to collect without re-deriving it from `fields` in JS.
+  let fieldKeysJSON: String
+
+  init(
+    popupID: String, popupTitle: String, entityType: String, volumeID: String,
+    fields: [LeafEntityCreatePopupField]
+  ) {
+    self.popupID = popupID
+    self.popupTitle = popupTitle
+    self.entityType = entityType
+    self.volumeID = volumeID
+    self.fields = fields
+    self.fieldKeysJSON =
+      (try? JSONEncoder().encode(fields.map(\.key))).flatMap { String(data: $0, encoding: .utf8) }
+      ?? "[]"
+  }
+}
+
 struct LeafVolumeEditForm: Content {
   let id: String
   let title: String
@@ -119,8 +155,17 @@ struct LeafVolumeEditForm: Content {
   let studioOptionsJSON: String
   let selectedStudios: [LeafNamedOption]
   let hasSelectedStudios: Bool
+  /// `true` for editor/admin sessions only - gates the "Create new" action in the publisher,
+  /// studio, and contributor person pickers (add-entity-popup-volume-edit). Narrower than
+  /// `canAddContributionType`/`canAddPropertyName`/`canAddTag`, which are also editor/admin
+  /// only but gate a different, unrelated action.
+  let canCreateEntities: Bool
+  /// One config per creatable entity type, empty when `canCreateEntities` is false - see
+  /// `LeafEntityCreatePopupConfig`.
+  let entityCreatePopups: [LeafEntityCreatePopupConfig]
   /// The full person candidate list for the contributor dialog's person picker (task 8.1) -
-  /// same client-side-filtering, no-create-new rationale as publishers/studios.
+  /// same client-side-filtering rationale as publishers/studios, though unlike those this one
+  /// does offer a "Create new" action for editor/admin (see `canCreateEntities`).
   let personOptionsJSON: String
   /// Every contribution type already in use, JSON-encoded (plain strings, not id/name pairs -
   /// a vocabulary value has no separate id). Available to any edit-capable role.
@@ -171,7 +216,8 @@ struct LeafVolumeEditForm: Content {
     propertyNameOptions: [String] = [],
     canAddPropertyName: Bool = false,
     tagOptions: [String] = [],
-    canAddTag: Bool = false
+    canAddTag: Bool = false,
+    canCreateEntities: Bool = false
   ) throws {
     self.id = volume.id
     self.title = session.stringField("title") ?? volume.title
@@ -238,6 +284,39 @@ struct LeafVolumeEditForm: Content {
     self.studioOptionsJSON =
       Self.encodeOptions(studioOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
 
+    self.canCreateEntities = canCreateEntities
+    if canCreateEntities {
+      let l10n = I18n.table(for: req)
+      let notesLabel = l10n["volume_edit.entity_notes_label"] ?? "Notes"
+      let websiteLabel = l10n["volume_edit.entity_website_label"] ?? "Website"
+      self.entityCreatePopups = [
+        LeafEntityCreatePopupConfig(
+          popupID: "publisher-create-popup",
+          popupTitle: l10n["volume_edit.new_publisher_title"] ?? "New Publisher",
+          entityType: "publisher", volumeID: volume.id,
+          fields: [
+            LeafEntityCreatePopupField(key: "notes", label: notesLabel),
+            LeafEntityCreatePopupField(key: "website", label: websiteLabel),
+          ]),
+        LeafEntityCreatePopupConfig(
+          popupID: "studio-create-popup",
+          popupTitle: l10n["volume_edit.new_studio_title"] ?? "New Studio",
+          entityType: "studio", volumeID: volume.id,
+          fields: [
+            LeafEntityCreatePopupField(key: "notes", label: notesLabel),
+            LeafEntityCreatePopupField(key: "website", label: websiteLabel),
+          ]),
+        LeafEntityCreatePopupConfig(
+          popupID: "person-create-popup",
+          popupTitle: l10n["volume_edit.new_person_title"] ?? "New Person",
+          entityType: "person", volumeID: volume.id,
+          fields: [
+            LeafEntityCreatePopupField(key: "notes", label: notesLabel)
+          ]),
+      ]
+    } else {
+      self.entityCreatePopups = []
+    }
     self.personOptionsJSON =
       Self.encodeOptions(personOptions.map { LeafNamedOption(id: $0.id, name: $0.name) })
     self.contributionTypeOptionsJSON =

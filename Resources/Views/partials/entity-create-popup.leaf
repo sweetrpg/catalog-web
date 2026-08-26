@@ -1,0 +1,128 @@
+<div class="popup-overlay" id="#(popup.popupID)-overlay" hidden>
+	<div class="popup-card" role="dialog" aria-modal="true" aria-labelledby="#(popup.popupID)-title">
+		<h3 id="#(popup.popupID)-title">#(popup.popupTitle)</h3>
+		<label class="popup-field-label">
+			#(meta.l10n.volume_edit.entity_name_label)
+			<input type="text" class="input" id="#(popup.popupID)-name" required>
+		</label>
+		#for(field in popup.fields):
+			<label class="popup-field-label">
+				#(field.label)
+				<input type="text" class="input" id="#(popup.popupID)-#(field.key)">
+			</label>
+		#endfor
+		<p class="form-error" id="#(popup.popupID)-error" hidden></p>
+		<div class="popup-actions">
+			<button type="button" class="btn btn-primary" id="#(popup.popupID)-submit">#(meta.l10n.common.create)</button>
+			<button type="button" class="btn btn-ghost" id="#(popup.popupID)-cancel">#(meta.l10n.common.cancel)</button>
+		</div>
+	</div>
+</div>
+
+<script>
+(function () {
+  // Reusable entity-creation popup (add-entity-popup-volume-edit, task 2.4) - parameterized by
+  // entityType/fields so one script block covers publisher/studio/person rather than
+  // duplicating this wiring three times. Posts to the volume's inline-create route and
+  // dispatches `entity-created` (consumed by the picker/contributor-dialog scripts) on success.
+  var overlay = document.getElementById('#(popup.popupID)-overlay');
+  if (!overlay) return;
+
+  var nameInput = document.getElementById('#(popup.popupID)-name');
+  var errorEl = document.getElementById('#(popup.popupID)-error');
+  var submitBtn = document.getElementById('#(popup.popupID)-submit');
+  var cancelBtn = document.getElementById('#(popup.popupID)-cancel');
+  var fieldKeys = #unsafeHTML(popup.fieldKeysJSON);
+  var createURL = '#(meta.basePath)/volumes/#(popup.volumeID)/create-entity';
+
+  function showError(message) {
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+  }
+
+  function clearError() {
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+  }
+
+  function resetForm() {
+    nameInput.value = '';
+    fieldKeys.forEach(function (key) {
+      var input = document.getElementById('#(popup.popupID)-' + key);
+      if (input) input.value = '';
+    });
+    clearError();
+  }
+
+  function close() {
+    overlay.hidden = true;
+    resetForm();
+  }
+
+  function open() {
+    overlay.hidden = false;
+    nameInput.focus();
+  }
+
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) close();
+  });
+  overlay.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    } else if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+      e.preventDefault();
+      submitBtn.click();
+    }
+  });
+
+  submitBtn.addEventListener('click', function () {
+    var name = nameInput.value.trim();
+    if (!name) {
+      showError('#(meta.l10n.volume_edit.entity_name_required)');
+      return;
+    }
+    clearError();
+    var fields = { name: name };
+    fieldKeys.forEach(function (key) {
+      var input = document.getElementById('#(popup.popupID)-' + key);
+      if (input && input.value.trim()) fields[key] = input.value.trim();
+    });
+
+    submitBtn.disabled = true;
+    fetch(createURL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entityType: '#(popup.entityType)', fields: fields }),
+      credentials: 'include'
+    })
+      .then(function (resp) {
+        return resp.json().then(function (data) { return { ok: resp.ok, data: data }; });
+      })
+      .then(function (result) {
+        submitBtn.disabled = false;
+        if (!result.ok) {
+          showError(result.data.message || 'Unable to create that record. Try again.');
+          return;
+        }
+        document.dispatchEvent(new CustomEvent('entity-created', {
+          detail: { id: result.data.id, name: result.data.name, entityType: '#(popup.entityType)' }
+        }));
+        close();
+      })
+      .catch(function () {
+        submitBtn.disabled = false;
+        showError('Unable to create that record. Try again.');
+      });
+  });
+
+  // Each popup listens for its own show-entity-create request directly (filtered by
+  // entityType) rather than routing through a separate dispatcher script - simpler than
+  // maintaining an id lookup table elsewhere, and there are only three popups.
+  document.addEventListener('show-entity-create', function (e) {
+    if (e.detail.entityType === '#(popup.entityType)') open();
+  });
+})();
+</script>

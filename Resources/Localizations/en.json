@@ -271,5 +271,15 @@
   "volume_edit.edit_description": "Edit description",
   "volume_edit.edit_notes": "Edit notes",
   "volume_edit.accept": "Accept",
-  "volume_edit.no_notes": "No notes on file yet for this volume."
+  "volume_edit.no_notes": "No notes on file yet for this volume.",
+  "volume_edit.entity_name_label": "Name (required)",
+  "volume_edit.entity_name_required": "Name is required.",
+  "volume_edit.new_publisher_title": "New Publisher",
+  "volume_edit.new_studio_title": "New Studio",
+  "volume_edit.new_person_title": "New Person",
+  "volume_edit.create_new_publisher": "Create new publisher...",
+  "volume_edit.create_new_studio": "Create new studio...",
+  "volume_edit.create_new_person": "Create new person...",
+  "volume_edit.entity_notes_label": "Notes",
+  "volume_edit.entity_website_label": "Website"
 }

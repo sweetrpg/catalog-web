@@ -25,6 +25,7 @@ struct VolumesController: RouteCollection {
     routes.post("volumes", ":volumeID", "edit", "session", "samples", use: autosaveSessionSamples)
     routes.post("volumes", ":volumeID", "edit", "session", "discard", use: discardSession)
     routes.post("volumes", ":volumeID", "edit", "vocabulary", ":type", use: addVocabularyValue)
+    routes.post("volumes", ":volumeID", "create-entity", use: createEntityInline)
     routes.post(
       "volumes", ":volumeID", "versions", ":version", "accept", use: acceptVersionReview)
     routes.post(
@@ -425,7 +426,8 @@ struct VolumesController: RouteCollection {
             propertyNameOptions: try await propertyNameOptions,
             canAddPropertyName: canCreateVocabularyValue(user.roles),
             tagOptions: tagOptions,
-            canAddTag: canCreateVocabularyValue(user.roles)),
+            canAddTag: canCreateVocabularyValue(user.roles),
+            canCreateEntities: canCreateEntities(user.roles)),
           canUploadCover: canUploadCover(user.roles),
           submitError: nil,
           user: LeafUser(user),
@@ -568,7 +570,8 @@ struct VolumesController: RouteCollection {
               propertyNameOptions: try await propertyNameOptions,
               canAddPropertyName: canCreateVocabularyValue(user.roles),
               tagOptions: tagOptions,
-              canAddTag: canCreateVocabularyValue(user.roles)),
+              canAddTag: canCreateVocabularyValue(user.roles),
+              canCreateEntities: canCreateEntities(user.roles)),
             canUploadCover: canUploadCover(user.roles),
             submitError: friendlyError,
             user: LeafUser(user),
@@ -1009,5 +1012,73 @@ struct VolumesController: RouteCollection {
     guard let q = query, !q.isEmpty else { return items }
     let needle = q.lowercased()
     return items.filter { nameOf($0).lowercased().contains(needle) }
+  }
+
+  private static let inlineCreatableEntityTypes:
+    [String: (path: String, fields: [EntityFieldSpec])] = [
+      "publisher": (path: "/publishers", fields: publisherFields),
+      "studio": (path: "/studios", fields: studioFields),
+      "person": (path: "/persons", fields: personFields),
+    ]
+
+  private struct CreateEntityInlineInput: Content {
+    let entityType: String
+    let fields: [String: String]
+  }
+
+  private struct CreateEntityInlineOutput: Content {
+    let id: String
+    let name: String
+  }
+
+  private struct CreateEntityInlineError: Content {
+    let message: String
+  }
+
+  /// Creates a publisher/studio/person from the volume edit page's pickers (task 1.1-1.4,
+  /// add-entity-popup-volume-edit) - editor/admin only per design.md, narrower than `canEdit`'s
+  /// submitter-inclusive gate used by the standalone create pages' `submitCreate`. Reuses
+  /// `createEntity`/`invalidateEntityListCache`, the same calls the standalone create pages make.
+  @Sendable
+  func createEntityInline(req: Request) async throws -> Response {
+    try await withSpan("volume-create-entity-inline") { _ in
+      guard req.parameters.get("volumeID") != nil else {
+        throw Abort(.badRequest, reason: "volumeID is missing")
+      }
+      guard let user = await req.currentUser, canCreateEntities(user.roles) else {
+        throw Abort(.forbidden)
+      }
+
+      let input = try req.content.decode(CreateEntityInlineInput.self)
+      guard let entity = Self.inlineCreatableEntityTypes[input.entityType] else {
+        throw Abort(.badRequest, reason: "Unknown entityType")
+      }
+      let known = Set(entity.fields.map(\.key))
+      let filtered = input.fields.filter { known.contains($0.key) }
+      guard let name = filtered["name"], !name.isEmpty else {
+        throw Abort(.badRequest, reason: "name is required")
+      }
+
+      do {
+        let id = try await req.catalogAPI.createEntity(
+          path: entity.path, token: user.accessToken, fields: filtered)
+        await req.catalogAPI.invalidateEntityListCache(path: entity.path)
+        req.logger.info(
+          "createEntityInline: created",
+          metadata: ["entityType": "\(input.entityType)", "id": "\(id)"])
+        return try await CreateEntityInlineOutput(id: id, name: name)
+          .encodeResponse(status: .created, for: req)
+      } catch let error as Abort {
+        // catalog-api's own error message isn't preserved past `createEntity`'s generic
+        // Abort(status, reason:) - a 409 (duplicate name) is the one case the popup's spec
+        // requires distinguishing from a generic failure (task 8.4).
+        let message =
+          error.status == .conflict
+          ? "That name is already in use."
+          : "Unable to create that record. Try again."
+        return try await CreateEntityInlineError(message: message)
+          .encodeResponse(status: error.status, for: req)
+      }
+    }
   }
 }
