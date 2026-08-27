@@ -107,7 +107,7 @@
 						<script type="application/json" class="picker-options">#unsafeHTML(volume.systemOptionsJSON)</script>
 					</div>
 
-					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+					<div class="picker-field tag-cloud-field" data-picker="publisher" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations" data-can-create="#(volume.canCreateEntities)" data-entity-type="publisher" data-create-label="#(meta.l10n.volume_edit.create_new_publisher)">
 						<h3>#(meta.l10n.volume_edit.publishers)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(pub in volume.selectedPublishers):
@@ -123,7 +123,7 @@
 						<script type="application/json" class="picker-options">#unsafeHTML(volume.publisherOptionsJSON)</script>
 					</div>
 
-					<div class="picker-field tag-cloud-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations">
+					<div class="picker-field tag-cloud-field" data-picker="studio" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/associations" data-can-create="#(volume.canCreateEntities)" data-entity-type="studio" data-create-label="#(meta.l10n.volume_edit.create_new_studio)">
 						<h3>#(meta.l10n.volume_edit.studios)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(studio in volume.selectedStudios):
@@ -156,7 +156,7 @@
 						<script type="application/json" class="picker-options">#unsafeHTML(volume.tagOptionsJSON)</script>
 					</div>
 
-					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type">
+					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type" data-can-create="#(volume.canCreateEntities)" data-create-label="#(meta.l10n.volume_edit.create_new_person)">
 						<h3>#(meta.l10n.volume_edit.contributors)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(credit in volume.selectedCredits):
@@ -640,7 +640,10 @@
 		      }).slice(0, 8);
 		      currentMatches = matches;
 
-		      if (matches.length === 0) {
+		      // add-entity-popup-volume-edit: a zero-match query offers "Create new" instead of
+		      // just hiding the list, editor/admin only (data-can-create, server-set per role).
+		      var canCreate = field.dataset.canCreate === 'true';
+		      if (matches.length === 0 && !canCreate) {
 		        results.hidden = true;
 		        return;
 		      }
@@ -650,6 +653,17 @@
 		        item.addEventListener('click', function () { commit(option); });
 		        results.appendChild(item);
 		      });
+		      if (matches.length === 0 && canCreate) {
+		        var createItem = document.createElement('li');
+		        createItem.className = 'picker-create-new';
+		        createItem.textContent = field.dataset.createLabel;
+		        createItem.addEventListener('click', function () {
+		          document.dispatchEvent(new CustomEvent('show-entity-create', {
+		            detail: { entityType: field.dataset.entityType }
+		          }));
+		        });
+		        results.appendChild(createItem);
+		      }
 		      results.hidden = false;
 		    }
 
@@ -666,6 +680,18 @@
 		    input.addEventListener('blur', function () {
 		      // Deferred so a click on a result fires before the list disappears.
 		      setTimeout(function () { results.hidden = true; }, 150);
+		    });
+
+		    // add-entity-popup-volume-edit: the popup this picker opened reports back here once
+		    // the entity is created, so the new option is selected the same way an existing one
+		    // would be (commit() already autosaves and closes the picker). Popups dispatch on
+		    // `document` (there's no direct DOM link back to the picker that opened them), so
+		    // this listens there too, filtered by entityType.
+		    document.addEventListener('entity-created', function (e) {
+		      if (e.detail.entityType !== pickerKind) return;
+		      var option = { id: e.detail.id, name: e.detail.name };
+		      options.push(option);
+		      commit(option);
 		    });
 		  });
 		})();
@@ -851,7 +877,10 @@
 		    }).slice(0, 8);
 		    currentPersonMatches = matches;
 
-		    if (matches.length === 0) {
+		    // add-entity-popup-volume-edit: zero matches offers "Create new" instead of hiding
+		    // the list, editor/admin only (data-can-create on #credits-field).
+		    var canCreate = field.dataset.canCreate === 'true';
+		    if (matches.length === 0 && !canCreate) {
 		      personResults.hidden = true;
 		      return;
 		    }
@@ -861,8 +890,28 @@
 		      item.addEventListener('click', function () { selectPerson(option); });
 		      personResults.appendChild(item);
 		    });
+		    if (matches.length === 0 && canCreate) {
+		      var createItem = document.createElement('li');
+		      createItem.className = 'picker-create-new';
+		      createItem.textContent = field.dataset.createLabel;
+		      createItem.addEventListener('click', function () {
+		        document.dispatchEvent(new CustomEvent('show-entity-create', {
+		          detail: { entityType: 'person' }
+		        }));
+		      });
+		      personResults.appendChild(createItem);
+		    }
 		    personResults.hidden = false;
 		  }
+
+		  // The popup reports back here once the person is created - selects it the same way
+		  // clicking an existing match would (task 3.4/4.3 equivalent for the contributor
+		  // dialog), leaving the contribution type for the user to pick before confirming.
+		  document.addEventListener('entity-created', function (e) {
+		    if (e.detail.entityType !== 'person') return;
+		    personOptions.push({ id: e.detail.id, name: e.detail.name });
+		    selectPerson({ id: e.detail.id, name: e.detail.name });
+		  });
 
 		  personFilter.addEventListener('input', function () { renderPersonResults(personFilter.value.trim()); });
 		  personFilter.addEventListener('keydown', function (e) {
@@ -1319,6 +1368,63 @@
 			  });
 			})();
 			</script>
+		#endif
+
+		#if(volume.canCreateEntities):
+			<style>
+			/* add-entity-popup-volume-edit: scoped styles for the entity-creation popups and the
+			   pickers' "Create new" result item - lives here (rather than shared-web's edit.css)
+			   since this is the only page that uses it, matching the page's existing inline
+			   <script> convention for one-page features. */
+			.popup-overlay {
+			  position: fixed;
+			  inset: 0;
+			  background: rgba(0, 0, 0, 0.5);
+			  display: flex;
+			  align-items: center;
+			  justify-content: center;
+			  z-index: 1000;
+			}
+			.popup-card {
+			  background: #fff;
+			  border-radius: 8px;
+			  padding: 1.5rem;
+			  width: min(90vw, 420px);
+			  max-height: 90vh;
+			  overflow-y: auto;
+			  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+			}
+			.popup-card h3 {
+			  margin-top: 0;
+			}
+			.popup-field-label {
+			  display: block;
+			  margin-bottom: 0.75rem;
+			  font-size: 0.9rem;
+			}
+			.popup-field-label .input {
+			  display: block;
+			  width: 100%;
+			  margin-top: 0.25rem;
+			}
+			.popup-actions {
+			  display: flex;
+			  gap: 0.5rem;
+			  justify-content: flex-end;
+			  margin-top: 1rem;
+			}
+			.picker-create-new {
+			  font-style: italic;
+			  opacity: 0.85;
+			}
+			.picker-create-new::before {
+			  content: "+ ";
+			}
+			</style>
+
+			#for(popup in volume.entityCreatePopups):
+				#extend("partials/entity-create-popup")
+			#endfor
 		#endif
 	#endexport
 #endextend

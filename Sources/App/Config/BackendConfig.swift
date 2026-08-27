@@ -8,7 +8,7 @@ struct BackendConfig {
   let catalogAPIURL: String
   let gameSystemsAPIURL: String
   let profilesAPIURL: String
-  let shelfAPIURL: String
+  let gameRoomAPIURL: String
   /// `admin-api`'s base URL, for banner messages. Unlike every other backend above, this has
   /// no in-cluster-DNS default - `nil` unless `ADMIN_API_URL` is explicitly set, so a deploy
   /// with the var unset makes zero calls to admin-api (see AdminClient.swift).
@@ -25,10 +25,8 @@ struct BackendConfig {
         ?? "http://api-v1.sweetrpg-gamesystems.svc.cluster.local:8000",
       profilesAPIURL: Environment.get("PROFILES_API_URL")
         ?? "http://api-v1.sweetrpg-profiles.svc.cluster.local:8000",
-      // TODO: sweetrpg/platform#rename-library-to-shelf - update this hostname (and the
-      // env var name, if it changes) once library-api is renamed to shelf-api.
-      shelfAPIURL: Environment.get("SHELF_API_URL")
-        ?? "http://api-v1.sweetrpg-library.svc.cluster.local:8000",
+      gameRoomAPIURL: Environment.get("GAME_ROOM_API_URL")
+        ?? "http://api-v1.sweetrpg-game-room.svc.cluster.local:8000",
       adminAPIURL: Environment.get("ADMIN_API_URL")
     )
   }

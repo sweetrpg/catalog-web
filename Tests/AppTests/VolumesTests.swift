@@ -598,7 +598,7 @@ struct VolumesTests {
         app.views.use(.leaf)
         app.backendConfig = BackendConfig(
           catalogAPIURL: "http://127.0.0.1:\(port)", gameSystemsAPIURL: "unused",
-          profilesAPIURL: "unused", shelfAPIURL: "unused", adminAPIURL: nil)
+          profilesAPIURL: "unused", gameRoomAPIURL: "unused", adminAPIURL: nil)
         try app.register(collection: CatalogController())
         try await app.testing().test(.GET, "browse") { res in
           #expect(res.status == .ok)

@@ -1,9 +1,9 @@
 import Vapor
 
-/// "My Shelves" - per-user want/playing/played/owned lists. Backed by shelf-api (currently
-/// library-api), which this app doesn't call yet (see `ShelfAPIClient`), so this always renders
-/// the empty state for now rather than a real shelf. Requires login once shelf-api is wired up;
-/// today it just reflects whatever session exists.
+/// "My Shelves" - per-user want/playing/played/owned lists. Backed by game-room-api, which
+/// this app doesn't call yet (see `GameRoomAPIClient`), so this always renders the empty state
+/// for now rather than a real shelf. Requires login once game-room-api is wired up; today it
+/// just reflects whatever session exists.
 struct ShelvesController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get("shelves", use: index)

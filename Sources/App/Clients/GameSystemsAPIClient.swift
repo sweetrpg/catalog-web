@@ -1,7 +1,7 @@
 import Vapor
 
 // These three clients are placeholders. Endpoint shapes for game-systems-api, profiles-api,
-// and shelf-api (currently library-api - see sweetrpg/platform's rename-library-to-shelf
+// and game-room-api (previously library-api, then shelf-api - see sweetrpg/platform's rename-shelf-to-game-room-service
 // change) aren't confirmed yet, so pages that would use them show a "coming soon" state rather
 // than calling a real endpoint. Replace each method body with a real call once its backend
 // contract is settled - the call sites (Controllers) already expect this shape, so filling

@@ -15,28 +15,36 @@
 		#endif
 
 		<div>
-			<h1>#(publisher.name)</h1>
+			<div class="detail-header-row">
+				<h1>#(publisher.name)</h1>
+				<span class="detail-header-actions">
+					#if(canEdit):
+						<a class="icon-btn" href="#(meta.basePath)/publishers/#(publisher.id)/edit" title="#(meta.l10n.common.tooltip_edit)">
+							<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="#(meta.l10n.common.tooltip_edit)">
+						</a>
+					#endif
+					#if(canDelete):
+						#if(isDeleted):
+							<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/undelete">
+								<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_restore)">
+									<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg');"></span>
+								</button>
+							</form>
+						#else:
+							<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/delete" onsubmit="return confirm('#(meta.l10n.publisher.delete_confirm)')">
+								<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_delete)">
+									<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg');"></span>
+								</button>
+							</form>
+						#endif
+					#endif
+				</span>
+			</div>
 			<div class="tag-cloud">
 				#for(tag in publisher.tags):
 					<span class="tag tag-accent">#(tag)</span>
 				#endfor
 			</div>
-
-			#if(canEdit):
-				<a class="btn btn-ghost" href="#(meta.basePath)/publishers/#(publisher.id)/edit">#(meta.l10n.common.edit)</a>
-			#endif
-
-			#if(canDelete):
-				#if(isDeleted):
-					<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/undelete">
-						<button type="submit" class="btn btn-ghost">#(meta.l10n.common.restore)</button>
-					</form>
-				#else:
-					<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/delete" onsubmit="return confirm('#(meta.l10n.publisher.delete_confirm)')">
-						<button type="submit" class="btn btn-ghost">#(meta.l10n.common.delete)</button>
-					</form>
-				#endif
-			#endif
 
 			#if(publisher.hasAddress):
 				<p class="detail-notes"><strong>#(meta.l10n.common.address_label)</strong> #(publisher.address)</p>

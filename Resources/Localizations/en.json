@@ -100,7 +100,7 @@
 
   "shelves.section": "Your Library",
   "shelves.title": "My Shelves",
-  "shelves.logged_in": "Shelf tracking isn't connected yet - once shelf-api is wired up, your want/playing/played/owned lists will show here.",
+  "shelves.logged_in": "Shelf tracking isn't connected yet - once game-room-api is wired up, your want/playing/played/owned lists will show here.",
   "shelves.logged_out_prefix": "Nothing shelved yet. ",
   "shelves.logged_out_suffix": " and add a volume to a shelf once you're signed in.",
 
@@ -226,7 +226,7 @@
   "volume.sample_alt": "Sample page",
   "volume.no_description": "No description on file yet for this volume.",
   "volume.your_shelf": "Your Shelf",
-  "volume.shelf_empty": "Sign in and shelf tracking will appear here once shelf-api is connected.",
+  "volume.shelf_empty": "Sign in and shelf tracking will appear here once game-room-api is connected.",
   "volume.reviews_section": "Community Reviews",
   "volume.reviews_empty": "No reviews yet - be the first at the table to weigh in.",
   "volume.viewer_close": "Close",
@@ -271,5 +271,15 @@
   "volume_edit.edit_description": "Edit description",
   "volume_edit.edit_notes": "Edit notes",
   "volume_edit.accept": "Accept",
-  "volume_edit.no_notes": "No notes on file yet for this volume."
+  "volume_edit.no_notes": "No notes on file yet for this volume.",
+  "volume_edit.entity_name_label": "Name (required)",
+  "volume_edit.entity_name_required": "Name is required.",
+  "volume_edit.new_publisher_title": "New Publisher",
+  "volume_edit.new_studio_title": "New Studio",
+  "volume_edit.new_person_title": "New Person",
+  "volume_edit.create_new_publisher": "Create new publisher...",
+  "volume_edit.create_new_studio": "Create new studio...",
+  "volume_edit.create_new_person": "Create new person...",
+  "volume_edit.entity_notes_label": "Notes",
+  "volume_edit.entity_website_label": "Website"
 }
