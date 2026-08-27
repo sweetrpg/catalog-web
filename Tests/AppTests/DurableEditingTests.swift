@@ -144,6 +144,63 @@ struct DurableEditingTests {
     }
   }
 
+  @Test(
+    "edit page shows the entity-creation popups and create-new pickers for an editor/admin session")
+  func editPageShowsEntityCreatePopupsForEditor() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "volumes/edit",
+          EditContext(
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req, canCreateEntities: true),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-can-create="true""#))
+        #expect(res.body.string.contains(#"data-entity-type="publisher""#))
+        #expect(res.body.string.contains(#"data-entity-type="studio""#))
+        #expect(res.body.string.contains("New Publisher"))
+        #expect(res.body.string.contains("New Studio"))
+        #expect(res.body.string.contains("New Person"))
+        #expect(res.body.string.contains(#"/volumes/1/create-entity"#))
+      }
+    }
+  }
+
+  @Test("edit page hides the entity-creation popups and create-new pickers for a submitter session")
+  func editPageHidesEntityCreatePopupsForSubmitter() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "volumes/edit",
+          EditContext(
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req, canCreateEntities: false),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"data-can-create="true""#) == false)
+        #expect(res.body.string.contains("New Publisher") == false)
+        #expect(res.body.string.contains("popup-overlay") == false)
+      }
+    }
+  }
+
   @Test("edit page shows a selected publisher chip for an already-linked publisher")
   func editPageShowsSelectedPublisherChip() async throws {
     let volume = VolumeViewModel(

@@ -29,6 +29,11 @@ private let vocabularyCreateCapableRoles: Set<String> = ["editor", "admin"]
 /// catalog-entity-bulk-add's spec. Currently the same roles as `reviewCapableRoles`/
 /// `vocabularyCreateCapableRoles`, kept separate for the same reason those are their own sets.
 private let bulkAddCapableRoles: Set<String> = ["editor", "admin"]
+/// Roles that may create a publisher/studio/person inline from the volume edit page's pickers
+/// - editor/admin only, per add-entity-popup-volume-edit's design.md (narrower than
+/// `editCapableRoles`, which also includes submitter; the standalone create pages remain
+/// available to a submitter via `submitCreate`'s existing `canEdit` gate).
+private let entityInlineCreateCapableRoles: Set<String> = ["editor", "admin"]
 
 func canEdit(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: editCapableRoles)
@@ -81,6 +86,10 @@ func addVocabularyValue(req: Request) async throws -> VocabularyValuesResponse {
 
 func canBulkAddPersons(_ roles: [String]) -> Bool {
   !Set(roles).isDisjoint(with: bulkAddCapableRoles)
+}
+
+func canCreateEntities(_ roles: [String]) -> Bool {
+  !Set(roles).isDisjoint(with: entityInlineCreateCapableRoles)
 }
 
 /// Roles that may roll a record back to a past version - admin only per design.md's decision:
