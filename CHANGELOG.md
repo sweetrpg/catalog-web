@@ -1,4 +1,19 @@
 
+## 0.44.0 - 2026-08-27
+
+### Added
+- Add inline entity creation popup to volume edit page
+
+
+### Changed
+- Rename shelf-api references to game-room-api
+
+
+### Fixed
+- Use icon buttons for publisher edit/delete actions
+
+
+
 ## 0.43.0 - 2026-08-24
 
 ### Added
