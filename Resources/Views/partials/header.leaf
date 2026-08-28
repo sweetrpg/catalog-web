@@ -24,7 +24,7 @@
 		<div class="app-switcher-panel" hidden>
 			<a class="app-switcher-item" href="/">#(meta.l10n.nav.app_main)</a>
 			<a class="app-switcher-item" href="/catalog">#(meta.l10n.nav.app_catalog)</a>
-			<a class="app-switcher-item" href="/shelf">#(meta.l10n.nav.app_shelf)</a>
+			<a class="app-switcher-item" href="/game-room">#(meta.l10n.nav.app_game_room)</a>
 			<a class="app-switcher-item" href="/initiative">#(meta.l10n.nav.app_initiative)</a>
 		</div>
 	</div>
