@@ -7,7 +7,7 @@ working in this repository.
 
 `catalog-web` is a server-rendered Vapor (Swift) frontend for the SweetRPG Catalog domain. It is
 the org's first Vapor/Swift-based *web frontend* (as opposed to Swift/Vapor *API* services like
-`gamesystems-api`/`profiles-api`) - there is no established platform-wide convention document for
+`game-systems-api`/`profiles-api`) - there is no established platform-wide convention document for
 this kind of service yet the way `docs/service-conventions.md` covers Go APIs. This repo is the
 reference implementation; conventions here should be written up formally once a second Swift
 frontend exists to compare against, per this org's own stated bar for generalizing a pattern.
