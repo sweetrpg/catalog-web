@@ -1,4 +1,17 @@
 
+## 0.44.2 - 2026-08-28
+
+### Changed
+- Update game-systems-api URL and env var
+
+
+### Fixed
+- Locale strings for shelf/library/game-room
+- Update name
+- Align app-switcher destinations with the shared spec
+
+
+
 ## 0.44.1 - 2026-08-28
 
 ### Fixed
