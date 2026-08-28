@@ -55,7 +55,7 @@ struct HeaderTests {
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains("avatar-menu-trigger"))
-        #expect(res.body.string.contains(#"href="/users""#))
+        #expect(res.body.string.contains(#"href="/users/profile""#))
         #expect(!res.body.string.contains(#"href="/admin""#))
         #expect(res.body.string.contains("avatar-menu-item-danger"))
         #expect(res.body.string.contains(#"action="/auth/logout?return_to=/test-home""#))
@@ -154,7 +154,7 @@ struct HeaderTests {
       try await app.testing().test(.GET, "test-home") { res in
         #expect(res.status == .ok)
         #expect(res.body.string.contains(#"href="/admin""#))
-        #expect(res.body.string.contains(#"href="/users""#))
+        #expect(res.body.string.contains(#"href="/users/profile""#))
       }
     }
   }
