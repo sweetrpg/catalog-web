@@ -21,8 +21,8 @@ struct BackendConfig {
       // the ingress entirely and hit catalog-api's unprefixed routes directly.
       catalogAPIURL: Environment.get("CATALOG_API_URL")
         ?? "http://api-v1.sweetrpg-catalog.svc.cluster.local:8000",
-      gameSystemsAPIURL: Environment.get("GAMESYSTEMS_API_URL")
-        ?? "http://api-v1.sweetrpg-gamesystems.svc.cluster.local:8000",
+      gameSystemsAPIURL: Environment.get("GAME_SYSTEMS_API_URL")
+        ?? "http://api-v1.sweetrpg-game-systems.svc.cluster.local:8000",
       profilesAPIURL: Environment.get("PROFILES_API_URL")
         ?? "http://api-v1.sweetrpg-profiles.svc.cluster.local:8000",
       gameRoomAPIURL: Environment.get("GAME_ROOM_API_URL")

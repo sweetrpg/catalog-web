@@ -158,7 +158,7 @@
 				<button type="button" id="volume-tab-credits" class="section-label tab-btn#if(!volume.hasSamples): active#endif" role="tab" aria-selected="#if(volume.hasSamples):false#else:true#endif" aria-controls="volume-panel-credits">#(meta.l10n.volume.tab_credits)</button>
 				<button type="button" id="volume-tab-publishing" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-publishing">#(meta.l10n.volume.tab_publishing)</button>
 				<button type="button" id="volume-tab-properties" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-properties">#(meta.l10n.volume.tab_properties)</button>
-				<button type="button" id="volume-tab-shelf" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-shelf">#(meta.l10n.volume.tab_shelf)</button>
+				<button type="button" id="volume-tab-library" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-library">#(meta.l10n.volume.tab_library)</button>
 				<button type="button" id="volume-tab-reviews" class="section-label tab-btn" role="tab" aria-selected="false" aria-controls="volume-panel-reviews">#(meta.l10n.volume.tab_reviews)</button>
 			</div>
 
@@ -222,12 +222,12 @@
 				#endif
 			</section>
 
-			<section class="tab-panel" id="volume-panel-shelf" role="tabpanel" aria-labelledby="volume-tab-shelf">
-				<!-- Shelf status, rating, and review will move here once shelf-api is wired up
-				     (see ShelfAPIClient) - the design's prototype has this as browser-local
+			<section class="tab-panel" id="volume-panel-library" role="tabpanel" aria-labelledby="volume-tab-library">
+				<!-- Library status, rating, and review will move here once game-room-api is wired up
+				     (see GameRoomAPIClient) - the design's prototype has this as browser-local
 				     state today; this app doesn't persist anything client-side. -->
 				<div class="detail-block">
-					<p class="empty-state-inline">#(meta.l10n.volume.shelf_empty)</p>
+					<p class="empty-state-inline">#(meta.l10n.volume.library_empty)</p>
 				</div>
 			</section>
 
