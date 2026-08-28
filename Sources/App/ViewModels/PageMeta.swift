@@ -24,8 +24,7 @@ struct PageMeta: Content {
   /// Fixed paths on the shared `dev.sweetrpg.com` host, matching `/catalog`'s own convention -
   /// see design.md's "User Settings links to a fixed, currently-unbuilt path" decision in the
   /// suite-avatar-menu OpenSpec change. `adminURL` gates behind `LeafUser.isAdmin` in the
-  /// template; `userSettingsURL` (`/users`) 404s until `users-web` ships - a separate,
-  /// already-tracked gap.
+  /// template.
   let adminURL: String
   let userSettingsURL: String
   /// Localized strings for the request's resolved locale (see I18n.swift), regrouped as
@@ -56,7 +55,7 @@ struct PageMeta: Content {
       loginURL: "/auth/login?return_to=\(encodedReturnTo)",
       logoutURL: "/auth/logout?return_to=\(encodedReturnTo)",
       adminURL: "/admin",
-      userSettingsURL: "/users",
+      userSettingsURL: "/users/profile",
       l10n: I18n.nested(I18n.table(for: req))
     )
   }
