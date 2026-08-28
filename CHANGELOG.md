@@ -1,4 +1,11 @@
 
+## 0.44.1 - 2026-08-28
+
+### Fixed
+- Point User Settings link at users-web's real profile route
+
+
+
 ## 0.44.0 - 2026-08-27
 
 ### Added
