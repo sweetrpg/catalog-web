@@ -37,7 +37,7 @@ data:
   # than relying on BackendConfig.swift's default, which still has this wrong as of this
   # writing (bakes in a /0 that 404s on direct Service calls).
   CATALOG_API_URL: http://api-v1.sweetrpg-catalog.svc.cluster.local:8000
-  # GAMESYSTEMS_API_URL: http://api-v1.sweetrpg-gamesystems.svc.cluster.local:8000
+  # GAME_SYSTEMS_API_URL: http://api-v1.sweetrpg-game-systems.svc.cluster.local:8000
   # PROFILES_API_URL: http://api-v1.sweetrpg-profiles.svc.cluster.local:8000
   # GAME_ROOM_API_URL: http://api-v1.sweetrpg-game-room.svc.cluster.local:8000
   # Traefik strips /catalog before the request reaches this app (see middlewares.yaml), so the
