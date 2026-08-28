@@ -12,10 +12,10 @@ spec:
     - port: http
   selector:
     matchLabels:
-        platform: sweetrpg
-        app: web
-        package: catalog
-        component: web
+        app.kubernetes.io/name: catalog-web
+        app.kubernetes.io/version: v1
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: catalog
   namespaceSelector:
     matchNames:
       - sweetrpg-catalog
