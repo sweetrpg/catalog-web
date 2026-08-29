@@ -1,6 +1,9 @@
 
 ## 0.44.3 - 2026-08-29
 
+
+## 0.44.3 - 2026-08-29
+
 ### Fixed
 - Drop redundant onload hack, reveal avatar fallback on image error
 
