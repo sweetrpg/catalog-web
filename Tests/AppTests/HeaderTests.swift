@@ -107,8 +107,10 @@ struct HeaderTests {
         #expect(res.body.string.contains("avatar-menu-avatar"))
         #expect(res.body.string.contains("https://www.gravatar.com/avatar/"))
         #expect(res.body.string.contains("d=404"))
-        #expect(res.body.string.contains(#"onload="this.nextElementSibling.style.display='none'""#))
-        #expect(res.body.string.contains(#"onerror="this.style.display='none'""#))
+        #expect(
+          res.body.string.contains(
+            #"onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';""#
+          ))
         #expect(res.body.string.contains("avatar-menu-fallback"))
       }
     }

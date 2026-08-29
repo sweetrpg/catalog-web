@@ -13,20 +13,11 @@ spec:
         type: RollingUpdate
     selector:
         matchLabels:
-            app: web
-            version: v1
-            platform: sweetrpg
-            package: catalog
-            component: web
+            app.kubernetes.io/name: catalog-web
+            app.kubernetes.io/version: v1
+            app.kubernetes.io/component: web
     template:
         metadata:
-            labels:
-                platform: sweetrpg
-                app: web
-                package: catalog
-                component: web
-                version: v1
-                release: prometheus
             annotations:
                 reloader.stakater.com/auto: "true"
                 openfeature.dev/enabled: "true"
