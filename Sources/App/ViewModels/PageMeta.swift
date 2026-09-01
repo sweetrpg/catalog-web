@@ -22,7 +22,7 @@ struct PageMeta: Content {
   let loginURL: String
   let logoutURL: String
   /// Fixed paths on the shared `dev.sweetrpg.com` host, matching `/catalog`'s own convention -
-  /// see design.md's "User Settings links to a fixed, currently-unbuilt path" decision in the
+  /// see design.md's "Profile links to a fixed, currently-unbuilt path" decision in the
   /// suite-avatar-menu OpenSpec change. `adminURL` gates behind `LeafUser.isAdmin` in the
   /// template.
   let adminURL: String
