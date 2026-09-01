@@ -41,7 +41,7 @@ struct LeafVolumeDetail: Content {
   let licenseNames: [String]
   let hasLicenseNames: Bool
   let licenseRefs: [LeafEntityRef]
-  let credits: [LeafCredit]
+  let creditGroups: [LeafCreditGroup]
   let hasCredits: Bool
   let properties: [LeafProperty]
   let hasProperties: Bool
@@ -72,7 +72,7 @@ struct LeafVolumeDetail: Content {
     self.licenseNames = volume.licenseNames
     self.hasLicenseNames = !volume.licenseNames.isEmpty
     self.licenseRefs = volume.licenseRefs.map(LeafEntityRef.init)
-    self.credits = volume.credits.map(LeafCredit.init)
+    self.creditGroups = groupCreditsByPerson(volume.credits)
     self.hasCredits = !volume.credits.isEmpty
     self.properties = try volume.properties.map {
       LeafProperty(
