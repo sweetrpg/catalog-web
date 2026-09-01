@@ -1,4 +1,14 @@
 
+## 0.45.0 - 2026-09-01
+
+### Added
+- Group volume detail credits by person (#202)
+
+
+
+## 0.44.3 - 2026-08-29
+
+
 ## 0.44.3 - 2026-08-29
 
 ### Fixed
