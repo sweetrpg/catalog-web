@@ -26,14 +26,22 @@
 					#if(canDelete):
 						#if(isDeleted):
 							<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/undelete">
-								<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_restore)">
+								<button type="submit" class="icon-btn icon-btn-danger tooltip-host" aria-label="#(meta.l10n.common.tooltip_restore)">
 									<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg');"></span>
+									<span class="tooltip" role="tooltip">
+										<span class="tooltip-title">#(meta.l10n.common.tooltip_restore)</span>
+										<span class="tooltip-body">#(meta.l10n.common.tooltip_restore_body)</span>
+									</span>
 								</button>
 							</form>
 						#else:
 							<form method="post" action="#(meta.basePath)/publishers/#(publisher.id)/delete" onsubmit="return confirm('#(meta.l10n.publisher.delete_confirm)')">
-								<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_delete)">
+								<button type="submit" class="icon-btn icon-btn-danger tooltip-host" aria-label="#(meta.l10n.common.tooltip_delete)">
 									<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg');"></span>
+									<span class="tooltip" role="tooltip">
+										<span class="tooltip-title">#(meta.l10n.common.tooltip_delete)</span>
+										<span class="tooltip-body">#(meta.l10n.common.tooltip_delete_body)</span>
+									</span>
 								</button>
 							</form>
 						#endif

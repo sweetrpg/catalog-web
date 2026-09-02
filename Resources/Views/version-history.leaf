@@ -28,7 +28,12 @@
 							<td><a href="#(meta.basePath)/volumes/#(volumeID)/versions/#(version.version)">#(version.version)</a></td>
 							<td>
 								#if(version.isLive):
-									<span class="tag tag-accent">#(meta.l10n.version_history.live)</span>
+									<span class="tag tag-accent tooltip-host" tabindex="0">#(meta.l10n.version_history.live)
+										<span class="tooltip" role="tooltip">
+											<span class="tooltip-title">#(meta.l10n.version_history.live_title)</span>
+											<span class="tooltip-body">#(meta.l10n.version_history.live_body)</span>
+										</span>
+									</span>
 								#else:
 									<span class="tag tag-neutral">#(version.state)</span>
 								#endif
