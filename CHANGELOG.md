@@ -1,4 +1,7 @@
 
+## 0.45.0 - 2026-09-02
+
+
 ## 0.45.0 - 2026-09-01
 
 ### Added
@@ -32,7 +35,7 @@
 ## 0.44.1 - 2026-08-28
 
 ### Fixed
-- Point User Settings link at users-web's real profile route
+- Point Profile link at users-web's real profile route
 
 
 
