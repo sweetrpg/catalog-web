@@ -6,7 +6,12 @@
 			<span class="section-label">#(meta.l10n.version_detail.section_prefix)#(version.version)</span>
 			<h2>#(version.title)</h2>
 			#if(version.isLive):
-				<span class="tag tag-accent">#(meta.l10n.version_detail.live)</span>
+				<span class="tag tag-accent tooltip-host" tabindex="0">#(meta.l10n.version_detail.live)
+					<span class="tooltip" role="tooltip">
+						<span class="tooltip-title">#(meta.l10n.version_detail.live_title)</span>
+						<span class="tooltip-body">#(meta.l10n.version_detail.live_body)</span>
+					</span>
+				</span>
 			#else:
 				<span class="tag tag-neutral">#(version.state)</span>
 			#endif

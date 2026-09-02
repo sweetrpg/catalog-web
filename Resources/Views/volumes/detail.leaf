@@ -30,20 +30,32 @@
 								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="#(meta.l10n.common.tooltip_edit)">
 							</a>
 						#endif
-						<a class="icon-btn" href="#(meta.basePath)/volumes/#(volume.id)/versions" title="#(meta.l10n.version_history.section)">
+						<a class="icon-btn tooltip-host" href="#(meta.basePath)/volumes/#(volume.id)/versions" aria-label="#(meta.l10n.version_history.section)">
 							<img src="#(meta.sharedURL)/static/img/icons/history.svg" alt="#(meta.l10n.version_history.section)">
+							<span class="tooltip" role="tooltip">
+								<span class="tooltip-title">#(meta.l10n.version_history.section)</span>
+								<span class="tooltip-body">#(meta.l10n.version_history.section_body)</span>
+							</span>
 						</a>
 						#if(canDelete):
 							#if(isDeleted):
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/undelete">
-									<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_restore)">
+									<button type="submit" class="icon-btn icon-btn-danger tooltip-host" aria-label="#(meta.l10n.common.tooltip_restore)">
 										<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-restore-alt.svg');"></span>
+										<span class="tooltip" role="tooltip">
+											<span class="tooltip-title">#(meta.l10n.common.tooltip_restore)</span>
+											<span class="tooltip-body">#(meta.l10n.common.tooltip_restore_body)</span>
+										</span>
 									</button>
 								</form>
 							#else:
 								<form method="post" action="#(meta.basePath)/volumes/#(volume.id)/delete" onsubmit="return confirm('#(meta.l10n.volume.delete_confirm)')">
-									<button type="submit" class="icon-btn icon-btn-danger" title="#(meta.l10n.common.tooltip_delete)">
+									<button type="submit" class="icon-btn icon-btn-danger tooltip-host" aria-label="#(meta.l10n.common.tooltip_delete)">
 										<span class="icon-mask" style="mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg'); -webkit-mask-image: url('#(meta.sharedURL)/static/svgs/fontawesome/solid/trash-alt.svg');"></span>
+										<span class="tooltip" role="tooltip">
+											<span class="tooltip-title">#(meta.l10n.common.tooltip_delete)</span>
+											<span class="tooltip-body">#(meta.l10n.common.tooltip_delete_body)</span>
+										</span>
 									</button>
 								</form>
 							#endif
