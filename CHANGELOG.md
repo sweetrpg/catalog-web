@@ -1,4 +1,10 @@
 
+## 0.46.0 - 2026-09-02
+
+### Added
+- Rich tooltips for soft-delete and version-state controls (#207)
+
+
 ## 0.45.0 - 2026-09-01
 
 ### Added
