@@ -48,21 +48,18 @@ struct CatalogAPIClientService {
         try await self.fetchAllPages(path: "/volumes")
           as [JSONAPIDocument<VolumeAttributes>.Resource]
       }
-      async let systems = (try? await fetchNameMap(path: "/systems")) ?? [:]
       async let publishers = fetchNameMap(path: "/publishers")
       async let studios = fetchNameMap(path: "/studios")
       async let licenses = fetchNameMap(path: "/licenses")
 
       let (resources, publisherNames, studioNames, licenseNames) =
         try await (volumesResources, publishers, studios, licenses)
-      let systemNames = await systems
 
       return resources.map { resource in
         decorateVolume(
           id: resource.id,
           attributes: resource.attributes,
           relationships: resource.relationships,
-          systemNames: systemNames,
           publisherNames: publisherNames,
           studioNames: studioNames,
           licenseNames: licenseNames)
@@ -79,7 +76,6 @@ struct CatalogAPIClientService {
     id: String,
     attributes: VolumeAttributes,
     relationships: [String: JSONAPIRelationship]?,
-    systemNames: [String: String],
     publisherNames: [String: String],
     studioNames: [String: String],
     licenseNames: [String: String]
@@ -96,13 +92,21 @@ struct CatalogAPIClientService {
         map[id].map { EntityRef(id: id, name: $0) }
       }
     }
+    // System names come from the volume's denormalized `systemTitles` (catalog-api captures
+    // them at write time from game-systems-api), not a per-render `/systems` fetch. A missing
+    // or empty stored title renders the system ID.
+    let systemTitles = attributes.systemTitles ?? [:]
+    func systemName(_ id: String) -> String {
+      let t = systemTitles[id] ?? ""
+      return t.isEmpty ? id : t
+    }
     return VolumeViewModel(
       id: id,
       title: attributes.title ?? "Untitled",
       description: attributes.description ?? "",
       notes: attributes.notes ?? "",
       tags: (attributes.tags ?? []).map(\.displayName).filter { !$0.isEmpty },
-      systemNames: names("system", from: systemNames),
+      systemNames: ids("system").map(systemName),
       systemIds: ids("system"),
       publisherNames: names("publisher", from: publisherNames),
       publisherIds: ids("publisher"),
@@ -113,7 +117,7 @@ struct CatalogAPIClientService {
       properties: (attributes.properties ?? []).map { ($0.name, $0.value) },
       format: attributes.format ?? "",
       sampleAssetIds: attributes.sampleAssetIds ?? [],
-      systemRefs: refs("system", from: systemNames),
+      systemRefs: ids("system").map { EntityRef(id: $0, name: systemName($0)) },
       publisherRefs: refs("publisher", from: publisherNames),
       studioRefs: refs("studio", from: studioNames),
       licenseRefs: refs("license", from: licenseNames)
@@ -138,7 +142,6 @@ struct CatalogAPIClientService {
       }
       let doc = try response.content.decode(JSONAPISingleDocument<VolumeAttributes>.self)
       req.logger.debug("fetchVolume: done", metadata: ["volumeID": "\(id)"])
-      async let systemNames = (try? await fetchNameMap(path: "/systems")) ?? [:]
       async let publisherNames = (try? await fetchNameMap(path: "/publishers")) ?? [:]
       async let studioNames = (try? await fetchNameMap(path: "/studios")) ?? [:]
       async let licenseNames = (try? await fetchNameMap(path: "/licenses")) ?? [:]
@@ -146,7 +149,6 @@ struct CatalogAPIClientService {
         id: doc.data.id,
         attributes: doc.data.attributes,
         relationships: doc.data.relationships,
-        systemNames: await systemNames,
         publisherNames: await publisherNames,
         studioNames: await studioNames,
         licenseNames: await licenseNames)
@@ -706,19 +708,21 @@ struct CatalogAPIClientService {
     }
   }
 
-  /// Resolves any publisher/studio/license/system reference on a volume that's soft-deleted
-  /// since the volume linked it, so its detail/edit page can label it "(deleted)" instead of
-  /// silently dropping it (task 4.1) - a reference id present on the volume but missing from the
-  /// live (non-deleted) name map is, by construction, a deleted record (the map is built from
-  /// the same filtered `List*` calls that exclude deleted records - see design.md). Detail-page-
+  /// Resolves any publisher/studio/license reference on a volume that's soft-deleted since the
+  /// volume linked it, so its detail/edit page can label it "(deleted)" instead of silently
+  /// dropping it (task 4.1) - a reference id present on the volume but missing from the live
+  /// (non-deleted) name map is, by construction, a deleted record (the map is built from the
+  /// same filtered `List*` calls that exclude deleted records - see design.md). Detail-page-
   /// only: called once per single-volume view, not from `fetchVolumes()`'s browse-wide fetch,
   /// since the extra per-deleted-reference round trip is fine for one volume, not every volume
   /// in a listing.
+  ///
+  /// Systems are not resolved here: a volume's `systemRefs`/`systemNames` come from its
+  /// denormalized `systemTitles`, which keeps a deleted system's last-known title.
   func resolveDeletedReferences(_ volume: VolumeViewModel) async -> VolumeViewModel {
     async let publisherMap = fetchNameMap(path: "/publishers")
     async let studioMap = fetchNameMap(path: "/studios")
     async let licenseMap = fetchNameMap(path: "/licenses")
-    async let systemMap = fetchNameMap(path: "/systems")
 
     var volume = volume
     volume.publisherRefs = await resolveRefs(
@@ -727,10 +731,6 @@ struct CatalogAPIClientService {
       ids: volume.studioIds, liveMap: (try? await studioMap) ?? [:], path: "/studios")
     volume.licenseRefs = await resolveRefs(
       ids: volume.licenseIds, liveMap: (try? await licenseMap) ?? [:], path: "/licenses")
-    volume.systemRefs = await resolveRefs(
-      ids: volume.systemIds, liveMap: (try? await systemMap) ?? [:], path: "/systems")
-    volume.systemNames = await resolveNames(
-      ids: volume.systemIds, liveMap: (try? await systemMap) ?? [:], path: "/systems")
     return volume
   }
 
@@ -743,20 +743,6 @@ struct CatalogAPIClientService {
         result.append(EntityRef(id: id, name: name))
       } else if let name = await fetchNamedById(path: path, id: id) {
         result.append(EntityRef(id: id, name: name, isDeleted: true))
-      }
-    }
-    return result
-  }
-
-  private func resolveNames(ids: [String], liveMap: [String: String], path: String) async
-    -> [String]
-  {
-    var result: [String] = []
-    for id in ids {
-      if let name = liveMap[id] {
-        result.append(name)
-      } else if let name = await fetchNamedById(path: path, id: id) {
-        result.append("\(name) (deleted)")
       }
     }
     return result
