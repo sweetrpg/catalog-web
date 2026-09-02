@@ -1,4 +1,11 @@
 
+## 0.47.0 - 2026-09-02
+
+### Added
+- Render system names from denormalized systemTitles
+
+
+
 ## 0.46.0 - 2026-09-02
 
 ### Added
