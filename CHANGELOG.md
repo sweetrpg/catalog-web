@@ -1,4 +1,11 @@
 
+## 0.47.2 - 2026-09-04
+
+### Fixed
+- Human-friendly labels for DTRPG-imported property keys
+
+
+
 ## 0.47.1 - 2026-09-04
 
 ### Fixed
