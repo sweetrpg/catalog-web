@@ -1,4 +1,11 @@
 
+## 0.47.1 - 2026-09-04
+
+### Fixed
+- Hide entity-create popups until opened
+
+
+
 ## 0.47.0 - 2026-09-02
 
 ### Added
