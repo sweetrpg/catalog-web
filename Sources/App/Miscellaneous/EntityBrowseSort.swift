@@ -45,8 +45,10 @@ func volumeCountLabel(_ count: Int, req: Request) async throws -> String {
 /// see `normalizePropertyKey`). Prefers a `catalog.property.<key>` localization if one exists;
 /// Lingo has no "does this key exist" check of its own, so a miss is detected the way Lingo's
 /// own `localize` documents it: on a missing key it returns the key string unchanged. Falls back
-/// to humanizing the raw key (dashes back to spaces, each word capitalized) for anything not
-/// worth a dedicated translation.
+/// to humanizing the raw key (dashes AND underscores back to spaces, each word capitalized) for
+/// anything not worth a dedicated translation - some imported data (DTRPG) stores
+/// underscore-separated keys rather than the dash convention `normalizePropertyKey` produces for
+/// user-entered ones, so both separators are split here even though only dashes are canonical.
 func propertyDisplayLabel(_ key: String, req: Request) throws -> String {
   let lingo = try req.application.lingoVapor.lingo()
   let localizationKey = "catalog.property.\(key)"
@@ -54,7 +56,7 @@ func propertyDisplayLabel(_ key: String, req: Request) throws -> String {
   if localized != localizationKey {
     return localized
   }
-  return key.split(separator: "-")
+  return key.split(whereSeparator: { $0 == "-" || $0 == "_" })
     .map { $0.isEmpty ? "" : $0.prefix(1).uppercased() + $0.dropFirst() }
     .joined(separator: " ")
 }
