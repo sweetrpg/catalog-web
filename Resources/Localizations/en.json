@@ -6,6 +6,8 @@
   "catalog.property.format": "Format",
   "catalog.property.isbn": "ISBN",
   "catalog.property.isbn-13": "ISBN-13",
+  "catalog.property.dtrpg_product_id": "DTRPG Product ID",
+  "catalog.property.dtrpg_isbn": "ISBN",
 
   "common.browse": "Browse",
   "common.new": "New",
