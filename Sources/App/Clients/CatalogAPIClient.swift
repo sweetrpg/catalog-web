@@ -42,7 +42,11 @@ struct CatalogAPIClientService {
     return all
   }
 
-  func fetchVolumes() async throws -> [VolumeViewModel] {
+  /// `query`/`tag`/`page` are the shape for a future server-side filter/paginate; today the
+  /// body still returns the full collection (see `browse()` client-side filter/paginate).
+  func fetchVolumes(
+    query: String? = nil, tag: String? = nil, page: Int? = nil
+  ) async throws -> [VolumeViewModel] {
     try await withSpan("sdk-fetch-volumes") { _ in
       async let volumesResources = getCached("catalog:volumes") {
         try await self.fetchAllPages(path: "/volumes")

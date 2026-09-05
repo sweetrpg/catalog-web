@@ -160,7 +160,8 @@ func buildReview<T: EntityVersionAttributes>(
       let selected = pending.first { $0.version == selectedVersion } ?? pending[0]
       return LeafEntityVersionReview(
         recordID: recordID, currentValues: currentValues, pending: pending, selected: selected,
-        fieldSpecs: fieldSpecs, versionFieldValues: versionFieldValues)
+        fieldSpecs: fieldSpecs, versionFieldValues: versionFieldValues,
+        locale: I18n.numberLocale(for: req))
     } catch {
       req.logger.warning(
         "failed to fetch pending versions for \(path)/\(recordID): \(error)")

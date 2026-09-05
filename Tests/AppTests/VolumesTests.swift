@@ -358,7 +358,8 @@ struct VolumesTests {
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
     let version = makeVersion()
     let review = LeafVersionReview(
-      volumeID: "1", currentVolume: volume, pending: [version], selected: version)
+      volumeID: "1", currentVolume: volume, pending: [version], selected: version,
+      locale: Locale(identifier: "en"))
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in
@@ -392,7 +393,8 @@ struct VolumesTests {
     let first = makeVersion(version: 1, submittedBy: "auth0|alice")
     let second = makeVersion(version: 2, submittedBy: "auth0|bob")
     let review = LeafVersionReview(
-      volumeID: "1", currentVolume: volume, pending: [first, second], selected: first)
+      volumeID: "1", currentVolume: volume, pending: [first, second], selected: first,
+      locale: Locale(identifier: "en"))
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in

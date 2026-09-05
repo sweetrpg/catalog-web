@@ -18,27 +18,29 @@ struct CatalogController: RouteCollection {
     try await withSpan("home") { _ in
       let tagCloud = try await req.catalogAPI.fetchVolumeTags(limit: 14)
       let stats = try await req.catalogAPI.fetchCatalogStats()
+      let numberLocale = I18n.numberLocale(for: req)
 
       let statCards = [
         LeafTypeStatsCard(
           label: "Volumes", detailPathPrefix: "/volumes", browsePath: "/browse",
-          stats: stats.volumes),
+          stats: stats.volumes, locale: numberLocale),
         LeafTypeStatsCard(
           label: "Publishers", detailPathPrefix: "/publishers", browsePath: "/publishers",
-          stats: stats.publishers),
+          stats: stats.publishers, locale: numberLocale),
         LeafTypeStatsCard(
           label: "Studios", detailPathPrefix: "/studios", browsePath: "/studios",
-          stats: stats.studios),
+          stats: stats.studios, locale: numberLocale),
         LeafTypeStatsCard(
           label: "Persons", detailPathPrefix: "/persons", browsePath: "/persons",
-          stats: stats.persons),
+          stats: stats.persons, locale: numberLocale),
         LeafTypeStatsCard(
           label: "Licenses", detailPathPrefix: "/licenses", browsePath: "/licenses",
-          stats: stats.licenses),
+          stats: stats.licenses, locale: numberLocale),
         // No /systems/:id page or /systems browse page exists in catalog-web today - nil
         // renders both as plain text instead of a dead link.
         LeafTypeStatsCard(
-          label: "Systems", detailPathPrefix: nil, browsePath: nil, stats: stats.systems),
+          label: "Systems", detailPathPrefix: nil, browsePath: nil, stats: stats.systems,
+          locale: numberLocale),
       ]
 
       return try await req.view.render(
@@ -61,8 +63,9 @@ struct CatalogController: RouteCollection {
         let page: Int?
       }
       let query = try req.query.decode(Query.self)
-      let volumes = try await req.catalogAPI.fetchVolumes()
-      let tagCloud = Array(Set(volumes.flatMap(\.tags))).sorted().prefix(14)
+      let tagCloud = try await req.catalogAPI.fetchVolumeTags(limit: 14)
+      let volumes = try await req.catalogAPI.fetchVolumes(
+        query: query.q, tag: query.tag, page: query.page)
 
       let filtered = volumes.filter { volume in
         if let tag = query.tag, !tag.isEmpty, !volume.tags.contains(tag) { return false }
