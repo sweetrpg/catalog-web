@@ -67,6 +67,19 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// Distinct volume tags for the landing page's tag cloud, sorted and capped at `limit` - stubbed
+  /// empty pending a dedicated catalog-api endpoint (catalog-api has no cheap way to get this
+  /// today; deriving it client-side means walking every volume, which is exactly the
+  /// full-collection-fetch cost the landing page fix removes). `limit` (and the sort) is a
+  /// parameter here, not applied after the fact by the caller, because the eventual real
+  /// implementation must do both at the query level (e.g. a `$sortByCount`/limit aggregation
+  /// pipeline) - sorting/limiting client-side after fetching everything would silently
+  /// reintroduce the same full-collection cost this fix removes. Replace the body once that
+  /// endpoint exists; the call site (`home()`) already passes the limit it wants.
+  func fetchVolumeTags(limit: Int) async throws -> [String] {
+    []
+  }
+
   /// Decorates a raw volume resource with resolved entity names/ids - shared between
   /// `fetchVolumes()`'s browse-wide fetch and `fetchVolume(id:)`'s single-record fetch.
   /// Takes the resource's parts rather than the resource itself because the list and
