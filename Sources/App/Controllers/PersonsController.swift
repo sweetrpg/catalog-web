@@ -70,6 +70,7 @@ struct PersonsController: RouteCollection {
         sorted, page: query.page ?? 1, basePath: req.basePath, path: "/persons",
         query: ["q": query.q ?? "", "order": query.order ?? ""])
       let roles = (await req.currentUser)?.roles ?? []
+      let numberLocale = I18n.numberLocale(for: req)
 
       var bulkFailures: [LeafBulkAddFailure] = []
       if let errorsJSON = query.bulkErrors, let data = errorsJSON.data(using: .utf8) {
@@ -80,7 +81,12 @@ struct PersonsController: RouteCollection {
         "persons/browse",
         PersonsBrowseContext(
           query: query.q ?? "",
-          items: page.map { LeafPersonCard($0, contributionCount: contributionCounts[$0.id] ?? 0) },
+          items: page.map {
+            LeafPersonCard(
+              $0,
+              contributionCount: contributionCounts[$0.id] ?? 0,
+              locale: numberLocale)
+          },
           noResults: filtered.isEmpty,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
@@ -92,7 +98,8 @@ struct PersonsController: RouteCollection {
           bulkFailures: bulkFailures,
           pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
-          meta: await PageMeta.make(req)
+          meta: await PageMeta.make(req),
+          locale: numberLocale
         ))
     }
   }

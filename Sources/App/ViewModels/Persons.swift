@@ -9,11 +9,13 @@ struct LeafPersonCard: Content {
   /// Distinct credited-volume count for the browse card badge; 0 renders no badge at all
   /// (catalog-entity-browse), so callers without counts data can omit it.
   let contributionCount: Int
+  let contributionCountLabel: String
 
-  init(_ person: PersonViewModel, contributionCount: Int = 0) {
+  init(_ person: PersonViewModel, contributionCount: Int = 0, locale: Locale) {
     self.id = person.id
     self.name = person.name
     self.contributionCount = contributionCount
+    self.contributionCountLabel = formatCount(contributionCount, locale: locale)
   }
 }
 
@@ -47,11 +49,48 @@ struct PersonsBrowseContext: Content {
   /// entry's name/reason, so the editor sees exactly which lines didn't take (task 3.4).
   let hasBulkResult: Bool
   let bulkCreatedCount: Int
+  let bulkCreatedCountLabel: String
   let bulkFailedCount: Int
+  let bulkFailedCountLabel: String
   let bulkFailures: [LeafBulkAddFailure]
   let pagination: LeafPagination
   let user: LeafUser?
   let meta: PageMeta
+
+  init(
+    query: String,
+    items: [LeafPersonCard],
+    noResults: Bool,
+    orderIsAsc: Bool,
+    orderIsDesc: Bool,
+    canEdit: Bool,
+    canBulkAdd: Bool,
+    hasBulkResult: Bool,
+    bulkCreatedCount: Int,
+    bulkFailedCount: Int,
+    bulkFailures: [LeafBulkAddFailure],
+    pagination: LeafPagination,
+    user: LeafUser?,
+    meta: PageMeta,
+    locale: Locale
+  ) {
+    self.query = query
+    self.items = items
+    self.noResults = noResults
+    self.orderIsAsc = orderIsAsc
+    self.orderIsDesc = orderIsDesc
+    self.canEdit = canEdit
+    self.canBulkAdd = canBulkAdd
+    self.hasBulkResult = hasBulkResult
+    self.bulkCreatedCount = bulkCreatedCount
+    self.bulkCreatedCountLabel = formatCount(bulkCreatedCount, locale: locale)
+    self.bulkFailedCount = bulkFailedCount
+    self.bulkFailedCountLabel = formatCount(bulkFailedCount, locale: locale)
+    self.bulkFailures = bulkFailures
+    self.pagination = pagination
+    self.user = user
+    self.meta = meta
+  }
 }
 
 struct LeafPersonContribution: Content {

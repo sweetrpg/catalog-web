@@ -29,6 +29,7 @@ struct HomeContext: Content {
 struct LeafTypeStatsCard: Content {
   let label: String
   let count: Int
+  let countLabel: String
   let hasDetailLink: Bool
   let detailPathPrefix: String
   let hasMostRecent: Bool
@@ -41,9 +42,12 @@ struct LeafTypeStatsCard: Content {
   let hasBrowseLink: Bool
   let browsePath: String
 
-  init(label: String, detailPathPrefix: String?, browsePath: String?, stats: TypeStats) {
+  init(
+    label: String, detailPathPrefix: String?, browsePath: String?, stats: TypeStats, locale: Locale
+  ) {
     self.label = label
     self.count = stats.count
+    self.countLabel = formatCount(stats.count, locale: locale)
     self.hasDetailLink = detailPathPrefix != nil
     self.detailPathPrefix = detailPathPrefix ?? ""
     self.hasMostRecent = stats.mostRecent != nil
@@ -60,6 +64,17 @@ func formatDateShort(_ date: Date) -> String {
   formatter.dateStyle = .medium
   formatter.timeStyle = .none
   return formatter.string(from: date)
+}
+
+/// Locale-appropriate grouping separator for user-facing counts (e.g. "1,234" for en, "1.234"
+/// for de) - view models resolve the locale once per request via `I18n.numberLocale(for:)` and
+/// pass it in. See openspec/changes/format-number-counts. A fresh formatter per call is fine at
+/// these call volumes and avoids sharing the non-thread-safe NumberFormatter across requests.
+func formatCount(_ count: Int, locale: Locale) -> String {
+  let formatter = NumberFormatter()
+  formatter.numberStyle = .decimal
+  formatter.locale = locale
+  return formatter.string(from: NSNumber(value: count)) ?? String(count)
 }
 
 struct BrowseContext: Content {
@@ -346,6 +361,7 @@ struct EntityDetailContext: Content {
 struct LeafEntityVersionReview: Content {
   let recordID: String
   let pendingCount: Int
+  let pendingCountLabel: String
   let hasMultiplePending: Bool
   let options: [LeafEntityVersionOption]
   let selectedVersion: Int
@@ -355,10 +371,11 @@ struct LeafEntityVersionReview: Content {
 
   init<T: EntityVersionAttributes>(
     recordID: String, currentValues: [String: String], pending: [T], selected: T,
-    fieldSpecs: [EntityFieldSpec], versionFieldValues: (T) -> [String: String]
+    fieldSpecs: [EntityFieldSpec], versionFieldValues: (T) -> [String: String], locale: Locale
   ) {
     self.recordID = recordID
     self.pendingCount = pending.count
+    self.pendingCountLabel = formatCount(pending.count, locale: locale)
     self.hasMultiplePending = pending.count > 1
     self.options = pending.map { version in
       LeafEntityVersionOption(

@@ -41,7 +41,7 @@
 		#if(hasBulkResult):
 			#if(bulkFailedCount > 0):
 				<div class="banner banner-warning" role="status">
-					<p>#(meta.l10n.persons.added_prefix)#(bulkCreatedCount)#(meta.l10n.persons.added_suffix) #(bulkFailedCount)#(meta.l10n.persons.failed_suffix)</p>
+					<p>#(meta.l10n.persons.added_prefix)#(bulkCreatedCountLabel)#(meta.l10n.persons.added_suffix) #(bulkFailedCountLabel)#(meta.l10n.persons.failed_suffix)</p>
 					<ul class="bulk-add-result-list">
 						#for(failure in bulkFailures):
 							<li class="bulk-add-result-item">
@@ -53,7 +53,7 @@
 				</div>
 			#else:
 				<div class="banner banner-info" role="status">
-					<p>#(meta.l10n.persons.added_prefix)#(bulkCreatedCount)#(meta.l10n.persons.added_suffix)</p>
+					<p>#(meta.l10n.persons.added_prefix)#(bulkCreatedCountLabel)#(meta.l10n.persons.added_suffix)</p>
 				</div>
 			#endif
 		#endif
@@ -68,7 +68,7 @@
 					<div class="card-body">
 						<div class="card-title">#(item.name)</div>
 						#if(item.contributionCount > 0):
-							<span class="card-meta">#(meta.l10n.persons.contribution_count_prefix)#(item.contributionCount)#(meta.l10n.persons.contribution_count_suffix)</span>
+							<span class="card-meta">#(meta.l10n.persons.contribution_count_prefix)#(item.contributionCountLabel)#(meta.l10n.persons.contribution_count_suffix)</span>
 						#endif
 					</div>
 				</a>

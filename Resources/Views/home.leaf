@@ -95,7 +95,7 @@
 							<a class="stat-card-browse-link" href="#(meta.basePath)#(card.browsePath)" aria-label="#(meta.l10n.home.browse_aria_prefix)#(card.label)"></a>
 						#endif
 						<div class="stat-card-label">#(card.label)</div>
-						<div class="stat-card-count">#(card.count)</div>
+						<div class="stat-card-count">#(card.countLabel)</div>
 						#if(card.hasMostRecent):
 							<div class="stat-card-recent">
 								#if(card.hasDetailLink):

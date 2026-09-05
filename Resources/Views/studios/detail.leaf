@@ -48,7 +48,7 @@
 
 			#if(review):
 				<div class="detail-block">
-					<span class="section-label">#(meta.l10n.common.pending_prefix)#(review.pendingCount)#(meta.l10n.common.pending_suffix)</span>
+					<span class="section-label">#(meta.l10n.common.pending_prefix)#(review.pendingCountLabel)#(meta.l10n.common.pending_suffix)</span>
 
 					#if(review.hasMultiplePending):
 						<form class="proposal-picker" method="get" action="#(meta.basePath)/studios/#(studio.id)">

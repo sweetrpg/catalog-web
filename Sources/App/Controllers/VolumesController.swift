@@ -80,7 +80,8 @@ struct VolumesController: RouteCollection {
             let selectedVersion = req.query[Int.self, at: "proposal"]
             let selected = pending.first { $0.version == selectedVersion } ?? pending[0]
             proposalReview = LeafVersionReview(
-              volumeID: volumeID, currentVolume: volume, pending: pending, selected: selected)
+              volumeID: volumeID, currentVolume: volume, pending: pending, selected: selected,
+              locale: I18n.numberLocale(for: req))
           }
         } catch {
           req.logger.warning(

@@ -33,18 +33,37 @@ enum I18n {
   }
 
   static func resolveLocale(for request: Request) -> String {
-    if let cookie = request.cookies["locale"]?.string, !cookie.isEmpty, tables[cookie] != nil {
-      return cookie
-    }
-    if let header = request.headers.first(name: .acceptLanguage) {
-      let tag = header.split(separator: ",").first.map(String.init) ?? ""
-      let stripped = tag.split(separator: ";").first.map(String.init) ?? ""
-      let base = stripped.split(separator: "-").first.map(String.init) ?? ""
-      if !base.isEmpty, tables[base] != nil {
-        return base
-      }
+    if let candidate = candidateLocaleCode(for: request), tables[candidate] != nil {
+      return candidate
     }
     return defaultLocale
+  }
+
+  /// Resolves the locale that governs number formatting (grouping separators) for a request -
+  /// same sources and order as `resolveLocale` (`locale` cookie override, then the
+  /// `Accept-Language` base subtag, then English), but without the on-disk-table gate: numbers
+  /// should follow the browser's declared language even before a translation table exists for
+  /// it. Only a well-formed 2/3-letter code is honored; anything else (an `*` q-value, a garbage
+  /// cookie value) falls back to English rather than handing `NumberFormatter` a junk identifier.
+  static func numberLocale(for request: Request) -> Locale {
+    if let candidate = candidateLocaleCode(for: request),
+      candidate.count == 2 || candidate.count == 3, candidate.allSatisfy(\.isLetter)
+    {
+      return Locale(identifier: candidate)
+    }
+    return Locale(identifier: defaultLocale)
+  }
+
+  /// First `locale`-cookie value, else the first `Accept-Language` tag's base subtag, else nil
+  /// (an absent header). No table-membership or well-formedness check here - each caller gates
+  /// on its own contract (`resolveLocale` on table presence, `numberLocale` on code shape).
+  private static func candidateLocaleCode(for request: Request) -> String? {
+    if let cookie = request.cookies["locale"]?.string, !cookie.isEmpty { return cookie }
+    guard let header = request.headers.first(name: .acceptLanguage) else { return nil }
+    let tag = header.split(separator: ",").first.map(String.init) ?? ""
+    let stripped = tag.split(separator: ";").first.map(String.init) ?? ""
+    let base = stripped.split(separator: "-").first.map(String.init) ?? ""
+    return base.isEmpty ? nil : base
   }
 
   /// Flat key -> string for this request, with English filling any gap in a non-English table.

@@ -39,6 +39,7 @@ struct LeafVersionOption: Content {
 struct LeafVersionReview: Content {
   let volumeID: String
   let pendingCount: Int
+  let pendingCountLabel: String
   let hasMultiplePending: Bool
   let options: [LeafVersionOption]
   let selectedVersion: Int
@@ -48,10 +49,11 @@ struct LeafVersionReview: Content {
 
   init(
     volumeID: String, currentVolume: VolumeViewModel, pending: [VolumeVersionAttributes],
-    selected: VolumeVersionAttributes
+    selected: VolumeVersionAttributes, locale: Locale
   ) {
     self.volumeID = volumeID
     self.pendingCount = pending.count
+    self.pendingCountLabel = formatCount(pending.count, locale: locale)
     self.hasMultiplePending = pending.count > 1
     self.options = pending.map { version in
       LeafVersionOption(
