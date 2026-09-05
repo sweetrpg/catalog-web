@@ -16,8 +16,7 @@ struct CatalogController: RouteCollection {
   @Sendable
   func home(req: Request) async throws -> View {
     try await withSpan("home") { _ in
-      let volumes = try await req.catalogAPI.fetchVolumes()
-      let tagCloud = Array(Set(volumes.flatMap(\.tags))).sorted().prefix(14)
+      let tagCloud = try await req.catalogAPI.fetchVolumeTags(limit: 14)
       let stats = try await req.catalogAPI.fetchCatalogStats()
 
       let statCards = [
