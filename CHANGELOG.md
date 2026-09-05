@@ -1,4 +1,12 @@
 
+## 0.47.3 - 2026-09-05
+
+### Fixed
+- Bump ExternalSecret refreshInterval to 12h to cut Akeyless auth pressure
+- Stop fetching every volume for the landing page tag cloud
+
+
+
 ## 0.47.2 - 2026-09-04
 
 ### Fixed
