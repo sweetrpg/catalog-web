@@ -64,7 +64,8 @@ struct MaintenanceModeTests {
       app.views.use(.leaf)
       app.backendConfig = BackendConfig(
         catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
-        gameRoomAPIURL: "unused", adminAPIURL: adminAPIURL)
+        gameRoomAPIURL: "unused", adminAPIURL: adminAPIURL,
+        volumeTagsLimit: 20)
       app.middleware.use(MaintenanceModeMiddleware())
       app.get("test-home") { req async throws -> View in
         try await req.view.render(

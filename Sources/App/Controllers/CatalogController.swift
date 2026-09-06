@@ -16,7 +16,8 @@ struct CatalogController: RouteCollection {
   @Sendable
   func home(req: Request) async throws -> View {
     try await withSpan("home") { _ in
-      let tagCloud = try await req.catalogAPI.fetchVolumeTags(limit: 14)
+      let tagCloud = try await req.catalogAPI.fetchVolumeTags(
+        limit: req.backendConfig.volumeTagsLimit)
       let stats = try await req.catalogAPI.fetchCatalogStats()
       let numberLocale = I18n.numberLocale(for: req)
 
@@ -63,7 +64,8 @@ struct CatalogController: RouteCollection {
         let page: Int?
       }
       let query = try req.query.decode(Query.self)
-      let tagCloud = try await req.catalogAPI.fetchVolumeTags(limit: 14)
+      let tagCloud = try await req.catalogAPI.fetchVolumeTags(
+        limit: req.backendConfig.volumeTagsLimit)
       let volumes = try await req.catalogAPI.fetchVolumes(
         query: query.q, tag: query.tag, page: query.page)
 
