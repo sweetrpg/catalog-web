@@ -41,7 +41,8 @@ struct ContributionCountTests {
     return try await withApp { app in
       app.backendConfig = BackendConfig(
         catalogAPIURL: "http://127.0.0.1:\(port)", gameSystemsAPIURL: "unused",
-        profilesAPIURL: "unused", gameRoomAPIURL: "unused", adminAPIURL: nil)
+        profilesAPIURL: "unused", gameRoomAPIURL: "unused", adminAPIURL: nil,
+        volumeTagsLimit: 20)
       return try await body(app)
     }
   }
