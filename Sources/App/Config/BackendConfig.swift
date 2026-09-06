@@ -13,6 +13,9 @@ struct BackendConfig {
   /// no in-cluster-DNS default - `nil` unless `ADMIN_API_URL` is explicitly set, so a deploy
   /// with the var unset makes zero calls to admin-api (see AdminClient.swift).
   let adminAPIURL: String?
+  /// How many tags the landing page/browse tag cloud asks for - catalog-api clamps its own
+  /// `limit` param (default 20, cap 100), but this default matches what the tag cloud wants.
+  let volumeTagsLimit: Int
 
   static func fromEnvironment() -> BackendConfig {
     BackendConfig(
@@ -27,7 +30,8 @@ struct BackendConfig {
         ?? "http://api-v1.sweetrpg-profiles.svc.cluster.local:8000",
       gameRoomAPIURL: Environment.get("GAME_ROOM_API_URL")
         ?? "http://api-v1.sweetrpg-game-room.svc.cluster.local:8000",
-      adminAPIURL: Environment.get("ADMIN_API_URL")
+      adminAPIURL: Environment.get("ADMIN_API_URL"),
+      volumeTagsLimit: Environment.get("VOLUME_TAGS_LIMIT").flatMap(Int.init) ?? 20
     )
   }
 }

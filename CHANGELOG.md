@@ -1,4 +1,16 @@
 
+## 0.48.0 - 2026-09-06
+
+### Added
+- Locale-aware grouping for user-facing counts
+- Wire tag cloud to catalog-api volume-tags endpoint
+
+
+### Fixed
+- Tag cloud via volume-tags endpoint and server-side filter params
+
+
+
 ## 0.47.3 - 2026-09-05
 
 ### Fixed

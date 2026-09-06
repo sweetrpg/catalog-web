@@ -562,6 +562,11 @@ struct VolumesTests {
         status: .ok, headers: ["content-type": "application/json"],
         body: .init(string: volumesJSON))
     }
+    fake.get("volumes", "tags") { _ in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: #"["fantasy"]"#))
+    }
     for path in ["systems", "publishers", "studios", "licenses"] {
       fake.on(.GET, PathComponent(stringLiteral: path)) { _ in
         Response(
@@ -600,7 +605,8 @@ struct VolumesTests {
         app.views.use(.leaf)
         app.backendConfig = BackendConfig(
           catalogAPIURL: "http://127.0.0.1:\(port)", gameSystemsAPIURL: "unused",
-          profilesAPIURL: "unused", gameRoomAPIURL: "unused", adminAPIURL: nil)
+          profilesAPIURL: "unused", gameRoomAPIURL: "unused", adminAPIURL: nil,
+          volumeTagsLimit: 20)
         try app.register(collection: CatalogController())
         try await app.testing().test(.GET, "browse") { res in
           #expect(res.status == .ok)
