@@ -214,21 +214,23 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// One volume's credits, fetched from catalog-api's volume-scoped
+  /// `GET /volumes/:id/contributions` (sweetrpg/catalog-api#300) rather than pulling the whole
+  /// `/contributions` collection and filtering here. Person display names still come from the
+  /// shared `/persons` name map - the scoped response carries person as a relationship id only.
   func fetchCredits(volumeID: String) async throws -> [(
     personId: String, role: String, person: String
   )] {
     try await withSpan("sdk-fetch-credits") { _ in
-      async let contributionsResources = getCached("catalog:contributions") {
-        try await self.fetchAllPages(path: "/contributions")
-          as [JSONAPIDocument<ContributionAttributes>.Resource]
+      async let contributionsResources = getCached("catalog:contributions:\(volumeID)") {
+        let doc: JSONAPIDocument<ContributionAttributes> = try await self.sdk.fetch(
+          path: "/volumes/\(volumeID)/contributions")
+        return doc.data
       }
       async let personNames = fetchPersonNameMap()
 
       let (resources, persons) = try await (contributionsResources, personNames)
       return resources.compactMap { resource -> (personId: String, role: String, person: String)? in
-        guard let volID = resource.relationships?["volume"]?.data?.ids.first,
-          volID == volumeID
-        else { return nil }
         guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
         let role = resource.attributes.role ?? "Contributor"
         return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
@@ -278,15 +280,18 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// One volume's reviews, from catalog-api's volume-scoped `GET /volumes/:id/reviews`
+  /// (sweetrpg/catalog-api#300) rather than fetching every review and filtering here.
   func fetchReviews(volumeID: String) async throws -> [(author: String, rating: Int, text: String)]
   {
     try await withSpan("sdk-fetch-reviews") { _ in
-      let doc = try await getCached("catalog:reviews") { try await sdk.fetchReviews() }
-      return doc.data.compactMap { resource in
-        guard let volID = resource.relationships?["volume"]?.data?.ids.first,
-          volID == volumeID
-        else { return nil }
-        return (
+      let doc: JSONAPIDocument<ReviewAttributes> = try await getCached(
+        "catalog:reviews:\(volumeID)"
+      ) {
+        try await self.sdk.fetch(path: "/volumes/\(volumeID)/reviews")
+      }
+      return doc.data.map { resource in
+        (
           author: resource.attributes.displayAuthor,
           rating: Int(resource.attributes.displayRating.rounded()),
           text: resource.attributes.displayText
