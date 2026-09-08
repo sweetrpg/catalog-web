@@ -32,6 +32,11 @@ struct LeafVolumeDetail: Content {
   let hasTags: Bool
   let systemNames: [String]
   let hasSystemNames: Bool
+  /// id+name pairs for the volume's referenced game systems, so the System section renders as
+  /// links to each system's `game-systems-web` detail page. `name` falls back to the id when
+  /// no denormalized title is stored (same rule as `systemNames`). Built entirely from
+  /// `volume.systemRefs`; rendering it triggers no `game-systems-api` call.
+  let systemRefs: [LeafEntityRef]
   let publisherNames: [String]
   let hasPublisherNames: Bool
   let publisherRefs: [LeafEntityRef]
@@ -63,6 +68,11 @@ struct LeafVolumeDetail: Content {
     self.hasTags = !volume.tags.isEmpty
     self.systemNames = volume.systemNames
     self.hasSystemNames = !volume.systemNames.isEmpty
+    self.systemRefs = volume.systemRefs.map { ref in
+      LeafEntityRef(
+        EntityRef(
+          id: ref.id, name: ref.name.isEmpty ? ref.id : ref.name, isDeleted: ref.isDeleted))
+    }
     self.publisherNames = volume.publisherNames
     self.hasPublisherNames = !volume.publisherNames.isEmpty
     self.publisherRefs = volume.publisherRefs.map(LeafEntityRef.init)
