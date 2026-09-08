@@ -874,6 +874,16 @@ struct CatalogAPIClientService {
   func invalidateEntityListCache(path: String) async {
     await cache.delete(Self.entityListCacheKeys[path] ?? [])
   }
+
+  /// Evicts the whole-`/contributions`-payload cache `fetchCredits`,
+  /// `fetchPersonContributionRoles`, and `fetchContributionCountsByPerson` share, plus the
+  /// persons-list keys that carry each person's credit-count badge. Called after a finalize that
+  /// applied credit changes - catalog-api mutates contribution documents immediately (no version
+  /// gating), so without this the volume's Credits section and the persons browse badges keep
+  /// serving the pre-edit list until the 60s TTL lapses.
+  func invalidateContributionsCache() async {
+    await cache.delete(["catalog:contributions"] + (Self.entityListCacheKeys["/persons"] ?? []))
+  }
 }
 
 extension Request {
