@@ -502,6 +502,10 @@ struct VolumesController: RouteCollection {
             "submitEdit: finalize applied",
             metadata: ["volumeID": "\(volumeID)", "userID": "\(user.sub)"])
           await req.catalogAPI.invalidateEntityListCache(path: "/volumes")
+          // Credits are contribution documents catalog-api applies right away on the editor
+          // path; its own /contributions cache bust (catalog-api#298) only helps once this
+          // app's cached copy is dropped too, or the Credits section re-renders stale.
+          await req.catalogAPI.invalidateContributionsCache()
           return req.redirect(to: basePath)
         case .proposed:
           req.logger.info(
