@@ -32,6 +32,9 @@ struct VolumeViewModel {
   var publisherRefs: [EntityRef] = []
   var studioRefs: [EntityRef] = []
   var licenseRefs: [EntityRef] = []
+  /// Whether this volume is currently soft-deleted, read from the same `GET /volumes/:id`
+  /// response `fetchVolume` already decodes (the `deleted_at` attribute) - not a second fetch.
+  var isDeleted: Bool = false
 
   var tagChips: [String] { Array(tags.prefix(3)) }
   /// Relative path (join with `meta.assetsURL`) to this volume's cover image on
