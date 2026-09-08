@@ -6,4 +6,5 @@ metadata:
   name: web-common
 
 data:
-  RATE_LIMIT: "20"
+  RATE_LIMIT: "200"
+  TAG_COUNT: "20"
