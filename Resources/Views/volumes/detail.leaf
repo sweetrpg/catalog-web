@@ -84,8 +84,8 @@
 					<div class="detail-block">
 						<span class="section-label">#(meta.l10n.volume.section_system)</span>
 						<div class="tag-cloud">
-							#for(name in volume.systemNames):
-								<span class="tag tag-neutral">#(name)</span>
+							#for(ref in volume.systemRefs):
+								<a class="tag tag-neutral" href="#(meta.gameSystemsWebURL)/#(ref.id)">#(ref.name)#if(ref.isDeleted): #(meta.l10n.common.deleted_tag)#endif</a>
 							#endfor
 						</div>
 					</div>

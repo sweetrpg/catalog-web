@@ -190,6 +190,7 @@ struct VolumesTests {
       tags: [], systemNames: ["Shadow of the Demon Lord"],
       publisherNames: ["Schwalb Entertainment"],
       studioNames: [], licenseNames: ["OGL"])
+    volume.systemRefs = [EntityRef(id: "sys-1", name: "Shadow of the Demon Lord")]
     volume.publisherRefs = [EntityRef(id: "pub-1", name: "Schwalb Entertainment")]
     volume.licenseRefs = [EntityRef(id: "lic-1", name: "OGL")]
     try await withApp { app in
@@ -211,6 +212,96 @@ struct VolumesTests {
         #expect(res.body.string.contains("OGL"))
         #expect(!res.body.string.contains(">Studio<"))
         #expect(!res.body.string.contains(#"title="Edit""#))
+      }
+    }
+  }
+
+  // MARK: - game-systems-web volume detail links
+
+  /// Serialized because two of these tests set the process-global `GAME_SYSTEMS_WEB_URL` env
+  /// var; no test outside this sub-suite reads it, so serializing here is enough to avoid a
+  /// race with the parallel test runner.
+  @Suite("game-systems-web volume detail links", .serialized)
+  struct GameSystemsWebLinks {
+    @Test("gameSystemsWebURL resolves GAME_SYSTEMS_WEB_URL, falls back to a local instance")
+    func gameSystemsWebURLResolvesEnvWithLocalFallback() async throws {
+      try await withApp { app in
+        app.get("gsw-cfg") { req in req.gameSystemsWebURL }
+        // Unset: local-instance fallback, so a link still resolves in solo local dev.
+        unsetenv("GAME_SYSTEMS_WEB_URL")
+        try await app.testing().test(.GET, "gsw-cfg") { res in
+          #expect(res.body.string == "http://localhost:8082")
+        }
+        // Set: the configured per-environment value wins (dev's is
+        // https://dev.sweetrpg.com/game-systems).
+        setenv("GAME_SYSTEMS_WEB_URL", "https://dev.sweetrpg.com/game-systems", 1)
+        defer { unsetenv("GAME_SYSTEMS_WEB_URL") }
+        try await app.testing().test(.GET, "gsw-cfg") { res in
+          #expect(res.body.string == "https://dev.sweetrpg.com/game-systems")
+        }
+      }
+    }
+
+    @Test("LeafVolumeDetail maps system refs and uses the id as name when no title is stored")
+    func leafVolumeDetailMapsSystemRefsWithIdFallback() async throws {
+      var volume = VolumeViewModel(
+        id: "1", title: "Rusthaven", description: "", notes: "",
+        tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+      volume.systemRefs = [
+        EntityRef(id: "sys-titled", name: "Shadow of the Demon Lord"),
+        EntityRef(id: "sys-untitled", name: ""),
+      ]
+      try await withApp { app in
+        app.get("gsw-vm") { req async throws -> String in
+          try LeafVolumeDetail(volume, req: req)
+            .systemRefs.map { "\($0.id)=\($0.name)" }.joined(separator: ",")
+        }
+        try await app.testing().test(.GET, "gsw-vm") { res in
+          #expect(res.status == .ok)
+          #expect(
+            res.body.string == "sys-titled=Shadow of the Demon Lord,sys-untitled=sys-untitled")
+        }
+      }
+    }
+
+    @Test("detail page renders System entries as game-systems-web links, id as fallback text")
+    func detailPageRendersSystemLinks() async throws {
+      // LeafVolumeDetail.init is synchronous and touches no API client, so building these
+      // links from the stored systemRefs cannot trigger a game-systems-api call on the render
+      // path.
+      setenv("GAME_SYSTEMS_WEB_URL", "https://systems.example/game-systems", 1)
+      defer { unsetenv("GAME_SYSTEMS_WEB_URL") }
+      var volume = VolumeViewModel(
+        id: "1", title: "Rusthaven", description: "", notes: "",
+        tags: [], systemNames: ["Shadow of the Demon Lord", "sys-untitled"],
+        publisherNames: [], studioNames: [], licenseNames: [])
+      volume.systemRefs = [
+        EntityRef(id: "sys-titled", name: "Shadow of the Demon Lord"),
+        EntityRef(id: "sys-untitled", name: ""),
+      ]
+      try await withApp { app in
+        app.views.use(.leaf)
+        app.get("test-detail") { req async throws -> View in
+          try await req.view.render(
+            "volumes/detail",
+            DetailContext(
+              volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+              isDeleted: false, justProposed: false, review: nil,
+              conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+        }
+        try await app.testing().test(.GET, "test-detail") { res in
+          #expect(res.status == .ok)
+          // Titled system: link text is the title; href = configured base URL + "/" + id.
+          #expect(
+            res.body.string.contains(
+              #"<a class="tag tag-neutral" href="https://systems.example/game-systems/sys-titled">Shadow of the Demon Lord</a>"#
+            ))
+          // Untitled system: link text falls back to the id, still a link.
+          #expect(
+            res.body.string.contains(
+              #"<a class="tag tag-neutral" href="https://systems.example/game-systems/sys-untitled">sys-untitled</a>"#
+            ))
+        }
       }
     }
   }

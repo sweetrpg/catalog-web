@@ -55,6 +55,11 @@ data:
   ASSETS_URL: https://sweetrpg.local/assets
   SHARED_URL: https://sweetrpg.local/shared
 
+  # Base URL for game-systems-web, used to build the volume detail page's System-section links
+  # to each referenced game system's detail page. Link-building only; no game-systems-api call
+  # on the volume render path. See AppPaths.swift's gameSystemsWebURL.
+  GAME_SYSTEMS_WEB_URL: https://sweetrpg.local/game-systems
+
   # ALLOWED_ORIGINS: unset - this app is server-rendered, so same-origin page loads and form
   # posts never trigger a CORS preflight. Only set this if catalog-web starts exposing an API
   # of its own that another origin calls directly.

@@ -31,4 +31,15 @@ extension Request {
   var assetsURL: String {
     Environment.get("ASSETS_URL") ?? "http://localhost:8081"
   }
+
+  /// Base URL (host + path prefix) for `game-systems-web`, used to build the volume detail
+  /// page's System-section links out to each referenced game system's detail page. Differs per
+  /// environment (e.g. https://dev.sweetrpg.com/game-systems in dev, where game-systems-web
+  /// serves under `/game-systems` on the shared host). Falls back to a locally-run
+  /// game-systems-web instance's own address so a developer running catalog-web alone still
+  /// gets a resolvable link rather than a dead one. Never a call to game-systems-api - the
+  /// link is built entirely from this base URL and the volume's stored system reference id.
+  var gameSystemsWebURL: String {
+    Environment.get("GAME_SYSTEMS_WEB_URL") ?? "http://localhost:8082"
+  }
 }
