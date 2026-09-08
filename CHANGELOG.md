@@ -1,4 +1,11 @@
 
+## 0.49.0 - 2026-09-08
+
+### Added
+- Link volume detail System entries to game-systems-web
+
+
+
 ## 0.48.0 - 2026-09-06
 
 ### Added
