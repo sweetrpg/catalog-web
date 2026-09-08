@@ -1,4 +1,11 @@
 
+## 0.49.1 - 2026-09-08
+
+### Fixed
+- Evict contributions cache after applied volume edit
+
+
+
 ## 0.49.0 - 2026-09-08
 
 ### Added
