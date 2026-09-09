@@ -155,17 +155,20 @@ struct CatalogAPIClientService {
         return nil
       }
       let doc = try response.content.decode(JSONAPISingleDocument<VolumeAttributes>.self)
+      let deletion = try? response.content.decode(JSONAPISingleDocument<DeletionAttributes>.self)
       req.logger.debug("fetchVolume: done", metadata: ["volumeID": "\(id)"])
       async let publisherNames = (try? await fetchNameMap(path: "/publishers")) ?? [:]
       async let studioNames = (try? await fetchNameMap(path: "/studios")) ?? [:]
       async let licenseNames = (try? await fetchNameMap(path: "/licenses")) ?? [:]
-      return decorateVolume(
+      var volume = decorateVolume(
         id: doc.data.id,
         attributes: doc.data.attributes,
         relationships: doc.data.relationships,
         publisherNames: await publisherNames,
         studioNames: await studioNames,
         licenseNames: await licenseNames)
+      volume.isDeleted = deletion?.data.attributes.deletedAt != nil
+      return volume
     }
   }
 
@@ -211,21 +214,23 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// One volume's credits, fetched from catalog-api's volume-scoped
+  /// `GET /volumes/:id/contributions` (sweetrpg/catalog-api#300) rather than pulling the whole
+  /// `/contributions` collection and filtering here. Person display names still come from the
+  /// shared `/persons` name map - the scoped response carries person as a relationship id only.
   func fetchCredits(volumeID: String) async throws -> [(
     personId: String, role: String, person: String
   )] {
     try await withSpan("sdk-fetch-credits") { _ in
-      async let contributionsResources = getCached("catalog:contributions") {
-        try await self.fetchAllPages(path: "/contributions")
-          as [JSONAPIDocument<ContributionAttributes>.Resource]
+      async let contributionsResources = getCached("catalog:contributions:\(volumeID)") {
+        let doc: JSONAPIDocument<ContributionAttributes> = try await self.sdk.fetch(
+          path: "/volumes/\(volumeID)/contributions")
+        return doc.data
       }
       async let personNames = fetchPersonNameMap()
 
       let (resources, persons) = try await (contributionsResources, personNames)
       return resources.compactMap { resource -> (personId: String, role: String, person: String)? in
-        guard let volID = resource.relationships?["volume"]?.data?.ids.first,
-          volID == volumeID
-        else { return nil }
         guard let personID = resource.relationships?["person"]?.data?.ids.first else { return nil }
         let role = resource.attributes.role ?? "Contributor"
         return (personId: personID, role: role, person: persons[personID] ?? "Unknown")
@@ -275,15 +280,18 @@ struct CatalogAPIClientService {
     }
   }
 
+  /// One volume's reviews, from catalog-api's volume-scoped `GET /volumes/:id/reviews`
+  /// (sweetrpg/catalog-api#300) rather than fetching every review and filtering here.
   func fetchReviews(volumeID: String) async throws -> [(author: String, rating: Int, text: String)]
   {
     try await withSpan("sdk-fetch-reviews") { _ in
-      let doc = try await getCached("catalog:reviews") { try await sdk.fetchReviews() }
-      return doc.data.compactMap { resource in
-        guard let volID = resource.relationships?["volume"]?.data?.ids.first,
-          volID == volumeID
-        else { return nil }
-        return (
+      let doc: JSONAPIDocument<ReviewAttributes> = try await getCached(
+        "catalog:reviews:\(volumeID)"
+      ) {
+        try await self.sdk.fetch(path: "/volumes/\(volumeID)/reviews")
+      }
+      return doc.data.map { resource in
+        (
           author: resource.attributes.displayAuthor,
           rating: Int(resource.attributes.displayRating.rounded()),
           text: resource.attributes.displayText
@@ -734,27 +742,28 @@ struct CatalogAPIClientService {
   /// Systems are not resolved here: a volume's `systemRefs`/`systemNames` come from its
   /// denormalized `systemTitles`, which keeps a deleted system's last-known title.
   func resolveDeletedReferences(_ volume: VolumeViewModel) async -> VolumeViewModel {
-    async let publisherMap = fetchNameMap(path: "/publishers")
-    async let studioMap = fetchNameMap(path: "/studios")
-    async let licenseMap = fetchNameMap(path: "/licenses")
-
     var volume = volume
-    volume.publisherRefs = await resolveRefs(
-      ids: volume.publisherIds, liveMap: (try? await publisherMap) ?? [:], path: "/publishers")
-    volume.studioRefs = await resolveRefs(
-      ids: volume.studioIds, liveMap: (try? await studioMap) ?? [:], path: "/studios")
-    volume.licenseRefs = await resolveRefs(
-      ids: volume.licenseIds, liveMap: (try? await licenseMap) ?? [:], path: "/licenses")
+    volume.publisherRefs = await mergeDeletedRefs(
+      allIds: volume.publisherIds, liveRefs: volume.publisherRefs, path: "/publishers")
+    volume.studioRefs = await mergeDeletedRefs(
+      allIds: volume.studioIds, liveRefs: volume.studioRefs, path: "/studios")
+    volume.licenseRefs = await mergeDeletedRefs(
+      allIds: volume.licenseIds, liveRefs: volume.licenseRefs, path: "/licenses")
     return volume
   }
 
-  private func resolveRefs(ids: [String], liveMap: [String: String], path: String) async
+  /// Reuses the live-name refs `fetchVolume` already resolved (from the same cached name maps),
+  /// and only reaches out - per still-missing id, best-effort - for ids absent from that live
+  /// set, which are by construction soft-deleted records. Preserves the volume's own reference
+  /// order. No name-map fetch of its own: `fetchVolume` built `liveRefs` from those maps already.
+  private func mergeDeletedRefs(allIds: [String], liveRefs: [EntityRef], path: String) async
     -> [EntityRef]
   {
+    let liveByID = Dictionary(liveRefs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     var result: [EntityRef] = []
-    for id in ids {
-      if let name = liveMap[id] {
-        result.append(EntityRef(id: id, name: name))
+    for id in allIds {
+      if let live = liveByID[id] {
+        result.append(live)
       } else if let name = await fetchNamedById(path: path, id: id) {
         result.append(EntityRef(id: id, name: name, isDeleted: true))
       }

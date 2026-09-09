@@ -57,13 +57,18 @@ struct VolumesController: RouteCollection {
         req.logger.warning("volume-detail: volume not found", metadata: ["volumeID": "\(volumeID)"])
         throw Abort(.notFound)
       }
-      volume.credits = try await req.catalogAPI.fetchCredits(volumeID: volumeID)
-      volume.reviews = try await req.catalogAPI.fetchReviews(volumeID: volumeID)
-      volume = await req.catalogAPI.resolveDeletedReferences(volume)
+      async let creditsResult = req.catalogAPI.fetchCredits(volumeID: volumeID)
+      async let reviewsResult = req.catalogAPI.fetchReviews(volumeID: volumeID)
+      async let sessionUserResult = req.currentUser
+      async let pageMetaResult = PageMeta.make(req)
 
-      let sessionUser = await req.currentUser
+      volume = await req.catalogAPI.resolveDeletedReferences(volume)
+      volume.credits = try await creditsResult
+      volume.reviews = try await reviewsResult
+
+      let sessionUser = await sessionUserResult
       let roles = sessionUser?.roles ?? []
-      let isDeleted = await req.catalogAPI.fetchIsDeleted(path: "/volumes/\(volumeID)")
+      let isDeleted = volume.isDeleted
 
       var proposalReview: LeafVersionReview?
       if canReview(roles), let token = sessionUser?.accessToken {
@@ -104,7 +109,7 @@ struct VolumesController: RouteCollection {
           conflicts: conflicts,
           hasConflicts: !conflicts.isEmpty,
           user: sessionUser.map(LeafUser.init),
-          meta: await PageMeta.make(req)
+          meta: await pageMetaResult
         ))
     }
   }
