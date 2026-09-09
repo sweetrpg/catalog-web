@@ -706,4 +706,71 @@ struct VolumesTests {
       }
     }
   }
+
+  @Test("browse pushes q, tag, and page to catalog-api as filter/sort/page query params")
+  func browsePushesFilterParamsToCatalogAPI() async throws {
+    let port = 18772
+    let capturedQuery = CapturedQuery()
+
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = port
+    fake.get("volumes") { req in
+      await capturedQuery.set(req.url.query ?? "")
+      return Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: #"{"data":[],"meta":{"total":0}}"#))
+    }
+    fake.get("volumes", "tags") { _ in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: #"["fantasy"]"#))
+    }
+    for path in ["systems", "publishers", "studios", "licenses"] {
+      fake.on(.GET, PathComponent(stringLiteral: path)) { _ in
+        Response(
+          status: .ok, headers: ["content-type": "application/json"],
+          body: .init(string: #"{"data":[]}"#))
+      }
+    }
+    do {
+      try await fake.startup()
+    } catch {
+      try? await fake.asyncShutdown()
+      throw error
+    }
+
+    do {
+      try await withApp { app in
+        app.views.use(.leaf)
+        app.backendConfig = BackendConfig(
+          catalogAPIURL: "http://127.0.0.1:\(port)", gameSystemsAPIURL: "unused",
+          profilesAPIURL: "unused", gameRoomAPIURL: "unused", adminAPIURL: nil,
+          volumeTagsLimit: 20)
+        try app.register(collection: CatalogController())
+        try await app.testing().test(.GET, "browse?q=dragon&tag=fantasy&page=2") { res in
+          #expect(res.status == .ok)
+        }
+      }
+    } catch {
+      try? await fake.asyncShutdown()
+      throw error
+    }
+
+    let raw = await capturedQuery.value
+    let q = raw.removingPercentEncoding ?? raw
+    // tag is an $in membership match on the tags array, not $eq whole-array equality
+    #expect(q.contains("filter[tags.value][in]=fantasy"))
+    #expect(q.contains("filter[q]=dragon"))
+    #expect(q.contains("page[start]=30"))
+
+    try await fake.asyncShutdown()
+  }
+}
+
+/// Captures the query string a fake catalog-api endpoint received, for asserting what the client
+/// actually sent.
+private actor CapturedQuery {
+  private(set) var value = ""
+  func set(_ v: String) { value = v }
 }

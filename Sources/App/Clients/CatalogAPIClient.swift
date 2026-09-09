@@ -59,9 +59,12 @@ struct CatalogAPIClientService {
 
   /// Builds the `filter[...]`/`sort`/`page[...]` query string for a browse request and fetches
   /// exactly that one page. `q` is catalog-api's reserved multi-field substring key
-  /// (`filter[q]=`, ORed across the entity's search fields); `exactFilters` carries any
-  /// single-field exact match (volumes' tag). `sortField` is the entity's browse sort column;
-  /// `descending` prefixes it with `-` (catalog-data.go's `normalizeSort` reads that).
+  /// (`filter[q]=`, ORed across the entity's search fields); `anyOfFilters` carries any
+  /// single-field membership match, emitted as `filter[field][in]=value` so that on an array
+  /// field like `tags.value` it means "the array contains this value" (a bare `filter[field]=`
+  /// is `$eq`, which on an array field is whole-array equality - wrong for tag browse).
+  /// `sortField` is the entity's browse sort column; `descending` prefixes it with `-`
+  /// (catalog-data.go's `normalizeSort` reads that).
   ///
   /// Not response-cached: each call is now a bounded, indexed catalog-api query (the reason the
   /// old whole-collection `fetchX()` was cached - shielding catalog-api from a full scan per
@@ -69,7 +72,7 @@ struct CatalogAPIClientService {
   /// delete/restore that `invalidateListCache` can't enumerate. Add a short TTL here if
   /// catalog-api browse load ever needs it.
   private func fetchBrowsePage<Attrs: Codable & Sendable>(
-    path: String, q: String?, exactFilters: [String: String] = [:],
+    path: String, q: String?, anyOfFilters: [String: String] = [:],
     sortField: String?, descending: Bool, page: Int
   ) async throws -> Page<Attrs> {
     func enc(_ s: String) -> String {
@@ -77,8 +80,8 @@ struct CatalogAPIClientService {
     }
     var filterParts: [String] = []
     if let q, !q.isEmpty { filterParts.append("filter[q]=\(enc(q))") }
-    for (field, value) in exactFilters.sorted(by: { $0.key < $1.key }) where !value.isEmpty {
-      filterParts.append("filter[\(field)]=\(enc(value))")
+    for (field, value) in anyOfFilters.sorted(by: { $0.key < $1.key }) where !value.isEmpty {
+      filterParts.append("filter[\(field)][in]=\(enc(value))")
     }
     if let sortField, !sortField.isEmpty {
       filterParts.append("sort=\(descending ? "-" : "")\(sortField)")
@@ -143,7 +146,7 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-browse-volumes") { _ in
       async let pageFetch: Page<VolumeAttributes> = fetchBrowsePage(
         path: "/volumes", q: q,
-        exactFilters: ["tags.value": tag ?? ""], sortField: nil, descending: false, page: page)
+        anyOfFilters: ["tags.value": tag ?? ""], sortField: nil, descending: false, page: page)
       async let publishers = fetchNameMap(path: "/publishers")
       async let studios = fetchNameMap(path: "/studios")
       async let licenses = fetchNameMap(path: "/licenses")
