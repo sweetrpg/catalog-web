@@ -57,18 +57,17 @@ struct PersonsController: RouteCollection {
     try await withSpan("persons-browse") { _ in
       let query = try req.query.decode(BrowseQuery.self)
       let order = resolveBrowseSortOrder(query.order)
-      // Both reads share the app's cached payloads - persons from `catalog:persons`, counts
-      // grouped from the same `catalog:contributions` fetch the volume-detail credits use.
-      // Counts degrade to "no badge" rather than failing the whole browse page.
-      async let personsFetch = req.catalogAPI.fetchPersonsCatalog()
+      let requestedPage = query.page ?? 1
+      // The credit-count map still groups the whole cached `catalog:contributions` payload the
+      // volume-detail credits use; it degrades to "no badge" rather than failing the page.
+      async let personsFetch = req.catalogAPI.browsePersons(
+        q: query.q, descending: order == .desc, page: requestedPage)
       async let countsFetch = req.catalogAPI.fetchContributionCountsByPerson()
-      let persons = try await personsFetch
+      let result = try await personsFetch
       let contributionCounts = (try? await countsFetch) ?? [:]
-      let filtered = filterByName(persons, query: query.q) { $0.name }
-      let sorted = sortByName(filtered, order: order) { $0.name }
-      let (page, pagination) = paginate(
-        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/persons",
-        query: ["q": query.q ?? "", "order": query.order ?? ""])
+      let pagination = makePagination(
+        totalCount: result.totalCount, page: requestedPage, basePath: req.basePath,
+        path: "/persons", query: ["q": query.q ?? "", "order": query.order ?? ""])
       let roles = (await req.currentUser)?.roles ?? []
       let numberLocale = I18n.numberLocale(for: req)
 
@@ -81,13 +80,13 @@ struct PersonsController: RouteCollection {
         "persons/browse",
         PersonsBrowseContext(
           query: query.q ?? "",
-          items: page.map {
+          items: result.items.map {
             LeafPersonCard(
               $0,
               contributionCount: contributionCounts[$0.id] ?? 0,
               locale: numberLocale)
           },
-          noResults: filtered.isEmpty,
+          noResults: result.totalCount == 0,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
           canEdit: canEdit(roles),
@@ -273,14 +272,5 @@ struct PersonsController: RouteCollection {
       await req.catalogAPI.invalidateListCache(path: "/persons")
       return req.redirect(to: "\(req.basePath)/persons/\(id)")
     }
-  }
-
-  /// Case-insensitive substring match against `nameOf` a browse page's search query - the same
-  /// in-memory filtering the existing volume browse page uses (these collections are small
-  /// enough that no dedicated search endpoint is needed).
-  private func filterByName<T>(_ items: [T], query: String?, nameOf: (T) -> String) -> [T] {
-    guard let q = query, !q.isEmpty else { return items }
-    let needle = q.lowercased()
-    return items.filter { nameOf($0).lowercased().contains(needle) }
   }
 }
