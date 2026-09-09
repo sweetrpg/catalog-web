@@ -1,4 +1,11 @@
 
+## 0.49.3 - 2026-09-09
+
+### Performance
+- Push catalog browse filter/sort/page to catalog-api
+
+
+
 ## 0.49.2 - 2026-09-09
 
 ### Performance
