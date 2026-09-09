@@ -42,11 +42,72 @@ struct CatalogAPIClientService {
     return all
   }
 
-  /// `query`/`tag`/`page` are the shape for a future server-side filter/paginate; today the
-  /// body still returns the full collection (see `browse()` client-side filter/paginate).
-  func fetchVolumes(
-    query: String? = nil, tag: String? = nil, page: Int? = nil
-  ) async throws -> [VolumeViewModel] {
+  /// One page of a browse list plus the server's total match count (`meta.total`), so a caller
+  /// can build its pager without fetching the whole collection. `totalCount` falls back to the
+  /// returned page length only for an older catalog-api that omits `meta` - a single short page
+  /// then reads as the whole result, which is the pre-pushdown behavior anyway.
+  struct Page<Attrs: Codable & Sendable>: Sendable {
+    let resources: [JSONAPIDocument<Attrs>.Resource]
+    let totalCount: Int
+  }
+
+  /// A browse list decorated into view models, plus its server-side total match count.
+  struct BrowseResult<Item: Sendable>: Sendable {
+    let items: [Item]
+    let totalCount: Int
+  }
+
+  /// Builds the `filter[...]`/`sort`/`page[...]` query string for a browse request and fetches
+  /// exactly that one page. `q` is catalog-api's reserved multi-field substring key
+  /// (`filter[q]=`, ORed across the entity's search fields); `exactFilters` carries any
+  /// single-field exact match (volumes' tag). `sortField` is the entity's browse sort column;
+  /// `descending` prefixes it with `-` (catalog-data.go's `normalizeSort` reads that).
+  ///
+  /// Not response-cached: each call is now a bounded, indexed catalog-api query (the reason the
+  /// old whole-collection `fetchX()` was cached - shielding catalog-api from a full scan per
+  /// request - no longer applies), and a per-query cache would also go stale on a
+  /// delete/restore that `invalidateListCache` can't enumerate. Add a short TTL here if
+  /// catalog-api browse load ever needs it.
+  private func fetchBrowsePage<Attrs: Codable & Sendable>(
+    path: String, q: String?, exactFilters: [String: String] = [:],
+    sortField: String?, descending: Bool, page: Int
+  ) async throws -> Page<Attrs> {
+    func enc(_ s: String) -> String {
+      s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
+    }
+    var filterParts: [String] = []
+    if let q, !q.isEmpty { filterParts.append("filter[q]=\(enc(q))") }
+    for (field, value) in exactFilters.sorted(by: { $0.key < $1.key }) where !value.isEmpty {
+      filterParts.append("filter[\(field)]=\(enc(value))")
+    }
+    if let sortField, !sortField.isEmpty {
+      filterParts.append("sort=\(descending ? "-" : "")\(sortField)")
+    }
+
+    func fetch(pageNumber: Int) async throws -> Page<Attrs> {
+      let query =
+        (filterParts + [
+          "page[start]=\(pageStartOffset(pageNumber))", "page[limit]=\(browsePageSize)",
+        ]).joined(separator: "&")
+      let doc: JSONAPIDocument<Attrs> = try await sdk.fetch(path: "\(path)?\(query)")
+      return Page(resources: doc.data, totalCount: doc.meta?.total ?? doc.data.count)
+    }
+
+    let result = try await fetch(pageNumber: page)
+    // A stale bookmarked `?page=99` after the list shrank lands past the end - clamp to the
+    // real last page rather than showing an empty grid. Only when the page came back empty but
+    // there are matches, so the common in-range case stays one request.
+    let lastPage = max(1, Int((Double(result.totalCount) / Double(browsePageSize)).rounded(.up)))
+    if result.resources.isEmpty && page > lastPage && result.totalCount > 0 {
+      return try await fetch(pageNumber: lastPage)
+    }
+    return result
+  }
+
+  /// Every volume, decorated and title-sorted - the full list the edit-page pickers and the
+  /// per-entity "associated volumes" maps filter client-side. Browse pages do not use this;
+  /// they call `browseVolumes` so the filter/sort/page runs in catalog-api.
+  func fetchVolumes() async throws -> [VolumeViewModel] {
     try await withSpan("sdk-fetch-volumes") { _ in
       async let volumesResources = getCached("catalog:volumes") {
         try await self.fetchAllPages(path: "/volumes")
@@ -68,6 +129,97 @@ struct CatalogAPIClientService {
           studioNames: studioNames,
           licenseNames: licenseNames)
       }.sorted { $0.title < $1.title }
+    }
+  }
+
+  /// One page of the volumes browse list. `q` is a title/description/tag substring search,
+  /// `tag` an exact tag match - both applied by catalog-api (`filter[q]=` / `filter[tags.value]=`),
+  /// not here. Sort stays catalog-api's default (title asc); the volumes browse page has no
+  /// sort control. Relationship name maps are still fetched whole (id -> name lookups, not a
+  /// browse list) so a page's publisher/studio/license names resolve.
+  func browseVolumes(q: String?, tag: String?, page: Int) async throws -> BrowseResult<
+    VolumeViewModel
+  > {
+    try await withSpan("sdk-browse-volumes") { _ in
+      async let pageFetch: Page<VolumeAttributes> = fetchBrowsePage(
+        path: "/volumes", q: q,
+        exactFilters: ["tags.value": tag ?? ""], sortField: nil, descending: false, page: page)
+      async let publishers = fetchNameMap(path: "/publishers")
+      async let studios = fetchNameMap(path: "/studios")
+      async let licenses = fetchNameMap(path: "/licenses")
+
+      let (result, publisherNames, studioNames, licenseNames) =
+        try await (pageFetch, publishers, studios, licenses)
+
+      let items = result.resources.map { resource in
+        decorateVolume(
+          id: resource.id,
+          attributes: resource.attributes,
+          relationships: resource.relationships,
+          publisherNames: publisherNames,
+          studioNames: studioNames,
+          licenseNames: licenseNames)
+      }
+      return BrowseResult(items: items, totalCount: result.totalCount)
+    }
+  }
+
+  /// One page of the publishers browse list, filtered (`q` -> name substring), sorted, and
+  /// paged by catalog-api. Replaces `fetchPublishers()` + client-side filter/sort/slice for
+  /// the browse handler only.
+  func browsePublishers(q: String?, descending: Bool, page: Int) async throws -> BrowseResult<
+    PublisherViewModel
+  > {
+    try await withSpan("sdk-browse-publishers") { _ in
+      let result: Page<PublisherAttributes> = try await fetchBrowsePage(
+        path: "/publishers", q: q,
+        sortField: "name", descending: descending, page: page)
+      return BrowseResult(
+        items: result.resources.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) },
+        totalCount: result.totalCount)
+    }
+  }
+
+  /// One page of the studios browse list - see `browsePublishers`.
+  func browseStudios(q: String?, descending: Bool, page: Int) async throws -> BrowseResult<
+    StudioViewModel
+  > {
+    try await withSpan("sdk-browse-studios") { _ in
+      let result: Page<StudioAttributes> = try await fetchBrowsePage(
+        path: "/studios", q: q,
+        sortField: "name", descending: descending, page: page)
+      return BrowseResult(
+        items: result.resources.map { StudioViewModel(id: $0.id, attributes: $0.attributes) },
+        totalCount: result.totalCount)
+    }
+  }
+
+  /// One page of the persons browse list - see `browsePublishers`.
+  func browsePersons(q: String?, descending: Bool, page: Int) async throws -> BrowseResult<
+    PersonViewModel
+  > {
+    try await withSpan("sdk-browse-persons") { _ in
+      let result: Page<PersonAttributes> = try await fetchBrowsePage(
+        path: "/persons", q: q,
+        sortField: "name", descending: descending, page: page)
+      return BrowseResult(
+        items: result.resources.map { PersonViewModel(id: $0.id, attributes: $0.attributes) },
+        totalCount: result.totalCount)
+    }
+  }
+
+  /// One page of the licenses browse list - see `browsePublishers`. Search/sort field is
+  /// `title`, not `name`.
+  func browseLicenses(q: String?, descending: Bool, page: Int) async throws -> BrowseResult<
+    LicenseViewModel
+  > {
+    try await withSpan("sdk-browse-licenses") { _ in
+      let result: Page<LicenseAttributes> = try await fetchBrowsePage(
+        path: "/licenses", q: q,
+        sortField: "title", descending: descending, page: page)
+      return BrowseResult(
+        items: result.resources.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) },
+        totalCount: result.totalCount)
     }
   }
 
@@ -427,17 +579,6 @@ struct CatalogAPIClientService {
     }
   }
 
-  func fetchPublishers() async throws -> [PublisherViewModel] {
-    try await withSpan("sdk-fetch-publishers") { _ in
-      let resources = try await getCached("catalog:publishers") {
-        try await self.fetchAllPages(path: "/publishers")
-          as [JSONAPIDocument<PublisherAttributes>.Resource]
-      }
-      return resources.map { PublisherViewModel(id: $0.id, attributes: $0.attributes) }
-        .sorted { $0.name < $1.name }
-    }
-  }
-
   func fetchPublisher(id: String) async throws -> PublisherViewModel? {
     try await withSpan("sdk-fetch-publisher") { _ in
       let doc = try await sdk.fetchPublisher(id: id)
@@ -449,17 +590,6 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-fetch-publisher-volumes") { _ in
       let doc = try await sdk.fetchPublisherVolumes(id: id)
       return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
-    }
-  }
-
-  func fetchStudios() async throws -> [StudioViewModel] {
-    try await withSpan("sdk-fetch-studios") { _ in
-      let resources = try await getCached("catalog:studios") {
-        try await self.fetchAllPages(path: "/studios")
-          as [JSONAPIDocument<StudioAttributes>.Resource]
-      }
-      return resources.map { StudioViewModel(id: $0.id, attributes: $0.attributes) }
-        .sorted { $0.name < $1.name }
     }
   }
 
@@ -477,17 +607,6 @@ struct CatalogAPIClientService {
     }
   }
 
-  func fetchPersonsCatalog() async throws -> [PersonViewModel] {
-    try await withSpan("sdk-fetch-persons-catalog") { _ in
-      let resources = try await getCached("catalog:persons-list") {
-        try await self.fetchAllPages(path: "/persons")
-          as [JSONAPIDocument<PersonAttributes>.Resource]
-      }
-      return resources.map { PersonViewModel(id: $0.id, attributes: $0.attributes) }
-        .sorted { $0.name < $1.name }
-    }
-  }
-
   func fetchPerson(id: String) async throws -> PersonViewModel? {
     try await withSpan("sdk-fetch-person") { _ in
       let doc = try await sdk.fetchPerson(id: id)
@@ -499,17 +618,6 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-fetch-person-volumes") { _ in
       let doc = try await sdk.fetchPersonVolumes(id: id)
       return doc.data.map { VolumeSummary(id: $0.id, title: $0.attributes.title ?? "Untitled") }
-    }
-  }
-
-  func fetchLicenses() async throws -> [LicenseViewModel] {
-    try await withSpan("sdk-fetch-licenses") { _ in
-      let resources = try await getCached("catalog:licenses-list") {
-        try await self.fetchAllPages(path: "/licenses")
-          as [JSONAPIDocument<LicenseAttributes>.Resource]
-      }
-      return resources.map { LicenseViewModel(id: $0.id, attributes: $0.attributes) }
-        .sorted { $0.title < $1.title }
     }
   }
 

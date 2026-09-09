@@ -79,18 +79,18 @@ struct LicensesController: RouteCollection {
     try await withSpan("licenses-browse") { _ in
       let query = try req.query.decode(BrowseQuery.self)
       let order = resolveBrowseSortOrder(query.order)
-      let licenses = try await req.catalogAPI.fetchLicenses()
-      let filtered = filterByName(licenses, query: query.q) { $0.title }
-      let sorted = sortByName(filtered, order: order) { $0.title }
-      let (page, pagination) = paginate(
-        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/licenses",
-        query: ["q": query.q ?? "", "order": query.order ?? ""])
+      let requestedPage = query.page ?? 1
+      let result = try await req.catalogAPI.browseLicenses(
+        q: query.q, descending: order == .desc, page: requestedPage)
+      let pagination = makePagination(
+        totalCount: result.totalCount, page: requestedPage, basePath: req.basePath,
+        path: "/licenses", query: ["q": query.q ?? "", "order": query.order ?? ""])
 
       // A per-card volume-count fetch, only for the current page's items - pagination already
       // bounds this to at most browsePageSize requests instead of one per license in the whole
       // (possibly filtered) collection.
       var cards: [LeafLicenseCard] = []
-      for license in page {
+      for license in result.items {
         let volumeCount =
           (try? await req.catalogAPI.fetchLicenseVolumes(id: license.id))?.count ?? 0
         let label = try await volumeCountLabel(volumeCount, req: req)
@@ -102,7 +102,7 @@ struct LicensesController: RouteCollection {
         EntityBrowseContext(
           query: query.q ?? "",
           items: cards,
-          noResults: filtered.isEmpty,
+          noResults: result.totalCount == 0,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
           canEdit: canEdit((await req.currentUser)?.roles ?? []),
@@ -264,14 +264,5 @@ struct LicensesController: RouteCollection {
       await req.catalogAPI.invalidateListCache(path: "/licenses")
       return req.redirect(to: "\(req.basePath)/licenses/\(id)")
     }
-  }
-
-  /// Case-insensitive substring match against `nameOf` a browse page's search query - the same
-  /// in-memory filtering the existing volume browse page uses (these collections are small
-  /// enough that no dedicated search endpoint is needed).
-  private func filterByName<T>(_ items: [T], query: String?, nameOf: (T) -> String) -> [T] {
-    guard let q = query, !q.isEmpty else { return items }
-    let needle = q.lowercased()
-    return items.filter { nameOf($0).lowercased().contains(needle) }
   }
 }

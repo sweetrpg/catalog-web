@@ -64,22 +64,17 @@ struct CatalogController: RouteCollection {
         let page: Int?
       }
       let query = try req.query.decode(Query.self)
-      let tagCloud = try await req.catalogAPI.fetchVolumeTags(
+      let requestedPage = query.page ?? 1
+      async let tagCloudFetch = req.catalogAPI.fetchVolumeTags(
         limit: req.backendConfig.volumeTagsLimit)
-      let volumes = try await req.catalogAPI.fetchVolumes(
-        query: query.q, tag: query.tag, page: query.page)
+      async let volumesFetch = req.catalogAPI.browseVolumes(
+        q: query.q, tag: query.tag, page: requestedPage)
+      let tagCloud = try await tagCloudFetch
+      let result = try await volumesFetch
 
-      let filtered = volumes.filter { volume in
-        if let tag = query.tag, !tag.isEmpty, !volume.tags.contains(tag) { return false }
-        guard let q = query.q, !q.isEmpty else { return true }
-        let needle = q.lowercased()
-        return volume.title.lowercased().contains(needle)
-          || volume.description.lowercased().contains(needle)
-          || volume.tags.contains { $0.lowercased().contains(needle) }
-      }
-      let (page, pagination) = paginate(
-        filtered, page: query.page ?? 1, basePath: req.basePath, path: "/browse",
-        query: ["q": query.q ?? "", "tag": query.tag ?? ""])
+      let pagination = makePagination(
+        totalCount: result.totalCount, page: requestedPage, basePath: req.basePath,
+        path: "/browse", query: ["q": query.q ?? "", "tag": query.tag ?? ""])
 
       return try await req.view.render(
         "volumes/browse",
@@ -87,8 +82,8 @@ struct CatalogController: RouteCollection {
           query: query.q ?? "",
           noActiveTag: query.tag == nil || query.tag!.isEmpty,
           tagCloud: tagCloud.map { LeafTag(name: $0, isActive: $0 == query.tag) },
-          volumes: page.map(LeafVolumeCard.init),
-          noResults: filtered.isEmpty,
+          volumes: result.items.map(LeafVolumeCard.init),
+          noResults: result.totalCount == 0,
           pagination: pagination,
           user: (await req.currentUser).map(LeafUser.init),
           meta: await PageMeta.make(req)

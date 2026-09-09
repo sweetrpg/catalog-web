@@ -51,19 +51,19 @@ struct StudiosController: RouteCollection {
     try await withSpan("studios-browse") { _ in
       let query = try req.query.decode(BrowseQuery.self)
       let order = resolveBrowseSortOrder(query.order)
-      let studios = try await req.catalogAPI.fetchStudios()
-      let filtered = filterByName(studios, query: query.q) { $0.name }
-      let sorted = sortByName(filtered, order: order) { $0.name }
-      let (page, pagination) = paginate(
-        sorted, page: query.page ?? 1, basePath: req.basePath, path: "/studios",
-        query: ["q": query.q ?? "", "order": query.order ?? ""])
+      let requestedPage = query.page ?? 1
+      let result = try await req.catalogAPI.browseStudios(
+        q: query.q, descending: order == .desc, page: requestedPage)
+      let pagination = makePagination(
+        totalCount: result.totalCount, page: requestedPage, basePath: req.basePath,
+        path: "/studios", query: ["q": query.q ?? "", "order": query.order ?? ""])
 
       return try await req.view.render(
         "studios/browse",
         EntityBrowseContext(
           query: query.q ?? "",
-          items: page.map { LeafStudioCard($0) },
-          noResults: filtered.isEmpty,
+          items: result.items.map { LeafStudioCard($0) },
+          noResults: result.totalCount == 0,
           orderIsAsc: order == .asc,
           orderIsDesc: order == .desc,
           canEdit: canEdit((await req.currentUser)?.roles ?? []),
@@ -218,14 +218,5 @@ struct StudiosController: RouteCollection {
       await req.catalogAPI.invalidateListCache(path: "/studios")
       return req.redirect(to: "\(req.basePath)/studios/\(id)")
     }
-  }
-
-  /// Case-insensitive substring match against `nameOf` a browse page's search query - the same
-  /// in-memory filtering the existing volume browse page uses (these collections are small
-  /// enough that no dedicated search endpoint is needed).
-  private func filterByName<T>(_ items: [T], query: String?, nameOf: (T) -> String) -> [T] {
-    guard let q = query, !q.isEmpty else { return items }
-    let needle = q.lowercased()
-    return items.filter { nameOf($0).lowercased().contains(needle) }
   }
 }
