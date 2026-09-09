@@ -1,4 +1,12 @@
 
+## 0.49.2 - 2026-09-09
+
+### Performance
+- Parallelize volume detail fetches and drop duplicate calls
+- Fetch volume credits and reviews from scoped catalog-api routes
+
+
+
 ## 0.49.1 - 2026-09-08
 
 ### Fixed
