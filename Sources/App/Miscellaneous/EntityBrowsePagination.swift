@@ -24,18 +24,22 @@ struct LeafPagination: Content {
 /// enough that browsing a few hundred records doesn't take many clicks.
 let browsePageSize = 30
 
-/// Slices `items` (already filtered/sorted) to the requested page, clamping out-of-range page
-/// numbers rather than erroring - a stale bookmarked `?page=9` after the underlying list shrank
-/// should fall back to the last real page, not 404 or show nothing.
-func paginate<T>(
-  _ items: [T], page requestedPage: Int, basePath: String, path: String,
+/// The `page[start]` offset a 1-based browse page number maps to, for the catalog-api query.
+func pageStartOffset(_ requestedPage: Int) -> Int {
+  max(0, requestedPage - 1) * browsePageSize
+}
+
+/// Builds a browse page's pagination footer from a server-reported total match count rather than
+/// from a client-side slice - the page's items were already narrowed to one `page[limit]` window
+/// by catalog-api, so paging math runs off `totalCount` (its `meta.total`), not `items.count`.
+/// Out-of-range page numbers still clamp to the last real page rather than erroring - a stale
+/// bookmarked `?page=9` after the list shrank falls back to the last page, not 404.
+func makePagination(
+  totalCount: Int, page requestedPage: Int, basePath: String, path: String,
   query: [String: String]
-) -> (slice: [T], pagination: LeafPagination) {
-  let totalPages = max(1, Int((Double(items.count) / Double(browsePageSize)).rounded(.up)))
+) -> LeafPagination {
+  let totalPages = max(1, Int((Double(totalCount) / Double(browsePageSize)).rounded(.up)))
   let page = min(max(1, requestedPage), totalPages)
-  let start = (page - 1) * browsePageSize
-  let end = min(start + browsePageSize, items.count)
-  let slice = start < end ? Array(items[start..<end]) : []
 
   func url(for pageNumber: Int) -> String {
     var params = query.filter { !$0.value.isEmpty }
@@ -62,17 +66,14 @@ func paginate<T>(
     LeafPageLink(number: number, url: url(for: number), isCurrent: number == page)
   }
 
-  return (
-    slice,
-    LeafPagination(
-      currentPage: page,
-      totalPages: totalPages,
-      hasMultiplePages: totalPages > 1,
-      hasPrev: page > 1,
-      hasNext: page < totalPages,
-      prevURL: url(for: page - 1),
-      nextURL: url(for: page + 1),
-      pages: pages
-    )
+  return LeafPagination(
+    currentPage: page,
+    totalPages: totalPages,
+    hasMultiplePages: totalPages > 1,
+    hasPrev: page > 1,
+    hasNext: page < totalPages,
+    prevURL: url(for: page - 1),
+    nextURL: url(for: page + 1),
+    pages: pages
   )
 }
