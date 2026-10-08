@@ -32,6 +32,13 @@ extension Request {
     Environment.get("ASSETS_URL") ?? "http://localhost:8081"
   }
 
+  /// Same-origin path to the feedback-widget's submission endpoint, routed through the Ingress
+  /// (see sweetrpg/platform's add-anonymous-feedback-reporting change) - no CORS needed since
+  /// it never leaves this app's own origin. Override via env var for local development.
+  var feedbackApiURL: String {
+    Environment.get("FEEDBACK_API_URL") ?? "/api/0/catalog/feedback"
+  }
+
   /// Base URL (host + path prefix) for `game-systems-web`, used to build the volume detail
   /// page's System-section links out to each referenced game system's detail page. Differs per
   /// environment (e.g. https://dev.sweetrpg.com/game-systems in dev, where game-systems-web
