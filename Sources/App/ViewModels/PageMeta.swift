@@ -10,6 +10,7 @@ struct PageMeta: Content {
   let rootURL: String
   let sharedURL: String
   let assetsURL: String
+  let feedbackApiURL: String
   /// Base URL for `game-systems-web` (see AppPaths.swift's `gameSystemsWebURL`). Templates
   /// build System-section links as `#(meta.gameSystemsWebURL)/#(ref.id)`; it already carries
   /// the `/game-systems` path prefix, so nothing else is prepended.
@@ -52,6 +53,7 @@ struct PageMeta: Content {
       rootURL: req.rootURL,
       sharedURL: req.sharedURL,
       assetsURL: req.assetsURL,
+      feedbackApiURL: req.feedbackApiURL,
       gameSystemsWebURL: req.gameSystemsWebURL,
       buildVersion: req.buildInfo.version,
       buildDate: req.buildInfo.date,
