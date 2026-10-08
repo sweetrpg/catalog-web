@@ -53,6 +53,7 @@
 				#if(user.isAdmin):
 				<a class="avatar-menu-item" href="#(meta.adminURL)">#(meta.l10n.user.administration)</a>
 				#endif
+				<button type="button" id="feedback-trigger" class="avatar-menu-item">#(meta.l10n.user.feedback)</button>
 				<hr class="avatar-menu-divider">
 				<form action="#(meta.logoutURL)" method="post" class="avatar-menu-item-form">
 					<button type="submit" class="avatar-menu-item avatar-menu-item-danger">#(meta.l10n.user.log_out)</button>
