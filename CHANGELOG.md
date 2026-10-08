@@ -1,4 +1,11 @@
 
+## 0.50.0 - 2026-10-08
+
+### Added
+- Embed shared feedback widget in avatar menu
+
+
+
 ## 0.49.3 - 2026-09-09
 
 ### Performance
