@@ -39,7 +39,10 @@ data:
   CATALOG_API_URL: http://api-v1.sweetrpg-catalog.svc.cluster.local:8000
   # GAME_SYSTEMS_API_URL: http://api-v1.sweetrpg-game-systems.svc.cluster.local:8000
   # PROFILES_API_URL: http://api-v1.sweetrpg-profiles.svc.cluster.local:8000
-  # GAME_ROOM_API_URL: http://api-v1.sweetrpg-game-room.svc.cluster.local:8000
+  # wire-up-catalog-my-library: the volume detail page's Library tab calls game-room-api's
+  # library endpoints directly, so this needs a real value unlike the two still-stubbed URLs
+  # above.
+  GAME_ROOM_API_URL: http://api-v1.sweetrpg-game-room.svc.cluster.local:8000
   # Traefik strips /catalog before the request reaches this app (see middlewares.yaml), so the
   # app's own routes are unprefixed - but every link/form/redirect it generates needs to add
   # /catalog back so the *next* browser request round-trips through the ingress correctly. See

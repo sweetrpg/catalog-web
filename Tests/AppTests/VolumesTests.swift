@@ -56,7 +56,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -80,7 +81,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -107,7 +109,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -142,7 +145,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -173,7 +177,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -202,7 +207,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req))
         )
       }
       try await app.testing().test(.GET, "test-detail") { res in
@@ -287,7 +293,8 @@ struct VolumesTests {
             DetailContext(
               volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
               isDeleted: false, justProposed: false, review: nil,
-              conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+              conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+              user: nil, meta: await PageMeta.make(req)))
         }
         try await app.testing().test(.GET, "test-detail") { res in
           #expect(res.status == .ok)
@@ -382,7 +389,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -408,7 +416,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: true, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -431,7 +440,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -460,7 +470,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: review,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -495,7 +506,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: review,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -521,7 +533,9 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: ["title"], hasConflicts: true, user: nil, meta: await PageMeta.make(req)))
+            conflicts: ["title"], hasConflicts: true,
+            libraryStatus: LeafLibraryStatus(.unavailable), user: nil,
+            meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -545,7 +559,8 @@ struct VolumesTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
@@ -703,6 +718,135 @@ struct VolumesTests {
           #expect(res.status == .ok)
           #expect(res.body.string.contains("Rusthaven"))
         }
+      }
+    }
+  }
+
+  // MARK: - wire-up-catalog-my-library
+
+  private func makeSessionUser() -> SessionUser {
+    SessionUser(
+      sub: "auth0|tester", name: "Tester", email: nil, roles: [], accessToken: "tok",
+      expiry: Date().addingTimeInterval(3600))
+  }
+
+  @Test("detail page shows the remove action when the volume is in the signed-in visitor's library")
+  func detailShowsRemoveActionWhenPresentInLibrary() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "volumes/detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false, justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false,
+            libraryStatus: LeafLibraryStatus(.present), user: LeafUser(makeSessionUser()),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"id="library-action-btn" data-mode="remove""#))
+        #expect(!res.body.string.contains("Sign in and your library will appear here"))
+      }
+    }
+  }
+
+  @Test(
+    "detail page shows the add action when the volume is absent from the signed-in visitor's library"
+  )
+  func detailShowsAddActionWhenAbsentFromLibrary() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "volumes/detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false, justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false,
+            libraryStatus: LeafLibraryStatus(.absent), user: LeafUser(makeSessionUser()),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains(#"id="library-action-btn" data-mode="add""#))
+      }
+    }
+  }
+
+  @Test("detail page shows an unavailable message with no action when the membership fetch failed")
+  func detailShowsUnavailableLibraryStateOnFetchFailure() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "volumes/detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false, justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false,
+            libraryStatus: LeafLibraryStatus(.unavailable), user: LeafUser(makeSessionUser()),
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(!res.body.string.contains(#"id="library-action-btn""#))
+        #expect(res.body.string.contains("tell whether this is in your library"))
+      }
+    }
+  }
+
+  @Test("detail page keeps the anonymous sign-in placeholder regardless of library status")
+  func detailKeepsAnonymousPlaceholder() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "volumes/detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false, justProposed: false, review: nil,
+            conflicts: [], hasConflicts: false,
+            libraryStatus: LeafLibraryStatus(.present), user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Sign in and your library will appear here"))
+        #expect(!res.body.string.contains(#"id="library-action-btn""#))
+      }
+    }
+  }
+
+  @Test("POST /volumes/:id/library requires a signed-in session")
+  func addToLibraryRequiresSession() async throws {
+    try await withApp { app in
+      try app.register(collection: VolumesController())
+      try await app.testing().test(.POST, "volumes/1/library") { res in
+        #expect(res.status == .unauthorized)
+      }
+    }
+  }
+
+  @Test("DELETE /volumes/:id/library requires a signed-in session")
+  func removeFromLibraryRequiresSession() async throws {
+    try await withApp { app in
+      try app.register(collection: VolumesController())
+      try await app.testing().test(.DELETE, "volumes/1/library") { res in
+        #expect(res.status == .unauthorized)
       }
     }
   }
