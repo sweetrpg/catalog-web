@@ -113,8 +113,27 @@ struct DetailContext: Content {
   /// so the template branches on this instead of `conflicts` directly (same reason
   /// `LeafVolumeDetail` exposes `hasSystemNames` etc. alongside each array).
   let hasConflicts: Bool
+  /// Whether this volume is in the signed-in visitor's game-room-api library - absent (not an
+  /// error state) for an anonymous visitor, who never triggers the underlying fetch at all;
+  /// the template gates on `user` first and only reads this for a signed-in one.
+  let libraryStatus: LeafLibraryStatus
   let user: LeafUser?
   let meta: PageMeta
+}
+
+/// Leaf-friendly rendering of `LibraryMembership` - a trio of booleans rather than a string
+/// Leaf would need an equality tag to branch on, matching this app's `hasX`/`isDeleted`
+/// boolean-flag convention elsewhere.
+struct LeafLibraryStatus: Content {
+  let isPresent: Bool
+  let isAbsent: Bool
+  let isUnavailable: Bool
+
+  init(_ membership: LibraryMembership) {
+    isPresent = membership == .present
+    isAbsent = membership == .absent
+    isUnavailable = membership == .unavailable
+  }
 }
 
 struct VersionHistoryContext: Content {
