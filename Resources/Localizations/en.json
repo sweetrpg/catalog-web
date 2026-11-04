@@ -297,5 +297,9 @@
   "volume_edit.create_new_studio": "Create new studio...",
   "volume_edit.create_new_person": "Create new person...",
   "volume_edit.entity_notes_label": "Notes",
-  "volume_edit.entity_website_label": "Website"
+  "volume_edit.entity_website_label": "Website",
+
+  "footer.terms": "Terms of Service",
+  "footer.privacy": "Privacy Policy",
+  "footer.support": "Support"
 }

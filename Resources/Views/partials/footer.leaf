@@ -1,7 +1,5 @@
 <footer class="footer">
-	<div class="footer-links">
-		<span>&copy; 2026 Pilgrimage Software</span>
-		<a href="https://github.com/sweetrpg" target="_blank" rel="noopener">GitHub</a>
-	</div>
-	<span class="footer-build">#(meta.buildVersion) &middot; built #(meta.buildDate) / #(meta.buildHash)</span>
+	<span class="footer-line">&copy; #(meta.footer.year) Pilgrimage Software &middot; <a href="https://github.com/sweetrpg" target="_blank" rel="noopener">GitHub</a></span>
+	<span class="footer-line"><a href="#(meta.footer.termsURL)">#(meta.l10n.footer.terms)</a> &middot; <a href="#(meta.footer.privacyURL)">#(meta.l10n.footer.privacy)</a> &middot; <a href="#(meta.footer.supportURL)">#(meta.l10n.footer.support)</a></span>
+	<span class="footer-line footer-build">#(meta.footer.versionLabel) &middot; built #(meta.buildDate) / #(meta.buildHash)</span>
 </footer>
