@@ -36,6 +36,8 @@ struct VolumesController: RouteCollection {
       "volumes", ":volumeID", "versions", ":version", "restore", use: restoreVersion)
     routes.post("volumes", ":volumeID", "delete", use: deleteVolume)
     routes.post("volumes", ":volumeID", "undelete", use: restoreDeletedVolume)
+    routes.post("volumes", ":volumeID", "library", use: addToLibrary)
+    routes.delete("volumes", ":volumeID", "library", use: removeFromLibrary)
   }
 
   private struct BrowseQuery: Content {
@@ -67,6 +69,12 @@ struct VolumesController: RouteCollection {
       volume.reviews = try await reviewsResult
 
       let sessionUser = await sessionUserResult
+      // Depends on sessionUser (to know whether to call game-room-api at all, and with what
+      // token), so it can't start until sessionUserResult resolves - unlike credits/reviews,
+      // which have no such dependency. Fails open to `.unavailable` on any error, same pattern
+      // as the pending-proposal-review fetch below.
+      let libraryMembership = await resolveLibraryMembership(
+        req: req, volumeID: volumeID, sessionUser: sessionUser)
       let roles = sessionUser?.roles ?? []
       let isDeleted = volume.isDeleted
 
@@ -108,9 +116,84 @@ struct VolumesController: RouteCollection {
           review: proposalReview,
           conflicts: conflicts,
           hasConflicts: !conflicts.isEmpty,
+          libraryStatus: LeafLibraryStatus(libraryMembership),
           user: sessionUser.map(LeafUser.init),
           meta: await pageMetaResult
         ))
+    }
+  }
+
+  /// Checks whether `volumeID` is in `sessionUser`'s game-room-api library - `nil` (anonymous
+  /// visitor) short-circuits to `.unavailable` without any game-room-api call, since the
+  /// detail page's sign-in placeholder path doesn't use this value at all. Fails open to
+  /// `.unavailable` on any error, same pattern as `detail(req:)`'s pending-proposal-review
+  /// fetch - a game-room-api outage or version skew must not break the rest of the page.
+  private func resolveLibraryMembership(
+    req: Request, volumeID: String, sessionUser: SessionUser?
+  ) async -> LibraryMembership {
+    guard let user = sessionUser else { return .unavailable }
+    do {
+      let present = try await req.gameRoomAPI.isInLibrary(
+        userID: user.sub, volumeID: volumeID, token: user.accessToken)
+      return present ? .present : .absent
+    } catch {
+      req.logger.warning(
+        "failed to fetch library membership for volume \(volumeID): \(error)")
+      return .unavailable
+    }
+  }
+
+  /// Adds the current volume to the signed-in visitor's game-room-api library - a thin proxy
+  /// (never exposes game-room-api directly to the browser, matching every other authenticated
+  /// write in this app) forwarding to `GameRoomAPIClient.addLibraryEntry`.
+  @Sendable
+  func addToLibrary(req: Request) async throws -> Response {
+    try await withSpan("volume-add-to-library") { _ in
+      guard let volumeID = req.parameters.get("volumeID") else {
+        throw Abort(.badRequest)
+      }
+      guard let user = await req.currentUser else {
+        req.logger.warning("addToLibrary: no session", metadata: ["volumeID": "\(volumeID)"])
+        throw Abort(.unauthorized)
+      }
+      do {
+        try await req.gameRoomAPI.addLibraryEntry(
+          userID: user.sub, volumeID: volumeID, token: user.accessToken)
+      } catch {
+        req.logger.warning(
+          "addToLibrary: game-room-api failed for volume \(volumeID): \(error)")
+        throw Abort(.badGateway, reason: "Unable to update your library right now.")
+      }
+      req.logger.info(
+        "addToLibrary: added", metadata: ["volumeID": "\(volumeID)", "userID": "\(user.sub)"])
+      return Response(status: .noContent)
+    }
+  }
+
+  /// Removes the current volume from the signed-in visitor's game-room-api library - see
+  /// `addToLibrary`.
+  @Sendable
+  func removeFromLibrary(req: Request) async throws -> Response {
+    try await withSpan("volume-remove-from-library") { _ in
+      guard let volumeID = req.parameters.get("volumeID") else {
+        throw Abort(.badRequest)
+      }
+      guard let user = await req.currentUser else {
+        req.logger.warning("removeFromLibrary: no session", metadata: ["volumeID": "\(volumeID)"])
+        throw Abort(.unauthorized)
+      }
+      do {
+        try await req.gameRoomAPI.removeLibraryEntry(
+          userID: user.sub, volumeID: volumeID, token: user.accessToken)
+      } catch {
+        req.logger.warning(
+          "removeFromLibrary: game-room-api failed for volume \(volumeID): \(error)")
+        throw Abort(.badGateway, reason: "Unable to update your library right now.")
+      }
+      req.logger.info(
+        "removeFromLibrary: removed",
+        metadata: ["volumeID": "\(volumeID)", "userID": "\(user.sub)"])
+      return Response(status: .noContent)
     }
   }
 

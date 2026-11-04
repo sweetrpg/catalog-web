@@ -70,7 +70,8 @@ struct CreditGroupingTests {
             volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
             isDeleted: false,
             justProposed: false, review: nil,
-            conflicts: [], hasConflicts: false, user: nil, meta: await PageMeta.make(req)))
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
       }
       try await app.testing().test(.GET, "test-detail") { res in
         #expect(res.status == .ok)
