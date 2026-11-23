@@ -237,3 +237,91 @@ struct GameRoomAPIClientTests {
       })
   }
 }
+
+@Suite("canonicalUserID")
+struct CanonicalUserIDTests {
+  private let user = SessionUser(
+    sub: "auth0|abc", name: "T", email: nil, roles: [], accessToken: "tok",
+    expiry: Date().addingTimeInterval(3600))
+
+  private func resolve(port: Int, profile: @escaping @Sendable (Request) -> Response) async throws
+    -> String
+  {
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = port
+    fake.get("profile") { profile($0) }
+    try await fake.startup()
+    defer { Task { try? await fake.asyncShutdown() } }
+    let user = self.user
+    return try await withApp { app in
+      app.backendConfig = BackendConfig(
+        catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
+        gameRoomAPIURL: "unused", adminAPIURL: nil, volumeTagsLimit: 20,
+        usersAPIURL: "http://127.0.0.1:\(port)")
+      app.get("t") { req async -> String in await req.canonicalUserID(for: user) }
+      var out = ""
+      try await app.testing().test(.GET, "t") { out = $0.body.string }
+      return out
+    }
+  }
+
+  @Test("uses the profile's user_id and sends the caller's bearer token")
+  func resolvesProfileID() async throws {
+    let id = try await resolve(port: 18_811) { req in
+      guard req.headers.bearerAuthorization?.token == "tok" else {
+        return Response(status: .unauthorized)
+      }
+      return Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: #"{"user_id": "uuid-1", "name": "T"}"#))
+    }
+    #expect(id == "uuid-1")
+  }
+
+  @Test("falls back to the Auth0 subject on a non-200")
+  func fallsBackOnError() async throws {
+    let id = try await resolve(port: 18_812) { _ in Response(status: .notFound) }
+    #expect(id == "auth0|abc")
+  }
+
+  @Test("falls back to the Auth0 subject when user_id is missing")
+  func fallsBackOnMissingField() async throws {
+    let id = try await resolve(port: 18_813) { _ in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"], body: .init(string: "{}"))
+    }
+    #expect(id == "auth0|abc")
+  }
+}
+
+@Suite("Library summary")
+struct LibrarySummaryTests {
+  @Test("summary decodes wishlist, tables and loan, and maps them to links")
+  func decodesSummary() throws {
+    let json = #"""
+      {"library": {"present": true, "added_at": null}, "wishlist": {"id": "w1", "name": "Want"},
+       "tables": [{"id": "t1", "name": "Friday"}],
+       "loan": {"id": "l1", "borrower_user_id": null, "borrower_name": "Sam", "lent_at": "2025-01-01T00:00:00Z"}}
+      """#
+    let summary = try JSONDecoder().decode(
+      GameRoomAPIClient.VolumeSummary.self, from: Data(json.utf8))
+    let status = LeafLibraryStatus(.present, summary: summary)
+    #expect(status.wishlist?.name == "Want")
+    #expect(status.tables.map(\.path) == ["/game-room/tables/t1"])
+    #expect(status.hasLoan)
+    #expect(status.loanBorrower == "Sam")
+    #expect(!status.summaryUnavailable)
+  }
+
+  @Test("an empty summary shows nothing, an unavailable one says so")
+  func emptyVersusUnavailable() throws {
+    let json = #"{"library": {"present": false}, "wishlist": null, "tables": [], "loan": null}"#
+    let summary = try JSONDecoder().decode(
+      GameRoomAPIClient.VolumeSummary.self, from: Data(json.utf8))
+    let empty = LeafLibraryStatus(.absent, summary: summary)
+    #expect(!empty.hasWishlist && !empty.hasTables && !empty.hasLoan)
+    #expect(!empty.summaryUnavailable)
+    #expect(LeafLibraryStatus(.absent, summaryUnavailable: true).summaryUnavailable)
+  }
+}

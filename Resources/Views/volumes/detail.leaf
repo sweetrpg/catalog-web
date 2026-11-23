@@ -255,6 +255,23 @@
 					#else:
 						<p class="empty-state-inline" id="library-status-text">#(meta.l10n.volume.library_empty)</p>
 					#endif
+					#if(user):
+						#if(libraryStatus.summaryUnavailable):
+							<p class="empty-state-inline">#(meta.l10n.volume.game_room_unavailable)</p>
+						#else:
+							<ul class="library-summary">
+								#if(libraryStatus.hasWishlist):
+									<li>#(meta.l10n.volume.game_room_wishlist) <a href="#(libraryStatus.wishlist.path)">#(libraryStatus.wishlist.name)</a></li>
+								#endif
+								#for(table in libraryStatus.tables):
+									<li>#(meta.l10n.volume.game_room_table) <a href="#(table.path)">#(table.name)</a></li>
+								#endfor
+								#if(libraryStatus.hasLoan):
+									<li>#(meta.l10n.volume.game_room_on_loan) <a href="/game-room/loans">#(libraryStatus.loanBorrower)</a></li>
+								#endif
+							</ul>
+						#endif
+					#endif
 				</div>
 			</section>
 

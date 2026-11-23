@@ -75,6 +75,8 @@ struct VolumesController: RouteCollection {
       // as the pending-proposal-review fetch below.
       let libraryMembership = await resolveLibraryMembership(
         req: req, volumeID: volumeID, sessionUser: sessionUser)
+      let (summary, summaryUnavailable) = await resolveLibrarySummary(
+        req: req, volumeID: volumeID, sessionUser: sessionUser)
       let roles = sessionUser?.roles ?? []
       let isDeleted = volume.isDeleted
 
@@ -116,7 +118,8 @@ struct VolumesController: RouteCollection {
           review: proposalReview,
           conflicts: conflicts,
           hasConflicts: !conflicts.isEmpty,
-          libraryStatus: LeafLibraryStatus(libraryMembership),
+          libraryStatus: LeafLibraryStatus(
+            libraryMembership, summary: summary, summaryUnavailable: summaryUnavailable),
           user: sessionUser.map(LeafUser.init),
           meta: await pageMetaResult
         ))
@@ -134,12 +137,30 @@ struct VolumesController: RouteCollection {
     guard let user = sessionUser else { return .unavailable }
     do {
       let present = try await req.gameRoomAPI.isInLibrary(
-        userID: user.sub, volumeID: volumeID, token: user.accessToken)
+        userID: await req.canonicalUserID(for: user), volumeID: volumeID,
+        token: user.accessToken)
       return present ? .present : .absent
     } catch {
       req.logger.warning(
         "failed to fetch library membership for volume \(volumeID): \(error)")
       return .unavailable
+    }
+  }
+
+  /// Fetches the Game Room summary (wishlist, tables, loan) for the library tab. Anonymous
+  /// visitors skip the call; any failure returns `unavailable == true` rather than an empty
+  /// summary, so the tab never claims "nothing here" when the answer is unknown.
+  private func resolveLibrarySummary(
+    req: Request, volumeID: String, sessionUser: SessionUser?
+  ) async -> (summary: GameRoomAPIClient.VolumeSummary?, unavailable: Bool) {
+    guard let user = sessionUser else { return (nil, false) }
+    do {
+      let summary = try await req.gameRoomAPI.fetchVolumeSummary(
+        userID: await req.canonicalUserID(for: user), volumeID: volumeID, token: user.accessToken)
+      return (summary, false)
+    } catch {
+      req.logger.warning("failed to fetch library summary for volume \(volumeID): \(error)")
+      return (nil, true)
     }
   }
 
@@ -158,7 +179,8 @@ struct VolumesController: RouteCollection {
       }
       do {
         try await req.gameRoomAPI.addLibraryEntry(
-          userID: user.sub, volumeID: volumeID, token: user.accessToken)
+          userID: await req.canonicalUserID(for: user), volumeID: volumeID,
+          token: user.accessToken)
       } catch {
         req.logger.warning(
           "addToLibrary: game-room-api failed for volume \(volumeID): \(error)")
@@ -184,7 +206,8 @@ struct VolumesController: RouteCollection {
       }
       do {
         try await req.gameRoomAPI.removeLibraryEntry(
-          userID: user.sub, volumeID: volumeID, token: user.accessToken)
+          userID: await req.canonicalUserID(for: user), volumeID: volumeID,
+          token: user.accessToken)
       } catch {
         req.logger.warning(
           "removeFromLibrary: game-room-api failed for volume \(volumeID): \(error)")

@@ -16,6 +16,8 @@ struct BackendConfig {
   /// How many tags the landing page/browse tag cloud asks for - catalog-api clamps its own
   /// `limit` param (default 20, cap 100), but this default matches what the tag cloud wants.
   let volumeTagsLimit: Int
+  /// `users-api`'s base URL, used to resolve the canonical user id from the caller's profile.
+  var usersAPIURL: String = "http://api-v1.sweetrpg-users.svc.cluster.local:8000"
 
   static func fromEnvironment() -> BackendConfig {
     BackendConfig(
@@ -31,7 +33,9 @@ struct BackendConfig {
       gameRoomAPIURL: Environment.get("GAME_ROOM_API_URL")
         ?? "http://api-v1.sweetrpg-game-room.svc.cluster.local:8000",
       adminAPIURL: Environment.get("ADMIN_API_URL"),
-      volumeTagsLimit: Environment.get("VOLUME_TAGS_LIMIT").flatMap(Int.init) ?? 20
+      volumeTagsLimit: Environment.get("VOLUME_TAGS_LIMIT").flatMap(Int.init) ?? 20,
+      usersAPIURL: Environment.get("USERS_API_URL")
+        ?? "http://api-v1.sweetrpg-users.svc.cluster.local:8000"
     )
   }
 }

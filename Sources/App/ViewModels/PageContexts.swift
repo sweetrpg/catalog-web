@@ -124,12 +124,40 @@ struct DetailContext: Content {
 /// Leaf-friendly rendering of `LibraryMembership` - a trio of booleans rather than a string
 /// Leaf would need an equality tag to branch on, matching this app's `hasX`/`isDeleted`
 /// boolean-flag convention elsewhere.
+struct LeafLibraryLink: Content {
+  let name: String
+  let path: String
+}
+
 struct LeafLibraryStatus: Content {
   let isPresent: Bool
   let isAbsent: Bool
   let isUnavailable: Bool
+  /// Read-only Game Room summary below the add/remove action. `summaryUnavailable` covers a
+  /// failed or not-yet-deployed summary endpoint, kept apart from "nothing to show".
+  let summaryUnavailable: Bool
+  let hasWishlist: Bool
+  let wishlist: LeafLibraryLink?
+  let tables: [LeafLibraryLink]
+  let hasTables: Bool
+  let hasLoan: Bool
+  let loanBorrower: String
 
-  init(_ membership: LibraryMembership) {
+  init(
+    _ membership: LibraryMembership,
+    summary: GameRoomAPIClient.VolumeSummary? = nil,
+    summaryUnavailable: Bool = false
+  ) {
+    self.summaryUnavailable = summaryUnavailable
+    hasWishlist = summary?.wishlist != nil
+    wishlist = summary?.wishlist.map { LeafLibraryLink(name: $0.name, path: "/game-room/wishlist") }
+    let tableLinks = (summary?.tables ?? []).map {
+      LeafLibraryLink(name: $0.name, path: "/game-room/tables/\($0.id)")
+    }
+    tables = tableLinks
+    hasTables = !tableLinks.isEmpty
+    hasLoan = summary?.loan != nil
+    loanBorrower = summary?.loan?.borrowerName ?? ""
     isPresent = membership == .present
     isAbsent = membership == .absent
     isUnavailable = membership == .unavailable
