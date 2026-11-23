@@ -851,3 +851,26 @@ struct VolumesTests {
     }
   }
 }
+
+@Suite("DeletionAttributes")
+struct DeletionAttributesTests {
+  private func isDeleted(_ json: String) throws -> Bool {
+    try JSONDecoder().decode(CatalogAPIClientService.DeletionAttributes.self, from: Data(json.utf8))
+      .isDeleted
+  }
+
+  @Test("a record with no deleted_at is live")
+  func absent() throws { #expect(try !isDeleted(#"{"title": "x"}"#)) }
+
+  @Test("a null or empty deleted_at is live")
+  func nullOrEmpty() throws {
+    #expect(try !isDeleted(#"{"deleted_at": null}"#))
+    #expect(try !isDeleted(#"{"deleted_at": ""}"#))
+  }
+
+  @Test("whole-second and fractional-second timestamps both read as deleted")
+  func timestamps() throws {
+    #expect(try isDeleted(#"{"deleted_at": "2026-11-23T18:00:00Z"}"#))
+    #expect(try isDeleted(#"{"deleted_at": "2026-11-23T18:00:00.123456789Z"}"#))
+  }
+}

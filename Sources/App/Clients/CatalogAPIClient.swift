@@ -307,7 +307,16 @@ struct CatalogAPIClientService {
         return nil
       }
       let doc = try response.content.decode(JSONAPISingleDocument<VolumeAttributes>.self)
-      let deletion = try? response.content.decode(JSONAPISingleDocument<DeletionAttributes>.self)
+      var isDeleted = false
+      do {
+        isDeleted = try response.content.decode(
+          JSONAPISingleDocument<DeletionAttributes>.self
+        ).data.attributes.isDeleted
+      } catch {
+        req.logger.warning(
+          "fetchVolume: couldn't read deleted_at",
+          metadata: ["volumeID": "\(id)", "error": "\(error)"])
+      }
       req.logger.debug("fetchVolume: done", metadata: ["volumeID": "\(id)"])
       async let publisherNames = (try? await fetchNameMap(path: "/publishers")) ?? [:]
       async let studioNames = (try? await fetchNameMap(path: "/studios")) ?? [:]
@@ -319,7 +328,7 @@ struct CatalogAPIClientService {
         publisherNames: await publisherNames,
         studioNames: await studioNames,
         licenseNames: await licenseNames)
-      volume.isDeleted = deletion?.data.attributes.deletedAt != nil
+      volume.isDeleted = isDeleted
       return volume
     }
   }
@@ -801,11 +810,15 @@ struct CatalogAPIClientService {
     }
   }
 
-  private struct DeletionAttributes: Codable, Sendable {
-    let deletedAt: Date?
+  /// `deleted_at` is read as the raw RFC 3339 string rather than a `Date`, so a timestamp format
+  /// difference (fractional seconds, offset) can't make a deleted record read as live.
+  struct DeletionAttributes: Codable, Sendable {
+    let deletedAt: String?
     enum CodingKeys: String, CodingKey {
       case deletedAt = "deleted_at"
     }
+
+    var isDeleted: Bool { !(deletedAt ?? "").isEmpty }
   }
 
   /// Whether a publisher/studio/person/license/system/volume is currently soft-deleted - gates a
@@ -818,7 +831,7 @@ struct CatalogAPIClientService {
       let response = try await req.client.get(uri)
       guard response.status == .ok else { return false }
       let doc = try response.content.decode(JSONAPISingleDocument<DeletionAttributes>.self)
-      return doc.data.attributes.deletedAt != nil
+      return doc.data.attributes.isDeleted
     }) ?? false
   }
 
