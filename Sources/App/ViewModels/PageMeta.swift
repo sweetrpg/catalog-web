@@ -18,6 +18,7 @@ struct PageMeta: Content {
   let buildVersion: String
   let buildDate: String
   let buildHash: String
+  let footer: FooterMeta
   let banners: [LeafBanner]
   /// `auth-web`'s login/logout links, each with `return_to` set to this request's own full path
   /// (including `basePath`) so a successful login, or a completed logout, lands the visitor back
@@ -58,6 +59,7 @@ struct PageMeta: Content {
       buildVersion: req.buildInfo.version,
       buildDate: req.buildInfo.date,
       buildHash: String(req.buildInfo.sha.prefix(8)),
+      footer: FooterMeta(rootURL: req.rootURL, version: req.buildInfo.version),
       banners: banners,
       loginURL: "/auth/login?return_to=\(encodedReturnTo)",
       logoutURL: "/auth/logout?return_to=\(encodedReturnTo)",

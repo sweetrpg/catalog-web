@@ -82,7 +82,7 @@
 				<a class="btn btn-ghost" href="#(meta.basePath)/studios">#(meta.l10n.entity.studios)</a>
 				<a class="btn btn-ghost" href="#(meta.basePath)/persons">#(meta.l10n.entity.persons)</a>
 				<a class="btn btn-ghost" href="#(meta.basePath)/licenses">#(meta.l10n.entity.licenses)</a>
-				<a class="btn btn-ghost" href="#(meta.basePath)/shelves">#(meta.l10n.home.my_shelves)</a>
+				<a class="btn btn-ghost" href="/game-room">#(meta.l10n.nav.app_game_room)</a>
 			</div>
 		</section>
 

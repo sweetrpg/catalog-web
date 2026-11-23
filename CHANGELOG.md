@@ -1,4 +1,12 @@
 
+## 0.51.0 - 2026-11-04
+
+### Added
+- Wire up volume detail page's Library tab to game-room-api
+- Use the standard three-line footer
+
+
+
 ## 0.50.0 - 2026-10-08
 
 ### Added

@@ -64,7 +64,6 @@
   "nav.catalogue": "Catalogue",
   "nav.front_page": "Front Page",
   "nav.browse": "Browse",
-  "nav.my_shelves": "My Shelves",
   "nav.search_placeholder": "Search titles...",
   "nav.switch_app": "Switch app",
   "nav.app_main": "Main",
@@ -83,7 +82,6 @@
   "theme.system": "System",
 
   "home.tagline": "Every rulebook, supplement and setting guide - rated, reviewed and shelved by the table that played them.",
-  "home.my_shelves": "My shelves",
   "home.section_summary": "Catalog Summary",
   "home.browse_aria_prefix": "Browse ",
   "home.last_updated_prefix": "Last updated: ",
@@ -103,12 +101,6 @@
   "maintenance.started_prefix": "Started: ",
   "maintenance.expected_prefix": "Expected back: ",
   "maintenance.no_end": "No estimated end time yet - check back soon.",
-
-  "library.section": "My Library",
-  "library.title": "My Library",
-  "library.logged_in": "Library isn't connected yet - once game-room-api is wired up, your want/playing/played/owned lists will show here.",
-  "library.logged_out_prefix": "Nothing shelved yet. ",
-  "library.logged_out_suffix": " and add a volume to your library once you're signed in.",
 
   "version_detail.back": "Back to Version History",
   "version_detail.section_prefix": "Version ",
@@ -301,5 +293,9 @@
   "volume_edit.create_new_studio": "Create new studio...",
   "volume_edit.create_new_person": "Create new person...",
   "volume_edit.entity_notes_label": "Notes",
-  "volume_edit.entity_website_label": "Website"
+  "volume_edit.entity_website_label": "Website",
+
+  "footer.terms": "Terms of Service",
+  "footer.privacy": "Privacy Policy",
+  "footer.support": "Support"
 }
