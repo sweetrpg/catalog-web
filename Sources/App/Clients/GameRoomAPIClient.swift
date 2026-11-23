@@ -33,6 +33,47 @@ struct GameRoomAPIClient {
     let entries: [LibraryEntry]
   }
 
+  /// game-room-api's `GET /users/:user_id/volumes/:volume_id/summary` (owner-only): where one
+  /// volume sits in the caller's Game Room.
+  struct VolumeSummary: Codable, Sendable, Equatable {
+    struct Named: Codable, Sendable, Equatable {
+      let id: String
+      let name: String
+    }
+    struct Loan: Codable, Sendable, Equatable {
+      let id: String
+      let borrowerName: String?
+      let lentAt: String?
+      enum CodingKeys: String, CodingKey {
+        case id
+        case borrowerName = "borrower_name"
+        case lentAt = "lent_at"
+      }
+    }
+    struct Library: Codable, Sendable, Equatable {
+      let present: Bool
+    }
+    let library: Library
+    let wishlist: Named?
+    let tables: [Named]
+    let loan: Loan?
+  }
+
+  /// Throws on any transport/decode failure; the caller shows "unavailable", never "absent".
+  func fetchVolumeSummary(userID: String, volumeID: String, token: String) async throws
+    -> VolumeSummary
+  {
+    let uri = URI(
+      string: request.backendConfig.gameRoomAPIURL + "/users/\(userID)/volumes/\(volumeID)/summary")
+    let response = try await request.client.get(uri) { clientReq in
+      clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+    }
+    guard response.status == .ok else {
+      throw Abort(response.status, reason: "game-room-api volume summary failed")
+    }
+    return try response.content.decode(VolumeSummary.self)
+  }
+
   /// Fetches the visitor's whole library and checks it for `volumeID` client-side, mirroring
   /// game-room-web's own Library page (fetch once, filter in memory) rather than asking
   /// game-room-api for a new per-volume endpoint - see design.md. A library is bounded by what

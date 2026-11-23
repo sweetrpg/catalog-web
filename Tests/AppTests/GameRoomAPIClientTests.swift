@@ -294,3 +294,34 @@ struct CanonicalUserIDTests {
     #expect(id == "auth0|abc")
   }
 }
+
+@Suite("Library summary")
+struct LibrarySummaryTests {
+  @Test("summary decodes wishlist, tables and loan, and maps them to links")
+  func decodesSummary() throws {
+    let json = #"""
+      {"library": {"present": true, "added_at": null}, "wishlist": {"id": "w1", "name": "Want"},
+       "tables": [{"id": "t1", "name": "Friday"}],
+       "loan": {"id": "l1", "borrower_user_id": null, "borrower_name": "Sam", "lent_at": "2025-01-01T00:00:00Z"}}
+      """#
+    let summary = try JSONDecoder().decode(
+      GameRoomAPIClient.VolumeSummary.self, from: Data(json.utf8))
+    let status = LeafLibraryStatus(.present, summary: summary)
+    #expect(status.wishlist?.name == "Want")
+    #expect(status.tables.map(\.path) == ["/game-room/tables/t1"])
+    #expect(status.hasLoan)
+    #expect(status.loanBorrower == "Sam")
+    #expect(!status.summaryUnavailable)
+  }
+
+  @Test("an empty summary shows nothing, an unavailable one says so")
+  func emptyVersusUnavailable() throws {
+    let json = #"{"library": {"present": false}, "wishlist": null, "tables": [], "loan": null}"#
+    let summary = try JSONDecoder().decode(
+      GameRoomAPIClient.VolumeSummary.self, from: Data(json.utf8))
+    let empty = LeafLibraryStatus(.absent, summary: summary)
+    #expect(!empty.hasWishlist && !empty.hasTables && !empty.hasLoan)
+    #expect(!empty.summaryUnavailable)
+    #expect(LeafLibraryStatus(.absent, summaryUnavailable: true).summaryUnavailable)
+  }
+}
