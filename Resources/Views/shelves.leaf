@@ -6,7 +6,36 @@
 		</section>
 
 		#if(isLoggedIn):
-			<p class="empty-state">#(meta.l10n.shelves.logged_in)</p>
+			#if(unavailable):
+				<p class="empty-state">#(meta.l10n.shelves.unavailable)</p>
+			#elseif(count(entries) == 0):
+				<p class="empty-state">#(meta.l10n.shelves.empty)</p>
+			#else:
+				<ul class="shelf-list" id="shelf-list" data-base="#(meta.basePath)">
+					#for(entry in entries):
+						<li class="shelf-entry" data-volume-id="#(entry.volumeID)">
+							<a href="#(meta.basePath)/volumes/#(entry.volumeID)">#if(entry.hasTitle):#(entry.title)#else:#(meta.l10n.shelves.untitled)#endif</a>
+							<button type="button" class="btn btn-ghost shelf-remove">#(meta.l10n.shelves.remove)</button>
+						</li>
+					#endfor
+				</ul>
+				<script>
+				(function () {
+				  var list = document.getElementById('shelf-list');
+				  list.addEventListener('click', function (ev) {
+				    var btn = ev.target.closest('.shelf-remove');
+				    if (!btn) return;
+				    var item = btn.closest('.shelf-entry');
+				    fetch(list.dataset.base + '/volumes/' + item.dataset.volumeId + '/library', {
+				      method: 'DELETE',
+				      credentials: 'include'
+				    }).then(function (res) {
+				      if (res.ok) item.remove();
+				    });
+				  });
+				})();
+				</script>
+			#endif
 		#else:
 			<p class="empty-state">#(meta.l10n.shelves.logged_out_prefix)<a href="#(meta.basePath)/browse">#(meta.l10n.common.browse_stacks)</a>#(meta.l10n.shelves.logged_out_suffix)</p>
 		#endif

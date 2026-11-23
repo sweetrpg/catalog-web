@@ -19,8 +19,12 @@ struct GameRoomAPIClient {
 
   private struct LibraryEntry: Codable {
     let volumeId: String
+    let volumeTitle: String?
+    let addedAt: String?
     enum CodingKeys: String, CodingKey {
       case volumeId = "volume_id"
+      case volumeTitle = "volume_title"
+      case addedAt = "added_at"
     }
   }
 
@@ -31,6 +35,33 @@ struct GameRoomAPIClient {
   /// casing needed here for design.md's "brand-new user" risk.
   private struct LibraryResponse: Codable {
     let entries: [LibraryEntry]
+  }
+
+  /// One library entry as shown on the My Shelves page.
+  struct ShelfEntry: Sendable, Equatable {
+    let volumeID: String
+    let title: String
+    /// RFC 3339 UTC, kept as a string: it sorts chronologically and avoids fractional-second
+    /// parsing differences.
+    let addedAt: String?
+  }
+
+  /// Fetches `userID`'s library, newest entries first. game-room-api's library endpoint takes no
+  /// sort or paging parameters and returns every entry, so ordering happens here; revisit if the
+  /// API grows them. Throws on any transport/decode failure so the caller can show an
+  /// unavailable state instead of an empty shelf.
+  func fetchShelfEntries(userID: String, token: String) async throws -> [ShelfEntry] {
+    let uri = URI(string: request.backendConfig.gameRoomAPIURL + "/users/\(userID)/library")
+    let response = try await request.client.get(uri) { clientReq in
+      clientReq.headers.bearerAuthorization = BearerAuthorization(token: token)
+    }
+    guard response.status == .ok else {
+      throw Abort(response.status, reason: "game-room-api library fetch failed")
+    }
+    let library = try response.content.decode(LibraryResponse.self)
+    return library.entries
+      .map { ShelfEntry(volumeID: $0.volumeId, title: $0.volumeTitle ?? "", addedAt: $0.addedAt) }
+      .sorted { ($0.addedAt ?? "") > ($1.addedAt ?? "") }
   }
 
   /// Fetches the visitor's whole library and checks it for `volumeID` client-side, mirroring

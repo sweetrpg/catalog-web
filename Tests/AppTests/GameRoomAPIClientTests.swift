@@ -237,3 +237,73 @@ struct GameRoomAPIClientTests {
       })
   }
 }
+
+@Suite("My Shelves")
+struct ShelvesTests {
+  @Test("shelf entries come back newest first with their title snapshots")
+  func shelfEntriesSorted() async throws {
+    let json = """
+      {"entries": [
+        {"volume_id": "old", "volume_title": "Old", "added_at": "2024-01-01T00:00:00Z"},
+        {"volume_id": "new", "volume_title": "New", "added_at": "2025-06-01T00:00:00.5Z"},
+        {"volume_id": "bare"}]}
+      """
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = 18_801
+    fake.get("users", ":userID", "library") { _ in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"], body: .init(string: json))
+    }
+    try await fake.startup()
+    defer { Task { try? await fake.asyncShutdown() } }
+    try await withApp { app in
+      app.backendConfig = BackendConfig(
+        catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
+        gameRoomAPIURL: "http://127.0.0.1:18801", adminAPIURL: nil, volumeTagsLimit: 20)
+      app.get("test") { req async throws -> String in
+        try await req.gameRoomAPI.fetchShelfEntries(userID: "u1", token: "t")
+          .map(\.volumeID).joined(separator: ",")
+      }
+      try await app.testing().test(.GET, "test") { res in
+        #expect(res.body.string == "new,old,bare")
+      }
+    }
+  }
+
+  @Test("shelf fetch throws on a non-200 so the page can show the unavailable state")
+  func shelfFetchFailure() async throws {
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = 18_802
+    fake.get("users", ":userID", "library") { _ in Response(status: .internalServerError) }
+    try await fake.startup()
+    defer { Task { try? await fake.asyncShutdown() } }
+    try await withApp { app in
+      app.backendConfig = BackendConfig(
+        catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
+        gameRoomAPIURL: "http://127.0.0.1:18802", adminAPIURL: nil, volumeTagsLimit: 20)
+      app.get("test") { req async throws -> String in
+        do {
+          _ = try await req.gameRoomAPI.fetchShelfEntries(userID: "u1", token: "t")
+          return "ok"
+        } catch { return "failed" }
+      }
+      try await app.testing().test(.GET, "test") { res in
+        #expect(res.body.string == "failed")
+      }
+    }
+  }
+
+  @Test("logged-out visitors get the sign-in prompt")
+  func loggedOutPrompt() async throws {
+    try await withApp { app in
+      app.views.use(.leaf)
+      try app.register(collection: ShelvesController())
+      try await app.testing().test(.GET, "shelves") { res in
+        #expect(res.status == .ok)
+        #expect(res.body.string.contains("Nothing shelved yet."))
+      }
+    }
+  }
+}
