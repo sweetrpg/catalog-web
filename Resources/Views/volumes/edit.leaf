@@ -16,7 +16,7 @@
 				<div class="cover-image-wrap">
 					<img class="card-cover-img" id="cover-preview-img" src="#(meta.assetsURL)/#(volume.coverAssetPath)" alt="#(volume.title)" loading="lazy" onerror="this.onerror=null;this.src='#(meta.sharedURL)/static/img/catalog/cover-placeholder-detail.png'">
 					#if(canUploadCover):
-						<div class="cover-overlay-controls" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover" data-live-cover-path="#(volume.liveCoverPath)">
+						<div class="cover-overlay-controls" data-assets-url="#(meta.assetsURL)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-session-cover-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/cover" data-live-cover-path="#(volume.liveCoverPath)" data-err-upload="#(meta.l10n.volume_edit.cover_err_upload)" data-err-auth="#(meta.l10n.volume_edit.cover_err_auth)" data-err-record="#(meta.l10n.volume_edit.cover_err_record)" data-err-network="#(meta.l10n.volume_edit.cover_err_network)">
 							<label class="icon-btn cover-edit-trigger" for="cover-upload-input" title="#(meta.l10n.volume_edit.change_cover)">
 								<img src="#(meta.sharedURL)/static/img/icons/edit.svg" alt="#(meta.l10n.volume_edit.change_cover)">
 							</label>
@@ -1323,7 +1323,7 @@
 
 			    fetch(uploadURL, { method: 'POST', body: formData, credentials: 'include' })
 			      .then(function (resp) {
-			        if (!resp.ok) throw new Error('Cover upload failed');
+			        if (!resp.ok) throw { step: resp.status === 401 ? 'auth' : 'upload', status: resp.status };
 			        return fetch(sessionCoverURL, {
 			          method: 'POST',
 			          headers: { 'Content-Type': 'application/json' },
@@ -1332,15 +1332,20 @@
 			        });
 			      })
 			      .then(function (resp) {
-			        if (!resp.ok) throw new Error('Failed to record staged cover');
+			        if (!resp.ok) throw { step: 'record', status: resp.status };
 			        if (coverImg) {
 			          coverImg.style.display = '';
 			          coverImg.src = uploadURL + '?t=' + Date.now();
 			        }
 			        removeBtn.hidden = false;
 			      })
-			      .catch(function () {
-			        showError('Cover upload failed. Try again.');
+			      .catch(function (err) {
+			        var d = container.dataset;
+			        var msg = !err || !err.step ? d.errNetwork
+			          : err.step === 'auth' ? d.errAuth
+			          : err.step === 'record' ? d.errRecord
+			          : d.errUpload;
+			        showError(err && err.status ? msg + ' (HTTP ' + err.status + ')' : msg);
 			        input.value = '';
 			      });
 			  });
