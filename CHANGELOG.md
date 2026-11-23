@@ -1,4 +1,19 @@
 
+## 0.52.0 - 2026-11-23
+
+### Added
+- Show Game Room summary on the My Library tab
+
+
+### Changed
+- Remove My Shelves page and link nav to Game Room
+
+
+### Fixed
+- Key game-room-api calls by the canonical user id
+
+
+
 ## 0.51.0 - 2026-11-04
 
 ### Added

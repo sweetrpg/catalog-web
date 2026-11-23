@@ -5,8 +5,7 @@ import Tracing
 import Vapor
 
 /// Home, Browse, and Volume Detail - the three catalog-browsing pages, all backed by
-/// catalog-api. Grouped in one controller since they share the same volume-fetching path,
-/// unlike ShelvesController, which has its own concern.
+/// catalog-api. Grouped in one controller since they share the same volume-fetching path.
 struct CatalogController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
     routes.get(use: home)
