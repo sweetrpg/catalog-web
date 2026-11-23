@@ -156,7 +156,7 @@
 						<script type="application/json" class="picker-options">#unsafeHTML(volume.tagOptionsJSON)</script>
 					</div>
 
-					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type" data-can-create="#(volume.canCreateEntities)" data-create-label="#(meta.l10n.volume_edit.create_new_person)">
+					<div class="credits-field tag-cloud-field" id="credits-field" data-session-url="#(meta.basePath)/volumes/#(volume.id)/edit/session/credits" data-vocabulary-url="#(meta.basePath)/volumes/#(volume.id)/edit/vocabulary/contribution-type" data-can-create="#(volume.canCreateEntities)" data-create-label="#(meta.l10n.volume_edit.create_new_person)" data-label-add-many="#(meta.l10n.volume_edit.add_people_count)" data-label-update="#(meta.l10n.volume_edit.update_contributor)" data-label-remove-prefix="#(meta.l10n.volume_edit.remove_person)" data-err-save="#(meta.l10n.volume_edit.contributor_save_failed)">
 						<h3>#(meta.l10n.volume_edit.contributors)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(credit in volume.selectedCredits):
@@ -176,21 +176,22 @@
 							</div>
 							<div class="contributor-dialog-row">
 								<label class="contributor-dialog-label">
-									#(meta.l10n.volume_edit.person_label)
-									<input type="text" class="input" id="contributor-person-filter" placeholder="Find a person..." autocomplete="off">
-									<ul class="picker-results" id="contributor-person-results" hidden></ul>
-								</label>
-								<label class="contributor-dialog-label">
 									#(meta.l10n.volume_edit.type_label)
 									<select class="input" id="contributor-type-select">
 										<option value="">#(meta.l10n.volume_edit.select_type)</option>
 									</select>
 								</label>
-								<button type="button" class="icon-btn" id="contributor-confirm-trigger" title="Add" disabled>
-									<img class="icon-invert" src="#(meta.sharedURL)/static/svgs/fontawesome/solid/plus.svg" alt="Add">
+								<label class="contributor-dialog-label">
+									#(meta.l10n.volume_edit.people_label)
+									<input type="text" class="input" id="contributor-person-filter" placeholder="#(meta.l10n.volume_edit.find_person)" autocomplete="off">
+									<ul class="picker-results" id="contributor-person-results" hidden></ul>
+								</label>
+								<button type="button" class="icon-btn" id="contributor-confirm-trigger" title="#(meta.l10n.volume_edit.add_contributor)" disabled>
+									<img class="icon-invert" src="#(meta.sharedURL)/static/svgs/fontawesome/solid/plus.svg" alt="#(meta.l10n.volume_edit.add_contributor)">
 								</button>
 							</div>
-							<p class="contributor-selected-person" id="contributor-selected-person" hidden></p>
+							<div class="chip-list" id="contributor-pending" aria-live="polite"></div>
+							<p class="form-error" id="contributor-save-error" hidden></p>
 
 							#if(volume.canAddContributionType):
 								<div class="contributor-add-type">
@@ -715,7 +716,6 @@
 		  var openBtn = document.getElementById('add-contributor-trigger');
 		  var personFilter = document.getElementById('contributor-person-filter');
 		  var personResults = document.getElementById('contributor-person-results');
-		  var selectedPersonLabel = document.getElementById('contributor-selected-person');
 		  var typeSelect = document.getElementById('contributor-type-select');
 		  var newTypeInput = document.getElementById('contributor-new-type');
 		  var addTypeBtn = document.getElementById('contributor-add-type-trigger');
@@ -732,8 +732,12 @@
 		    typeOptions = JSON.parse(document.getElementById('contributor-type-options').textContent);
 		  } catch (e) {}
 
-		  var selectedPerson = null;
+		  // People staged in the dialog for the chosen role; one confirm adds them all. Editing an
+		  // existing chip stages just that person.
+		  var selectedPeople = [];
 		  var editingChip = null;
+		  var pendingList = document.getElementById('contributor-pending');
+		  var saveError = document.getElementById('contributor-save-error');
 
 		  function renderTypeOptions() {
 		    var current = typeSelect.value;
@@ -754,13 +758,20 @@
 		    });
 		  }
 
+		  // Resolves true when the session accepted the full credit list. Callers roll back or
+		  // report on false so a rejected save never leaves chips that look saved.
 		  function autosave() {
-		    fetch(sessionURL, {
+		    return fetch(sessionURL, {
 		      method: 'POST',
 		      headers: { 'Content-Type': 'application/json' },
 		      body: JSON.stringify({ credits: credits() }),
 		      credentials: 'include'
-		    });
+		    }).then(function (resp) { return resp.ok; }, function () { return false; });
+		  }
+
+		  function showSaveError() {
+		    saveError.textContent = field.dataset.errSave;
+		    saveError.hidden = false;
 		  }
 
 		  function bindChip(chip) {
@@ -769,8 +780,20 @@
 		    });
 		    chip.querySelector('.chip-remove').addEventListener('click', function (e) {
 		      e.stopPropagation();
+		      var next = chip.nextSibling;
 		      chip.remove();
-		      autosave();
+		      autosave().then(function (ok) {
+		        if (ok) return;
+		        chipList.insertBefore(chip, next);
+		        showSaveError();
+		        dialog.hidden = false;
+		      });
+		    });
+		  }
+
+		  function hasCredit(personId, contributionType) {
+		    return credits().some(function (c) {
+		      return c.personId === personId && c.contributionType === contributionType;
 		    });
 		  }
 
@@ -787,38 +810,66 @@
 		    var removeBtn = document.createElement('button');
 		    removeBtn.type = 'button';
 		    removeBtn.className = 'chip-remove';
-		    removeBtn.title = 'Remove ' + personName;
+		    removeBtn.title = field.dataset.labelRemovePrefix + ' ' + personName;
 		    removeBtn.textContent = '×';
 		    chip.appendChild(removeBtn);
 		    bindChip(chip);
 		    chipList.insertBefore(chip, openBtn);
+		    return chip;
 		  }
 
 		  chipList.querySelectorAll('.chip').forEach(bindChip);
 
+		  function renderPending() {
+		    pendingList.innerHTML = '';
+		    selectedPeople.forEach(function (person) {
+		      var chip = document.createElement('span');
+		      chip.className = 'chip';
+		      var label = document.createElement('span');
+		      label.className = 'chip-label';
+		      label.textContent = person.name;
+		      chip.appendChild(label);
+		      var rm = document.createElement('button');
+		      rm.type = 'button';
+		      rm.className = 'chip-remove';
+		      rm.title = field.dataset.labelRemovePrefix + ' ' + person.name;
+		      rm.textContent = '×';
+		      rm.addEventListener('click', function () {
+		        selectedPeople = selectedPeople.filter(function (p) { return p.id !== person.id; });
+		        renderPending();
+		        updateConfirmEnabled();
+		      });
+		      chip.appendChild(rm);
+		      pendingList.appendChild(chip);
+		    });
+		  }
+
 		  function updateConfirmEnabled() {
-		    confirmBtn.disabled = !selectedPerson || !typeSelect.value;
+		    confirmBtn.disabled = selectedPeople.length === 0 || !typeSelect.value;
+		    var many = selectedPeople.length > 1 && !editingChip;
+		    confirmBtn.title = editingChip ? field.dataset.labelUpdate
+		      : many ? field.dataset.labelAddMany.replace('{n}', selectedPeople.length)
+		      : dialogTitle;
 		  }
 
 		  function resetDialog() {
-		    selectedPerson = null;
-		    selectedPersonLabel.hidden = true;
-		    selectedPersonLabel.textContent = '';
+		    selectedPeople = [];
+		    renderPending();
 		    personFilter.value = '';
 		    personResults.hidden = true;
 		    typeSelect.value = '';
 		    if (newTypeInput) newTypeInput.value = '';
 		    if (addTypeError) addTypeError.hidden = true;
+		    saveError.hidden = true;
 		    updateConfirmEnabled();
 		  }
 
 		  function openDialog(chip) {
-		    resetDialog();
 		    editingChip = chip || null;
+		    resetDialog();
 		    if (editingChip) {
-		      selectedPerson = { id: editingChip.dataset.personId, name: editingChip.dataset.personName };
-		      selectedPersonLabel.textContent = 'Selected: ' + selectedPerson.name;
-		      selectedPersonLabel.hidden = false;
+		      selectedPeople = [{ id: editingChip.dataset.personId, name: editingChip.dataset.personName }];
+		      renderPending();
 		      var existingType = editingChip.dataset.contributionType;
 		      // A chip's stored type can predate the current vocabulary (or come from a stale
 		      // default like "Contributor") - inject it as a selectable option rather than let
@@ -830,10 +881,10 @@
 		        typeSelect.appendChild(extra);
 		      }
 		      typeSelect.value = existingType;
-		      updateConfirmEnabled();
 		    }
-		    confirmBtn.title = editingChip ? 'Update' : 'Add';
+		    updateConfirmEnabled();
 		    dialog.hidden = false;
+		    (editingChip ? personFilter : typeSelect).focus();
 		  }
 
 		  function closeDialog() {
@@ -853,15 +904,20 @@
 		    }
 		  });
 
+		  var dialogTitle = confirmBtn.title;
 		  var currentPersonMatches = [];
 
 		  function selectPerson(option) {
-		    selectedPerson = option;
-		    selectedPersonLabel.textContent = 'Selected: ' + option.name;
-		    selectedPersonLabel.hidden = false;
+		    if (editingChip) {
+		      selectedPeople = [option];
+		    } else if (!selectedPeople.some(function (p) { return p.id === option.id; })) {
+		      selectedPeople.push(option);
+		    }
+		    renderPending();
 		    personFilter.value = '';
 		    personResults.hidden = true;
 		    updateConfirmEnabled();
+		    personFilter.focus();
 		  }
 
 		  function renderPersonResults(query) {
@@ -927,11 +983,10 @@
 		    // though the field looks filled in.
 		    setTimeout(function () {
 		      personResults.hidden = true;
-		      if (selectedPerson) return;
 		      var needle = personFilter.value.trim().toLowerCase();
 		      if (!needle) return;
 		      var exact = personOptions.find(function (option) { return option.name.toLowerCase() === needle; });
-		      if (exact) selectPerson(exact);
+		      if (exact && !selectedPeople.some(function (p) { return p.id === exact.id; })) selectPerson(exact);
 		    }, 150);
 		  });
 
@@ -967,18 +1022,45 @@
 		  }
 
 		  confirmBtn.addEventListener('click', function () {
-		    if (!selectedPerson || !typeSelect.value) return;
+		    var type = typeSelect.value;
+		    if (selectedPeople.length === 0 || !type) return;
+		    saveError.hidden = true;
+
 		    if (editingChip) {
-		      editingChip.dataset.personId = selectedPerson.id;
-		      editingChip.dataset.personName = selectedPerson.name;
-		      editingChip.dataset.contributionType = typeSelect.value;
-		      editingChip.querySelector('.chip-label').textContent =
-		        selectedPerson.name + ' — ' + typeSelect.value;
-		    } else {
-		      addChip(selectedPerson.id, selectedPerson.name, typeSelect.value);
+		      var person = selectedPeople[0];
+		      var before = {
+		        id: editingChip.dataset.personId, name: editingChip.dataset.personName,
+		        type: editingChip.dataset.contributionType
+		      };
+		      var target = editingChip;
+		      var apply = function (id, name, t) {
+		        target.dataset.personId = id;
+		        target.dataset.personName = name;
+		        target.dataset.contributionType = t;
+		        target.querySelector('.chip-label').textContent = name + ' — ' + t;
+		      };
+		      apply(person.id, person.name, type);
+		      autosave().then(function (ok) {
+		        if (ok) { closeDialog(); return; }
+		        apply(before.id, before.name, before.type);
+		        showSaveError();
+		      });
+		      return;
 		    }
-		    autosave();
-		    closeDialog();
+
+		    // One role, many people: skip anyone already holding this role, add the rest as chips,
+		    // and save the whole credit list in a single request - all or nothing, so the page
+		    // never shows chips the session doesn't have.
+		    var added = [];
+		    selectedPeople.forEach(function (person) {
+		      if (!hasCredit(person.id, type)) added.push(addChip(person.id, person.name, type));
+		    });
+		    if (added.length === 0) { closeDialog(); return; }
+		    autosave().then(function (ok) {
+		      if (ok) { closeDialog(); return; }
+		      added.forEach(function (chip) { chip.remove(); });
+		      showSaveError();
+		    });
 		  });
 		})();
 		</script>
