@@ -237,3 +237,60 @@ struct GameRoomAPIClientTests {
       })
   }
 }
+
+@Suite("canonicalUserID")
+struct CanonicalUserIDTests {
+  private let user = SessionUser(
+    sub: "auth0|abc", name: "T", email: nil, roles: [], accessToken: "tok",
+    expiry: Date().addingTimeInterval(3600))
+
+  private func resolve(port: Int, profile: @escaping @Sendable (Request) -> Response) async throws
+    -> String
+  {
+    let fake = try await Application.make(Environment(name: "testing", arguments: ["vapor"]))
+    fake.http.server.configuration.hostname = "127.0.0.1"
+    fake.http.server.configuration.port = port
+    fake.get("profile") { profile($0) }
+    try await fake.startup()
+    defer { Task { try? await fake.asyncShutdown() } }
+    let user = self.user
+    return try await withApp { app in
+      app.backendConfig = BackendConfig(
+        catalogAPIURL: "unused", gameSystemsAPIURL: "unused", profilesAPIURL: "unused",
+        gameRoomAPIURL: "unused", adminAPIURL: nil, volumeTagsLimit: 20,
+        usersAPIURL: "http://127.0.0.1:\(port)")
+      app.get("t") { req async -> String in await req.canonicalUserID(for: user) }
+      var out = ""
+      try await app.testing().test(.GET, "t") { out = $0.body.string }
+      return out
+    }
+  }
+
+  @Test("uses the profile's user_id and sends the caller's bearer token")
+  func resolvesProfileID() async throws {
+    let id = try await resolve(port: 18_811) { req in
+      guard req.headers.bearerAuthorization?.token == "tok" else {
+        return Response(status: .unauthorized)
+      }
+      return Response(
+        status: .ok, headers: ["content-type": "application/json"],
+        body: .init(string: #"{"user_id": "uuid-1", "name": "T"}"#))
+    }
+    #expect(id == "uuid-1")
+  }
+
+  @Test("falls back to the Auth0 subject on a non-200")
+  func fallsBackOnError() async throws {
+    let id = try await resolve(port: 18_812) { _ in Response(status: .notFound) }
+    #expect(id == "auth0|abc")
+  }
+
+  @Test("falls back to the Auth0 subject when user_id is missing")
+  func fallsBackOnMissingField() async throws {
+    let id = try await resolve(port: 18_813) { _ in
+      Response(
+        status: .ok, headers: ["content-type": "application/json"], body: .init(string: "{}"))
+    }
+    #expect(id == "auth0|abc")
+  }
+}

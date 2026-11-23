@@ -134,7 +134,8 @@ struct VolumesController: RouteCollection {
     guard let user = sessionUser else { return .unavailable }
     do {
       let present = try await req.gameRoomAPI.isInLibrary(
-        userID: user.sub, volumeID: volumeID, token: user.accessToken)
+        userID: await req.canonicalUserID(for: user), volumeID: volumeID,
+        token: user.accessToken)
       return present ? .present : .absent
     } catch {
       req.logger.warning(
@@ -158,7 +159,8 @@ struct VolumesController: RouteCollection {
       }
       do {
         try await req.gameRoomAPI.addLibraryEntry(
-          userID: user.sub, volumeID: volumeID, token: user.accessToken)
+          userID: await req.canonicalUserID(for: user), volumeID: volumeID,
+          token: user.accessToken)
       } catch {
         req.logger.warning(
           "addToLibrary: game-room-api failed for volume \(volumeID): \(error)")
@@ -184,7 +186,8 @@ struct VolumesController: RouteCollection {
       }
       do {
         try await req.gameRoomAPI.removeLibraryEntry(
-          userID: user.sub, volumeID: volumeID, token: user.accessToken)
+          userID: await req.canonicalUserID(for: user), volumeID: volumeID,
+          token: user.accessToken)
       } catch {
         req.logger.warning(
           "removeFromLibrary: game-room-api failed for volume \(volumeID): \(error)")
