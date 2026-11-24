@@ -1,4 +1,16 @@
 
+## 0.53.0 - 2026-11-24
+
+### Added
+- Pick the contributor role first, then add several people at once
+
+
+### Fixed
+- Read deleted_at as a string and log decode failures
+- Say which cover upload step failed and its HTTP status
+
+
+
 ## 0.52.0 - 2026-11-23
 
 ### Added
