@@ -352,6 +352,37 @@ struct AppTests {
     }
   }
 
+  @Test("contributor dialog asks for the role first, then stages several people for one confirm")
+  func contributorDialogIsRoleFirstMultiPerson() async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Rusthaven", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-edit") { req async throws -> View in
+        try await req.view.render(
+          "volumes/edit",
+          EditContext(
+            volume: try LeafVolumeEditForm(
+              volume: volume, session: testEditSession(for: volume), userSub: "auth0-tester",
+              req: req, personOptions: [("p1", "Gary Gygax"), ("p2", "Dave Arneson")],
+              contributionTypeOptions: ["Author"], canAddContributionType: false),
+            canUploadCover: false, submitError: nil, user: nil,
+            meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-edit") { res in
+        let html = res.body.string
+        let role = html.range(of: "id=\"contributor-type-select\"")
+        let person = html.range(of: "id=\"contributor-person-filter\"")
+        #expect(role != nil && person != nil && role!.lowerBound < person!.lowerBound)
+        #expect(html.contains("id=\"contributor-pending\""))
+        #expect(html.contains("id=\"contributor-save-error\""))
+        #expect(html.contains("Add {n} people"))
+        #expect(html.contains("Nothing was changed"))
+      }
+    }
+  }
+
   @Test("edit page shows the add-new-contribution-type affordance for an editor/admin session")
   func editPageShowsAddContributionTypeForEditor() async throws {
     let volume = VolumeViewModel(
