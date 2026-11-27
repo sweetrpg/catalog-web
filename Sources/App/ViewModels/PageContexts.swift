@@ -177,6 +177,10 @@ struct VersionHistoryContext: Content {
   // Distinguishes "the fetch failed" from "this volume genuinely has no version history" - both
   // used to render as the same empty table, giving no signal that something went wrong.
   let fetchFailed: Bool
+  // A column shows only if the API returned that value for at least one row.
+  let showSubmittedBy: Bool
+  let showReviewedBy: Bool
+  let showNote: Bool
   let canRollback: Bool
   let user: LeafUser?
   let meta: PageMeta
@@ -188,6 +192,9 @@ struct VersionHistoryContext: Content {
     self.volumeID = volumeID
     self.volumeTitle = volumeTitle
     self.versions = versions
+    self.showSubmittedBy = versions.contains { $0.hasSubmittedBy }
+    self.showReviewedBy = versions.contains { $0.hasReviewedBy }
+    self.showNote = versions.contains { $0.hasReviewNote }
     self.hasVersions = !versions.isEmpty
     self.fetchFailed = fetchFailed
     self.canRollback = canRollback
@@ -210,6 +217,7 @@ struct LeafVersionSummary: Content {
   let state: String
   let isLive: Bool
   let submittedBy: String
+  let hasSubmittedBy: Bool
   let submittedAtLabel: String
   let reviewedBy: String
   let hasReviewedBy: Bool
@@ -220,12 +228,13 @@ struct LeafVersionSummary: Content {
     self.version = attributes.version
     self.state = attributes.state
     self.isLive = attributes.state == "live"
-    self.submittedBy = humanizeSubmitterID(attributes.submittedBy)
+    self.submittedBy = submitterLabel(attributes.submittedBy)
+    self.hasSubmittedBy = !self.submittedBy.isEmpty
     self.submittedAtLabel = LeafVersionSummary.format(attributes.submittedAt)
-    self.reviewedBy = attributes.reviewedBy.map(humanizeSubmitterID) ?? ""
-    self.hasReviewedBy = attributes.reviewedBy != nil
+    self.reviewedBy = submitterLabel(attributes.reviewedBy)
+    self.hasReviewedBy = !self.reviewedBy.isEmpty
     self.reviewNote = attributes.reviewNote ?? ""
-    self.hasReviewNote = attributes.reviewNote != nil
+    self.hasReviewNote = !self.reviewNote.isEmpty
   }
 
   private static func format(_ date: Date) -> String {
@@ -248,6 +257,7 @@ struct LeafVersionDetail: Content {
   let hasNotes: Bool
   let format: String
   let submittedBy: String
+  let hasSubmittedBy: Bool
   let submittedAtLabel: String
   let reviewedBy: String
   let hasReviewedBy: Bool
@@ -264,12 +274,13 @@ struct LeafVersionDetail: Content {
     self.notes = attributes.notes
     self.hasNotes = !attributes.notes.isEmpty
     self.format = attributes.format
-    self.submittedBy = humanizeSubmitterID(attributes.submittedBy)
+    self.submittedBy = submitterLabel(attributes.submittedBy)
+    self.hasSubmittedBy = !self.submittedBy.isEmpty
     self.submittedAtLabel = LeafVersionDetail.format(attributes.submittedAt)
-    self.reviewedBy = attributes.reviewedBy.map(humanizeSubmitterID) ?? ""
-    self.hasReviewedBy = attributes.reviewedBy != nil
+    self.reviewedBy = submitterLabel(attributes.reviewedBy)
+    self.hasReviewedBy = !self.reviewedBy.isEmpty
     self.reviewNote = attributes.reviewNote ?? ""
-    self.hasReviewNote = attributes.reviewNote != nil
+    self.hasReviewNote = !self.reviewNote.isEmpty
   }
 
   private static func format(_ date: Date) -> String {
@@ -413,6 +424,7 @@ struct LeafEntityVersionReview: Content {
   let options: [LeafEntityVersionOption]
   let selectedVersion: Int
   let submittedBy: String
+  let hasSubmittedBy: Bool
   let submittedAtLabel: String
   let fields: [LeafEntityFieldDiff]
 
@@ -427,13 +439,15 @@ struct LeafEntityVersionReview: Content {
     self.options = pending.map { version in
       LeafEntityVersionOption(
         version: version.version,
-        submittedBy: humanizeSubmitterID(version.submittedBy),
+        submittedBy: submitterLabel(version.submittedBy),
+        hasSubmittedBy: !submitterLabel(version.submittedBy).isEmpty,
         submittedAtLabel: Self.format(version.submittedAt),
         isSelected: version.version == selected.version
       )
     }
     self.selectedVersion = selected.version
-    self.submittedBy = humanizeSubmitterID(selected.submittedBy)
+    self.submittedBy = submitterLabel(selected.submittedBy)
+    self.hasSubmittedBy = !self.submittedBy.isEmpty
     self.submittedAtLabel = Self.format(selected.submittedAt)
     let submittedValues = versionFieldValues(selected)
     self.fields = fieldSpecs.compactMap { field in

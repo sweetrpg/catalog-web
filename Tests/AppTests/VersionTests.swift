@@ -10,7 +10,7 @@ import VaporTesting
 @Suite("Version")
 struct VersionTests {
   private func testVersion(
-    version: Int, state: String, submittedBy: String = "auth0|submitter",
+    version: Int, state: String, submittedBy: String? = "auth0|submitter",
     reviewedBy: String? = nil, reviewNote: String? = nil
   ) -> VolumeVersionAttributes {
     VolumeVersionAttributes(
@@ -197,5 +197,85 @@ struct VersionTests {
         #expect(res.body.string.contains("not needed"))
       }
     }
+  }
+
+  private func render(_ template: String, _ context: some Encodable & Sendable) async throws
+    -> String
+  {
+    var body = ""
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-page") { req async throws -> View in
+        try await req.view.render(template, context)
+      }
+      try await app.testing().test(.GET, "test-page") { res in
+        #expect(res.status == .ok)
+        body = res.body.string
+      }
+    }
+    return body
+  }
+
+  private func historyPage(_ versions: [VolumeVersionAttributes]) async throws -> String {
+    var meta: PageMeta?
+    try await withApp { app in
+      app.get("meta") { req async -> String in
+        meta = await PageMeta.make(req)
+        return ""
+      }
+      try await app.testing().test(.GET, "meta") { _ in }
+    }
+    return try await render(
+      "version-history",
+      VersionHistoryContext(
+        volumeID: "1", volumeTitle: "Rusthaven", versions: versions.map(LeafVersionSummary.init),
+        fetchFailed: false, canRollback: false, user: nil, meta: try #require(meta)))
+  }
+
+  @Test(
+    "version-history hides identity columns the API leaves out",
+    arguments: [String?.none, ""])
+  func versionHistoryHidesOmittedColumns(submitter: String?) async throws {
+    let body = try await historyPage([
+      testVersion(version: 1, state: "live", submittedBy: submitter)
+    ])
+    #expect(!body.contains("Submitted by"))
+    #expect(!body.contains("Reviewed by"))
+    #expect(!body.contains(">Note<"))
+    #expect(body.contains("Submitted at"))
+  }
+
+  @Test("version-history keeps identity columns when any row has a value")
+  func versionHistoryShowsReturnedColumns() async throws {
+    let body = try await historyPage([
+      testVersion(version: 2, state: "rejected", reviewNote: "not needed"),
+      testVersion(version: 1, state: "live", submittedBy: nil),
+    ])
+    #expect(body.contains("Submitted by"))
+    #expect(body.contains("auth0 #submitter"))
+    #expect(body.contains("not needed"))
+    #expect(!body.contains("Reviewed by"))
+  }
+
+  @Test("version-detail without a submitter shows only the date")
+  func versionDetailWithoutSubmitter() async throws {
+    var meta: PageMeta?
+    try await withApp { app in
+      app.get("meta") { req async -> String in
+        meta = await PageMeta.make(req)
+        return ""
+      }
+      try await app.testing().test(.GET, "meta") { _ in }
+    }
+    let body = try await render(
+      "version-detail",
+      VersionDetailContext(
+        volumeID: "1",
+        version: LeafVersionDetail(testVersion(version: 1, state: "live", submittedBy: nil)),
+        canRollback: false, user: nil, meta: try #require(meta)))
+    #expect(!body.contains("Submitted by"))
+    #expect(!body.contains("Reviewed by"))
+    #expect(!body.contains("Review note"))
+    #expect(body.contains("Submitted on "))
   }
 }

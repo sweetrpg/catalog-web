@@ -82,12 +82,12 @@
 							<label class="form-label" for="proposal">#(meta.l10n.common.viewing_proposal_from)</label>
 							<select class="input" id="proposal" name="proposal" onchange="this.form.submit()">
 								#for(option in review.options):
-									<option value="#(option.version)" #if(option.isSelected): selected #endif>#(option.submittedBy) &mdash; #(option.submittedAtLabel)</option>
+									<option value="#(option.version)" #if(option.isSelected): selected #endif>#if(option.hasSubmittedBy):#(option.submittedBy) &mdash; #endif#(option.submittedAtLabel)</option>
 								#endfor
 							</select>
 						</form>
 					#else:
-						<p class="empty-state-inline">#(meta.l10n.common.proposed_by_prefix)#(review.submittedBy) #(meta.l10n.common.on) #(review.submittedAtLabel)#(meta.l10n.common.period)</p>
+						<p class="empty-state-inline">#if(review.hasSubmittedBy):#(meta.l10n.common.proposed_by_prefix)#(review.submittedBy) #(meta.l10n.common.on) #else:#(meta.l10n.common.proposed_on_prefix)#endif#(review.submittedAtLabel)#(meta.l10n.common.period)</p>
 					#endif
 
 					<form class="proposal-diff" method="post" action="#(meta.basePath)/persons/#(person.id)/versions/#(review.selectedVersion)/accept">

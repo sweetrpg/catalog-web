@@ -124,6 +124,11 @@ func sanitizedAssetUserID(_ sub: String) -> String {
   sub.replacingOccurrences(of: "|", with: "-")
 }
 
+/// Empty when catalog-api leaves the identity out, so templates can hide it.
+func submitterLabel(_ sub: String?) -> String {
+  sub.map(humanizeSubmitterID) ?? ""
+}
+
 /// Renders a raw Auth0 subject (`github|419457`) as a readable "provider #id" label for display
 /// in version history/review UI - profiles-api isn't wired up yet (`ProfilesAPIClient.swift`),
 /// so a real display name/username isn't available; this is a readability improvement over the

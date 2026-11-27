@@ -43,7 +43,7 @@
 
 		<div class="detail-block">
 			<span class="section-label">#(meta.l10n.version_detail.audit)</span>
-			<p>#(meta.l10n.version_detail.submitted_prefix)#(version.submittedBy) #(meta.l10n.common.on) #(version.submittedAtLabel)#(meta.l10n.common.period)</p>
+			<p>#if(version.hasSubmittedBy):#(meta.l10n.version_detail.submitted_prefix)#(version.submittedBy) #(meta.l10n.common.on) #else:#(meta.l10n.version_detail.submitted_on_prefix)#endif#(version.submittedAtLabel)#(meta.l10n.common.period)</p>
 			#if(version.hasReviewedBy):
 				<p>#(meta.l10n.version_detail.reviewed_prefix)#(version.reviewedBy)#(meta.l10n.common.period)</p>
 			#endif
