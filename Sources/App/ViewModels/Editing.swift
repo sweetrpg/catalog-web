@@ -28,6 +28,7 @@ struct LeafFieldDiff: Content {
 struct LeafVersionOption: Content {
   let version: Int
   let submittedBy: String
+  let hasSubmittedBy: Bool
   let submittedAtLabel: String
   let isSelected: Bool
 }
@@ -44,6 +45,7 @@ struct LeafVersionReview: Content {
   let options: [LeafVersionOption]
   let selectedVersion: Int
   let submittedBy: String
+  let hasSubmittedBy: Bool
   let submittedAtLabel: String
   let fields: [LeafFieldDiff]
 
@@ -58,13 +60,15 @@ struct LeafVersionReview: Content {
     self.options = pending.map { version in
       LeafVersionOption(
         version: version.version,
-        submittedBy: version.submittedBy,
+        submittedBy: version.submittedBy ?? "",
+        hasSubmittedBy: !(version.submittedBy ?? "").isEmpty,
         submittedAtLabel: Self.format(version.submittedAt),
         isSelected: version.version == selected.version
       )
     }
     self.selectedVersion = selected.version
-    self.submittedBy = selected.submittedBy
+    self.submittedBy = selected.submittedBy ?? ""
+    self.hasSubmittedBy = !self.submittedBy.isEmpty
     self.submittedAtLabel = Self.format(selected.submittedAt)
     let liveValues: [String: String] = [
       "title": currentVolume.title, "description": currentVolume.description,
@@ -170,6 +174,7 @@ struct LeafEntityFieldDiff: Content {
 struct LeafEntityVersionOption: Content {
   let version: Int
   let submittedBy: String
+  let hasSubmittedBy: Bool
   let submittedAtLabel: String
   let isSelected: Bool
 }

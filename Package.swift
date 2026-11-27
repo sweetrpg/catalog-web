@@ -36,7 +36,8 @@ let package = Package(
         // a 0.x minor is required.
         .package(
             url: "https://github.com/sweetrpg/catalog-api-client.swift.git",
-            from: "0.9.0"),
+            // Temporary: switch to `from: "0.10.0"` once catalog-api-client.swift#46 is released.
+            revision: "6a779786f443ef464fff66cc8e11ece28cb7d74b"),
         // 🌍 Localization - real CLDR-style plural rules ("one"/"other" JSON keys), not
         // hand-rolled "append an s" string logic. First consumer of this pattern on the
         // platform (no prior Swift/Vapor precedent) - see Resources/Localizations/en.json.

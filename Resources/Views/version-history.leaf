@@ -15,10 +15,16 @@
 					<tr>
 						<th>#(meta.l10n.version_history.th_version)</th>
 						<th>#(meta.l10n.version_history.th_state)</th>
-						<th>#(meta.l10n.version_history.th_submitted_by)</th>
+						#if(showSubmittedBy):
+							<th>#(meta.l10n.version_history.th_submitted_by)</th>
+						#endif
 						<th>#(meta.l10n.version_history.th_submitted_at)</th>
-						<th>#(meta.l10n.version_history.th_reviewed_by)</th>
-						<th>#(meta.l10n.version_history.th_note)</th>
+						#if(showReviewedBy):
+							<th>#(meta.l10n.version_history.th_reviewed_by)</th>
+						#endif
+						#if(showNote):
+							<th>#(meta.l10n.version_history.th_note)</th>
+						#endif
 						<th></th>
 					</tr>
 				</thead>
@@ -38,18 +44,16 @@
 									<span class="tag tag-neutral">#(version.state)</span>
 								#endif
 							</td>
-							<td>#(version.submittedBy)</td>
+							#if(showSubmittedBy):
+								<td>#(version.submittedBy)</td>
+							#endif
 							<td>#(version.submittedAtLabel)</td>
-							<td>
-								#if(version.hasReviewedBy):
-									#(version.reviewedBy)
-								#endif
-							</td>
-							<td>
-								#if(version.hasReviewNote):
-									#(version.reviewNote)
-								#endif
-							</td>
+							#if(showReviewedBy):
+								<td>#(version.reviewedBy)</td>
+							#endif
+							#if(showNote):
+								<td>#(version.reviewNote)</td>
+							#endif
 							<td>
 								#if(canRollback):
 									#if(!version.isLive):

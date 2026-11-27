@@ -366,7 +366,7 @@ struct VolumesTests {
   // MARK: - volume-change-review-ui
 
   private func makeVersion(
-    version: Int = 1, submittedBy: String = "auth0|submitter", title: String = "New"
+    version: Int = 1, submittedBy: String? = "auth0|submitter", title: String = "New"
   ) -> VolumeVersionAttributes {
     VolumeVersionAttributes(
       id: "v\(version)", recordId: "1", version: version, title: title, description: "",
@@ -515,6 +515,38 @@ struct VolumesTests {
         #expect(res.body.string.contains("<select"))
         #expect(res.body.string.contains("auth0|alice"))
         #expect(res.body.string.contains("auth0|bob"))
+      }
+    }
+  }
+
+  @Test("pending review without a submitter shows no empty by-line", arguments: [1, 2])
+  func detailPendingReviewWithoutSubmitter(count: Int) async throws {
+    let volume = VolumeViewModel(
+      id: "1", title: "Old", description: "", notes: "",
+      tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
+    let pending = (1...count).map { makeVersion(version: $0, submittedBy: nil) }
+    let review = LeafVersionReview(
+      volumeID: "1", currentVolume: volume, pending: pending, selected: pending[0],
+      locale: Locale(identifier: "en"))
+    try await withApp { app in
+      app.views.use(.leaf)
+      app.get("test-detail") { req async throws -> View in
+        try await req.view.render(
+          "volumes/detail",
+          DetailContext(
+            volume: try LeafVolumeDetail(volume, req: req), canEdit: false, canDelete: false,
+            isDeleted: false,
+            justProposed: false, review: review,
+            conflicts: [], hasConflicts: false, libraryStatus: LeafLibraryStatus(.unavailable),
+            user: nil, meta: await PageMeta.make(req)))
+      }
+      try await app.testing().test(.GET, "test-detail") { res in
+        let body = res.body.string
+        #expect(res.status == .ok)
+        #expect(!body.contains("Proposed by"))
+        #expect(!body.contains("&mdash; "))
+        #expect(body.contains("Proposed on ") == (count == 1))
+        #expect(!body.contains("#if") && !body.contains("#else") && !body.contains("#endif"))
       }
     }
   }
