@@ -261,7 +261,7 @@
 					</div>
 				</form>
 
-				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.assetsURL)">
+				<form id="discard-form" action="#(meta.basePath)/volumes/#(volume.id)/edit/session/discard" method="post" data-cover-staged="#(volume.hasStagedCover)" data-staged-cover-path="asset/cover-staged/#(volume.userSub)" data-assets-url="#(meta.assetsURL)">
 					<input type="hidden" name="redirect" value="#(meta.basePath)/volumes/#(volume.id)">
 				</form>
 			</div>
@@ -1227,8 +1227,6 @@
 		  var uploadTrigger = document.getElementById('sample-upload-trigger');
 		  var errorEl = document.getElementById('sample-upload-error');
 
-		  var nextIndex = list.querySelectorAll('.chip').length;
-
 		  function showError(message) {
 		    errorEl.textContent = message;
 		    errorEl.hidden = false;
@@ -1312,7 +1310,7 @@
 		      return;
 		    }
 
-		    var id = userSub + '-' + nextIndex;
+		    var id = userSub + '-' + Date.now();
 		    var path = 'asset/sample-staged/' + id;
 		    var formData = new FormData();
 		    formData.append('file', file);
@@ -1320,7 +1318,6 @@
 		    fetch(assetsURL + '/' + path, { method: 'POST', body: formData, credentials: 'include' })
 		      .then(function (resp) {
 		        if (!resp.ok) throw new Error('Sample upload failed');
-		        nextIndex += 1;
 		        addChip(id, path);
 		        autosave();
 		        updateUploadEnabled();
@@ -1345,6 +1342,7 @@
 		  if (!form) return;
 
 		  form.addEventListener('submit', function () {
+		    if (form.dataset.coverStaged !== 'true') return;
 		    var url = form.dataset.assetsUrl + '/' + form.dataset.stagedCoverPath;
 		    fetch(url, { method: 'DELETE', credentials: 'include', keepalive: true }).catch(function () {});
 		  });
@@ -1368,6 +1366,7 @@
 			  var livePath = container.dataset.liveCoverPath;
 			  var liveURL = container.dataset.assetsUrl + '/' + livePath;
 			  var sessionCoverURL = container.dataset.sessionCoverUrl;
+			  var discardForm = document.getElementById('discard-form');
 
 			  function showError(message) {
 			    errorEl.textContent = message;
@@ -1420,6 +1419,7 @@
 			          coverImg.src = uploadURL + '?t=' + Date.now();
 			        }
 			        removeBtn.hidden = false;
+			        discardForm.dataset.coverStaged = 'true';
 			      })
 			      .catch(function (err) {
 			        var d = container.dataset;
@@ -1447,6 +1447,7 @@
 			        if (!resp.ok) throw new Error('Failed to clear staged cover');
 			        if (coverImg) coverImg.src = liveURL + '?t=' + Date.now();
 			        removeBtn.hidden = true;
+			        discardForm.dataset.coverStaged = 'false';
 			        input.value = '';
 			      })
 			      .catch(function () {
