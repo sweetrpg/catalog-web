@@ -8,7 +8,7 @@
 			<div class="tag-cloud">
 				<a class="tag #if(noActiveTag): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse">#(meta.l10n.volumes.all)</a>
 				#for(tag in tagCloud):
-					<a class="tag #if(tag.isActive): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse?tag=#(tag.name)">#(tag.name)</a>
+					<a class="tag #if(tag.isActive): tag-accent #else: tag-outline #endif" href="#(meta.basePath)/browse?tag=#(tag.queryValue)">#(tag.name)</a>
 				#endfor
 			</div>
 		</section>

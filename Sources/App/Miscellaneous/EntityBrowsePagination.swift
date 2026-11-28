@@ -49,9 +49,7 @@ func makePagination(
     guard !params.isEmpty else { return "\(basePath)\(path)" }
     let queryString = params.sorted { $0.key < $1.key }
       .map { key, value in
-        let encoded =
-          value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-        return "\(key)=\(encoded)"
+        return "\(key)=\(encodeQueryValue(value))"
       }
       .joined(separator: "&")
     return "\(basePath)\(path)?\(queryString)"

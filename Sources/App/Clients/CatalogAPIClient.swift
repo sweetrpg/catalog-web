@@ -72,13 +72,12 @@ struct CatalogAPIClientService {
     path: String, q: String?, exactFilters: [String: String] = [:],
     sortField: String?, descending: Bool, page: Int
   ) async throws -> Page<Attrs> {
-    func enc(_ s: String) -> String {
-      s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
-    }
+    // Brackets must be encoded too: given a literal `[`, the SDK's `URL(string:)` re-encodes
+    // the whole string, turning each `%` into `%25`.
     var filterParts: [String] = []
-    if let q, !q.isEmpty { filterParts.append("filter[q]=\(enc(q))") }
+    if let q, !q.isEmpty { filterParts.append("filter%5Bq%5D=\(encodeQueryValue(q))") }
     for (field, value) in exactFilters.sorted(by: { $0.key < $1.key }) where !value.isEmpty {
-      filterParts.append("filter[\(field)]=\(enc(value))")
+      filterParts.append("filter%5B\(field)%5D=\(encodeQueryValue(value))")
     }
     if let sortField, !sortField.isEmpty {
       filterParts.append("sort=\(descending ? "-" : "")\(sortField)")
@@ -87,7 +86,7 @@ struct CatalogAPIClientService {
     func fetch(pageNumber: Int) async throws -> Page<Attrs> {
       let query =
         (filterParts + [
-          "page[start]=\(pageStartOffset(pageNumber))", "page[limit]=\(browsePageSize)",
+          "page%5Bstart%5D=\(pageStartOffset(pageNumber))", "page%5Blimit%5D=\(browsePageSize)",
         ]).joined(separator: "&")
       let doc: JSONAPIDocument<Attrs> = try await sdk.fetch(path: "\(path)?\(query)")
       return Page(resources: doc.data, totalCount: doc.meta?.total ?? doc.data.count)
@@ -133,7 +132,7 @@ struct CatalogAPIClientService {
   }
 
   /// One page of the volumes browse list. `q` is a title/description/tag substring search,
-  /// `tag` an exact tag match - both applied by catalog-api (`filter[q]=` / `filter[tags.value]=`),
+  /// `tag` an exact tag match - both applied by catalog-api (`filter[q]=` / `filter[tags.name]=`),
   /// not here. Sort stays catalog-api's default (title asc); the volumes browse page has no
   /// sort control. Relationship name maps are still fetched whole (id -> name lookups, not a
   /// browse list) so a page's publisher/studio/license names resolve.
@@ -143,7 +142,7 @@ struct CatalogAPIClientService {
     try await withSpan("sdk-browse-volumes") { _ in
       async let pageFetch: Page<VolumeAttributes> = fetchBrowsePage(
         path: "/volumes", q: q,
-        exactFilters: ["tags.value": tag ?? ""], sortField: nil, descending: false, page: page)
+        exactFilters: ["tags.name": tag ?? ""], sortField: nil, descending: false, page: page)
       async let publishers = fetchNameMap(path: "/publishers")
       async let studios = fetchNameMap(path: "/studios")
       async let licenses = fetchNameMap(path: "/licenses")
