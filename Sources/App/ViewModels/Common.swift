@@ -30,5 +30,12 @@ struct LeafEntityRef: Content {
 
 struct LeafTag: Content {
   let name: String
-  var isActive: Bool = false
+  let queryValue: String
+  let isActive: Bool
+
+  init(name: String, isActive: Bool = false) {
+    self.name = name
+    self.queryValue = encodeQueryValue(name)
+    self.isActive = isActive
+  }
 }
