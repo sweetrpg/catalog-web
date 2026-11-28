@@ -849,14 +849,21 @@ struct VolumesController: RouteCollection {
   }
 
   /// Free-form property linking (task 9.2) - same full-replace semantics as
-  /// `autosaveSessionCredits`, stored as an object array keyed `name`/`value` (matching what
+  /// `autosaveSessionCredits`, stored as an object array keyed `name`/`value`/`kind` (matching what
   /// `LeafVolumeEditForm.init` reads back via `objectArrayField("properties")`).
-  private struct AutosavePropertiesInput: Content {
-    struct Property: Content {
-      let name: String
-      let value: String
+  struct AutosaveProperty: Content {
+    let name: String
+    let value: String
+    let kind: String?
+
+    /// Finalize replaces the whole list, so an entry without `kind` erases the stored one.
+    var sessionEntry: [String: String] {
+      ["name": name, "value": value, "kind": kind ?? "string"]
     }
-    let properties: [Property]
+  }
+
+  private struct AutosavePropertiesInput: Content {
+    let properties: [AutosaveProperty]
   }
 
   @Sendable
@@ -885,7 +892,7 @@ struct VolumesController: RouteCollection {
 
       let input = try req.content.decode(AutosavePropertiesInput.self)
       session.fields["properties"] = .objectArray(
-        input.properties.map { ["name": $0.name, "value": $0.value] })
+        input.properties.map(\.sessionEntry))
       session.updatedAt = Date()
       try await req.editSessions.set(
         userID: user.sub, recordType: recordTypeVolume, session: session)

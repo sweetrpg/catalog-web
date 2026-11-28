@@ -209,7 +209,7 @@
 						<h3>#(meta.l10n.volume_edit.properties)</h3>
 						<div class="chip-list" data-chip-list>
 							#for(property in volume.selectedProperties):
-								<span class="chip" data-name="#(property.name)" data-value="#(property.value)">#(property.displayLabel): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.displayLabel)">&times;</button></span>
+								<span class="chip" data-name="#(property.name)" data-value="#(property.value)" data-kind="#(property.kind)">#(property.displayLabel): #(property.value)<button type="button" class="chip-remove" title="Remove #(property.displayLabel)">&times;</button></span>
 							#endfor
 						</div>
 						<script type="application/json" id="property-name-options">#unsafeHTML(volume.propertyNameOptionsJSON)</script>
@@ -1120,7 +1120,7 @@
 
 		  function properties() {
 		    return Array.prototype.map.call(chipList.querySelectorAll('.chip'), function (chip) {
-		      return { name: chip.dataset.name, value: chip.dataset.value };
+		      return { name: chip.dataset.name, value: chip.dataset.value, kind: chip.dataset.kind };
 		    });
 		  }
 
@@ -1138,6 +1138,7 @@
 		    chip.className = 'chip';
 		    chip.dataset.name = name;
 		    chip.dataset.value = value;
+		    chip.dataset.kind = 'string';
 		    chip.textContent = humanizePropertyKey(name) + ': ' + value;
 		    var removeBtn = document.createElement('button');
 		    removeBtn.type = 'button';

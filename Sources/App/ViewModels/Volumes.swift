@@ -361,13 +361,14 @@ struct LeafVolumeEditForm: Content {
       self.selectedProperties = try sessionProperties.compactMap { entry in
         guard let name = entry["name"], let value = entry["value"] else { return nil }
         return LeafProperty(
-          name: name, value: value, displayLabel: try propertyDisplayLabel(name, req: req))
+          name: name, value: value, displayLabel: try propertyDisplayLabel(name, req: req),
+          kind: entry["kind"] ?? "string")
       }
     } else {
       self.selectedProperties = try volume.properties.map {
         LeafProperty(
           name: $0.name, value: $0.value,
-          displayLabel: try propertyDisplayLabel($0.name, req: req))
+          displayLabel: try propertyDisplayLabel($0.name, req: req), kind: $0.kind)
       }
     }
     self.hasSelectedProperties = !self.selectedProperties.isEmpty
