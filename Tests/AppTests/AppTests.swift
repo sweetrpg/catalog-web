@@ -500,7 +500,7 @@ struct AppTests {
     var volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.properties = [(name: "Page count", value: "320")]
+    volume.properties = [(name: "Page count", value: "320", kind: "string")]
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
@@ -584,7 +584,7 @@ struct AppTests {
     var volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.properties = [(name: "Page count", value: "320")]
+    volume.properties = [(name: "Page count", value: "320", kind: "string")]
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-edit") { req async throws -> View in
@@ -610,7 +610,7 @@ struct AppTests {
     var volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.properties = [(name: "Page count", value: "320")]
+    volume.properties = [(name: "Page count", value: "320", kind: "string")]
     var session = testEditSession(for: volume)
     session.fields["properties"] = .objectArray([["name": "Weight", "value": "1.2kg"]])
     try await withApp { app in

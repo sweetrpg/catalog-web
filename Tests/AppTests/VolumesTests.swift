@@ -46,7 +46,7 @@ struct VolumesTests {
     var volume = VolumeViewModel(
       id: "1", title: "Rusthaven", description: "", notes: "",
       tags: [], systemNames: [], publisherNames: [], studioNames: [], licenseNames: [])
-    volume.properties = [(name: "Page count", value: "320")]
+    volume.properties = [(name: "Page count", value: "320", kind: "string")]
     try await withApp { app in
       app.views.use(.leaf)
       app.get("test-detail") { req async throws -> View in

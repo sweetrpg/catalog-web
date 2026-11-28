@@ -20,7 +20,7 @@ struct VolumeViewModel {
   var licenseIds: [String] = []
   var credits: [(personId: String, role: String, person: String)] = []
   var reviews: [(author: String, rating: Int, text: String)] = []
-  var properties: [(name: String, value: String)] = []
+  var properties: [(name: String, value: String, kind: String)] = []
   /// Empty when unset. Editor/admin-only to set (see `volume-format-selector`'s spec) - always
   /// readable here regardless of viewer role, since catalog-api's `GET /volumes` doesn't gate
   /// this field the way `GET /vocabularies/format` gates the *candidate list*.

@@ -280,7 +280,7 @@ struct CatalogAPIClientService {
       studioIds: ids("studio"),
       licenseNames: names("license", from: licenseNames),
       licenseIds: ids("license"),
-      properties: (attributes.properties ?? []).map { ($0.name, $0.value) },
+      properties: (attributes.properties ?? []).map { ($0.name, $0.value, $0.kind) },
       format: attributes.format ?? "",
       sampleAssetIds: attributes.sampleAssetIds ?? [],
       systemRefs: ids("system").map { EntityRef(id: $0, name: systemName($0)) },

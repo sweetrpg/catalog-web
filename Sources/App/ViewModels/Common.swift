@@ -10,6 +10,7 @@ struct LeafProperty: Content {
   let name: String
   let value: String
   let displayLabel: String
+  var kind: String = "string"
 }
 
 struct LeafEntityRef: Content {
